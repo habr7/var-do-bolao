@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIO — Qualquer pessoa que conversa com o bot
+// ============================================
+model Usuario {
+  id           String   @id @default(uuid())
+  whatsappId   String   @unique // wa_id da Meta (so digitos, ex: 5511999999999)
+  nome         String // pushName do WhatsApp Business
+  telefone     String   @unique // igual ao whatsappId em geral (mantido pra clareza)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  participacoes        Participacao[]
+  palpites             Palpite[]
+  pagamentos           Pagamento[]
+  boloesAdministrados  Bolao[]             @relation("BolaoAdmin")
+  solicitacoesFeitas   SolicitacaoEntrada[]
+
+  @@map("usuarios")
+}
+
+// ============================================
+// BOLAO — Bolao privado, protegido por senha
+// ============================================
+model Bolao {
+  id              String      @id @default(uuid())
+  nome            String // Nome visivel ("Bolao da Firma")
+  senhaHash       String // bcrypt hash da senha que participantes usam pra entrar
+  adminId         String // Usuario criador
+  campeonatoId    String // ID do campeonato na API de futebol
+  campeonatoNome  String // Ex: "Brasileirao Serie A 2026"
+  status          StatusBolao @default(ATIVO)
+  regras          Json? // Regras customizadas em JSON
+  pagamentoId     String?     @unique // Pagamento que originou o bolao
+  criadoEm        DateTime    @default(now())
+  atualizadoEm    DateTime    @updatedAt
+
+  admin         Usuario              @relation("BolaoAdmin", fields: [adminId], references: [id])
+  pagamento     Pagamento?           @relation(fields: [pagamentoId], references: [id])
+  participacoes Participacao[]
+  rodadas       Rodada[]
+  solicitacoes  SolicitacaoEntrada[]
+
+  @@unique([adminId, nome])
+  @@map("boloes")
+}
+
+enum StatusBolao {
+  ATIVO
+  PAUSADO
+  FINALIZADO
+}
+
+// ============================================
+// PAGAMENTO — Cobranca PIX para criacao de bolao
+// ============================================
+model Pagamento {
+  id                       String          @id @default(uuid())
+  usuarioId                String
+  valorCentavos            Int             @default(9990) // R$ 99,90
+  status                   PagamentoStatus @default(PENDENTE)
+  pixExternalId            String?         @unique // ID retornado pelo provider PIX
+  pixCopiaCola             String?         @db.Text
+  pixQrCodeUrl             String?         @db.Text
+  nomeBolaoPretendido      String
+  senhaBolaoHashPretendido String
+  pagoEm                   DateTime?
+  expiraEm                 DateTime
+  criadoEm                 DateTime        @default(now())
+  atualizadoEm             DateTime        @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  bolao   Bolao?
+
+  @@index([status, expiraEm])
+  @@map("pagamentos")
+}
+
+enum PagamentoStatus {
+  PENDENTE
+  PAGO
+  EXPIRADO
+  CANCELADO
+}
+
+// ============================================
+// SOLICITACAO_ENTRADA — Pedido pendente de aprovacao pelo admin
+// ============================================
+model SolicitacaoEntrada {
+  id           String             @id @default(uuid())
+  usuarioId    String
+  bolaoId      String
+  status       SolicitacaoStatus  @default(PENDENTE)
+  respondidoEm DateTime?
+  criadoEm     DateTime           @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  bolao   Bolao   @relation(fields: [bolaoId], references: [id])
+
+  @@index([bolaoId, status])
+  @@map("solicitacoes_entrada")
+}
+
+enum SolicitacaoStatus {
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+
+// ============================================
+// PARTICIPACAO — Relacao Usuario <-> Bolao
+// ============================================
+model Participacao {
+  id             String   @id @default(uuid())
+  usuarioId      String
+  bolaoId        String
+  pontuacaoTotal Int      @default(0)
+  posicaoAtual   Int      @default(0)
+  entradaEm      DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  bolao   Bolao   @relation(fields: [bolaoId], references: [id])
+
+  @@unique([usuarioId, bolaoId])
+  @@map("participacoes")
+}
+
+// ============================================
+// RODADA — Uma rodada do campeonato
+// ============================================
+model Rodada {
+  id             String       @id @default(uuid())
+  bolaoId        String
+  numero         Int
+  status         StatusRodada @default(ABERTA)
+  dataAbertura   DateTime
+  dataFechamento DateTime
+  criadoEm       DateTime     @default(now())
+
+  bolao    Bolao     @relation(fields: [bolaoId], references: [id])
+  jogos    Jogo[]
+  palpites Palpite[]
+
+  @@unique([bolaoId, numero])
+  @@map("rodadas")
+}
+
+enum StatusRodada {
+  ABERTA
+  FECHADA
+  FINALIZADA
+}
+
+// ============================================
+// JOGO — Um jogo dentro de uma rodada
+// ============================================
+model Jogo {
+  id            String     @id @default(uuid())
+  rodadaId      String
+  apiJogoId     String     @unique
+  timeCasa      String
+  timeVisitante String
+  golsCasa      Int?
+  golsVisitante Int?
+  status        StatusJogo @default(AGENDADO)
+  dataHora      DateTime
+  criadoEm      DateTime   @default(now())
+  atualizadoEm  DateTime   @updatedAt
+
+  rodada       Rodada        @relation(fields: [rodadaId], references: [id])
+  palpitesJogo PalpiteJogo[]
+
+  @@index([dataHora])
+  @@map("jogos")
+}
+
+enum StatusJogo {
+  AGENDADO
+  AO_VIVO
+  FINALIZADO
+  ADIADO
+  CANCELADO
+}
+
+// ============================================
+// PALPITE — Conjunto de palpites de um usuario para uma rodada
+// ============================================
+model Palpite {
+  id           String   @id @default(uuid())
+  usuarioId    String
+  rodadaId     String
+  pontuacao    Int      @default(0)
+  calculado    Boolean  @default(false)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  usuario Usuario       @relation(fields: [usuarioId], references: [id])
+  rodada  Rodada        @relation(fields: [rodadaId], references: [id])
+  jogos   PalpiteJogo[]
+
+  @@unique([usuarioId, rodadaId])
+  @@map("palpites")
+}
+
+// ============================================
+// PALPITE_JOGO — Palpite individual por jogo
+// ============================================
+model PalpiteJogo {
+  id            String @id @default(uuid())
+  palpiteId     String
+  jogoId        String
+  golsCasa      Int
+  golsVisitante Int
+  pontosObtidos Int    @default(0)
+
+  palpite Palpite @relation(fields: [palpiteId], references: [id])
+  jogo    Jogo    @relation(fields: [jogoId], references: [id])
+
+  @@unique([palpiteId, jogoId])
+  @@map("palpites_jogos")
+}
