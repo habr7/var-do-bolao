@@ -2,6 +2,12 @@
 CREATE TYPE "StatusBolao" AS ENUM ('ATIVO', 'PAUSADO', 'FINALIZADO');
 
 -- CreateEnum
+CREATE TYPE "PagamentoStatus" AS ENUM ('PENDENTE', 'PAGO', 'EXPIRADO', 'CANCELADO');
+
+-- CreateEnum
+CREATE TYPE "SolicitacaoStatus" AS ENUM ('PENDENTE', 'APROVADA', 'RECUSADA');
+
+-- CreateEnum
 CREATE TYPE "StatusRodada" AS ENUM ('ABERTA', 'FECHADA', 'FINALIZADA');
 
 -- CreateEnum
@@ -23,16 +29,48 @@ CREATE TABLE "usuarios" (
 CREATE TABLE "boloes" (
     "id" TEXT NOT NULL,
     "nome" TEXT NOT NULL,
-    "grupoWhatsappId" TEXT NOT NULL,
+    "senhaHash" TEXT NOT NULL,
+    "adminId" TEXT NOT NULL,
     "campeonatoId" TEXT NOT NULL,
     "campeonatoNome" TEXT NOT NULL,
-    "adminWhatsappId" TEXT NOT NULL,
     "status" "StatusBolao" NOT NULL DEFAULT 'ATIVO',
     "regras" JSONB,
+    "pagamentoId" TEXT,
     "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "atualizadoEm" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "boloes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pagamentos" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "valorCentavos" INTEGER NOT NULL DEFAULT 9990,
+    "status" "PagamentoStatus" NOT NULL DEFAULT 'PENDENTE',
+    "pixExternalId" TEXT,
+    "pixCopiaCola" TEXT,
+    "pixQrCodeUrl" TEXT,
+    "nomeBolaoPretendido" TEXT NOT NULL,
+    "senhaBolaoHashPretendido" TEXT NOT NULL,
+    "pagoEm" TIMESTAMP(3),
+    "expiraEm" TIMESTAMP(3) NOT NULL,
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "atualizadoEm" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "pagamentos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "solicitacoes_entrada" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "bolaoId" TEXT NOT NULL,
+    "status" "SolicitacaoStatus" NOT NULL DEFAULT 'PENDENTE',
+    "respondidoEm" TIMESTAMP(3),
+    "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "solicitacoes_entrada_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -109,6 +147,21 @@ CREATE UNIQUE INDEX "usuarios_whatsappId_key" ON "usuarios"("whatsappId");
 CREATE UNIQUE INDEX "usuarios_telefone_key" ON "usuarios"("telefone");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "boloes_pagamentoId_key" ON "boloes"("pagamentoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "boloes_adminId_nome_key" ON "boloes"("adminId", "nome");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "pagamentos_pixExternalId_key" ON "pagamentos"("pixExternalId");
+
+-- CreateIndex
+CREATE INDEX "pagamentos_status_expiraEm_idx" ON "pagamentos"("status", "expiraEm");
+
+-- CreateIndex
+CREATE INDEX "solicitacoes_entrada_bolaoId_status_idx" ON "solicitacoes_entrada"("bolaoId", "status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "participacoes_usuarioId_bolaoId_key" ON "participacoes"("usuarioId", "bolaoId");
 
 -- CreateIndex
@@ -118,10 +171,28 @@ CREATE UNIQUE INDEX "rodadas_bolaoId_numero_key" ON "rodadas"("bolaoId", "numero
 CREATE UNIQUE INDEX "jogos_apiJogoId_key" ON "jogos"("apiJogoId");
 
 -- CreateIndex
+CREATE INDEX "jogos_dataHora_idx" ON "jogos"("dataHora");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "palpites_usuarioId_rodadaId_key" ON "palpites"("usuarioId", "rodadaId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "palpites_jogos_palpiteId_jogoId_key" ON "palpites_jogos"("palpiteId", "jogoId");
+
+-- AddForeignKey
+ALTER TABLE "boloes" ADD CONSTRAINT "boloes_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "boloes" ADD CONSTRAINT "boloes_pagamentoId_fkey" FOREIGN KEY ("pagamentoId") REFERENCES "pagamentos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pagamentos" ADD CONSTRAINT "pagamentos_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "solicitacoes_entrada" ADD CONSTRAINT "solicitacoes_entrada_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "solicitacoes_entrada" ADD CONSTRAINT "solicitacoes_entrada_bolaoId_fkey" FOREIGN KEY ("bolaoId") REFERENCES "boloes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "participacoes" ADD CONSTRAINT "participacoes_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -7,7 +7,7 @@ interface SendTextInput {
 
 interface SendImageInput {
   to: string;
-  imageUrl: string; // URL publica acessivel pela Meta
+  imageUrl: string;
   caption?: string;
 }
 
@@ -17,6 +17,51 @@ interface SendImageByIdInput {
   caption?: string;
 }
 
+// ============================================================
+// Dry-run mode — captura em memoria, sem HTTP
+// ============================================================
+export interface CapturedMessage {
+  to: string;
+  text?: string;
+  imageUrl?: string;
+  caption?: string;
+  at: Date;
+}
+
+const captured: CapturedMessage[] = [];
+let onCapture: ((msg: CapturedMessage) => void) | null = null;
+
+/**
+ * Registra uma callback chamada toda vez que o bot "enviaria" uma mensagem
+ * em modo dry-run. Usado pelo REPL de simulacao.
+ */
+export function setCaptureListener(listener: ((msg: CapturedMessage) => void) | null): void {
+  onCapture = listener;
+}
+
+/**
+ * Retorna e limpa a fila de mensagens capturadas em dry-run.
+ */
+export function drainCapturedMessages(): CapturedMessage[] {
+  const copy = captured.slice();
+  captured.length = 0;
+  return copy;
+}
+
+function capture(msg: CapturedMessage): void {
+  captured.push(msg);
+  if (onCapture) {
+    try {
+      onCapture(msg);
+    } catch {
+      /* listener nao deve interromper fluxo */
+    }
+  }
+}
+
+// ============================================================
+// HTTP real
+// ============================================================
 function graphUrl(path: string): string {
   return `https://graph.facebook.com/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}${path}`;
 }
@@ -40,7 +85,15 @@ async function metaFetch(path: string, body: unknown): Promise<unknown> {
   return response.json();
 }
 
+// ============================================================
+// API publica — decide dry-run vs HTTP
+// ============================================================
 export async function sendText({ to, text }: SendTextInput) {
+  if (env.DRY_RUN_META) {
+    capture({ to, text, at: new Date() });
+    return { dryRun: true };
+  }
+
   return metaFetch('/messages', {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -51,6 +104,11 @@ export async function sendText({ to, text }: SendTextInput) {
 }
 
 export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
+  if (env.DRY_RUN_META) {
+    capture({ to, imageUrl, caption, at: new Date() });
+    return { dryRun: true };
+  }
+
   return metaFetch('/messages', {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -61,6 +119,11 @@ export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
 }
 
 export async function sendImageById({ to, mediaId, caption }: SendImageByIdInput) {
+  if (env.DRY_RUN_META) {
+    capture({ to, caption, at: new Date() });
+    return { dryRun: true };
+  }
+
   return metaFetch('/messages', {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
@@ -70,10 +133,9 @@ export async function sendImageById({ to, mediaId, caption }: SendImageByIdInput
   });
 }
 
-/**
- * Marca uma mensagem recebida como lida. Melhora UX (mostra o "lido").
- */
 export async function markAsRead(messageId: string) {
+  if (env.DRY_RUN_META) return { dryRun: true };
+
   try {
     await metaFetch('/messages', {
       messaging_product: 'whatsapp',
@@ -81,17 +143,15 @@ export async function markAsRead(messageId: string) {
       message_id: messageId,
     });
   } catch (error) {
-    // nao falhar o fluxo por falta do read receipt
     console.warn('⚠️  Falha ao marcar como lida:', (error as Error).message);
   }
 }
 
-/**
- * Faz upload de uma imagem como media da conta e retorna o media_id.
- * Util pra enviar PNG gerado pelo sharp (cards de ranking/resultados)
- * sem precisar expor URL publica.
- */
 export async function uploadMedia(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
+  if (env.DRY_RUN_META) {
+    return `dry-run-media-${Date.now()}`;
+  }
+
   const url = graphUrl('/media');
 
   const form = new FormData();

@@ -45,6 +45,29 @@ export class MockPixAdapter implements PixAdapter {
 
     return 'PENDENTE';
   }
+
+  /**
+   * Forca qualquer cobranca pendente do adapter a ficar como PAGA no proximo
+   * consultarStatus. Usado pelo REPL de simulacao para nao ter que esperar
+   * o auto-pay de 45s.
+   */
+  forcarTodasPagas(): number {
+    let count = 0;
+    for (const c of this.cobrancas.values()) {
+      if (!c.pago) {
+        c.pago = true;
+        count++;
+      }
+    }
+    return count;
+  }
+
+  forcarPagaPorExternalId(externalId: string): boolean {
+    const c = this.cobrancas.get(externalId);
+    if (!c) return false;
+    c.pago = true;
+    return true;
+  }
 }
 
 /**
