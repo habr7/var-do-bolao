@@ -15,7 +15,7 @@ import { chamadaPalpite } from '../utils/football.terms.js';
  *   - Pega o 1o jogo do dia (ordenado por dataHora)
  *   - Calcula `horasAteJogo = (kickoff - now) / 3600`
  *   - Janela de envio: [PALPITE_CALL_HORAS_ANTES, PALPITE_CALL_HORAS_ANTES - 1]
- *     ou seja, dispara entre 8h e 7h antes do jogo (1h de janela).
+ *     ou seja, dispara entre 5h e 6h antes do jogo (1h de janela).
  *   - Pra evitar acordar usuario antes das 09h: se a janela cair de
  *     madrugada, aguarda ate 09:00 do mesmo dia.
  *   - Idempotente: flag Redis `palpite-call:{bolaoId}:{YYYY-MM-DD}`.

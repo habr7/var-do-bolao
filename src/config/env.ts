@@ -55,7 +55,7 @@ const baseSchema = z.object({
   DEFAULT_CAMPEONATO: z.string().default('copa-2026-fase-grupos'),
   HORARIO_BOM_DIA: z.string().default('09:00'),
   // Quantas horas antes do 1o jogo do dia disparar a chamada de palpites.
-  PALPITE_CALL_HORAS_ANTES: z.coerce.number().default(8),
+  PALPITE_CALL_HORAS_ANTES: z.coerce.number().default(6),
 
   // LLM (Ollama Cloud) — opcional, melhora compreensao de linguagem natural
   // quando o parser regex falha. Se LLM_ENABLED=false, sistema continua

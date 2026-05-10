@@ -1,30 +1,30 @@
 import { prisma } from '../config/database.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
+import { env } from '../config/env.js';
 import { bomDia } from '../utils/football.terms.js';
 
 /**
- * Job de "bom dia, boleiros". Roda em horario fixo (HORARIO_BOM_DIA, default 09:00).
+ * Job de "bom dia, boleiros". Roda HOURLY e decide por bolao quando
+ * disparar.
  *
- * Filtra so para usuarios que tem **jogo do bolao no dia de hoje**, evitando
- * spam diario gratuito. Envia uma mensagem leve, sem ainda pedir palpite —
- * a chamada de palpite vem do job send-palpite-call algumas horas antes
- * do primeiro jogo.
+ * Regra de horario:
+ *   - Default: HORARIO_BOM_DIA (ex 09:00) no fuso de Brasilia.
+ *   - Se HORARIO_BOM_DIA cair DEPOIS de (kickoff - 8h) — ou seja, o
+ *     primeiro jogo do dia eh suficientemente cedo pra que 09:00 ja
+ *     esteja passado da janela de "8h antes" — desloca o bom dia pra
+ *     (kickoff - 6h). Assim a saudacao chega antes da chamada de
+ *     palpite (que dispara em kickoff - PALPITE_CALL_HORAS_ANTES, default 6h).
  *
- * Por que essa separacao:
- *  - Em um futuro com Meta Cloud API (com janela de 24h), o "bom dia"
- *    abre a conversa, fazendo as mensagens posteriores nao pagarem
- *    template. Aqui na Evolution API o custo nao se aplica, mas o
- *    desenho ja prepara o caminho.
+ * Filtro: so envia para usuarios que tem **jogo do bolao no dia de hoje**.
  *
- * Idempotencia: usa flag em Redis `bomdia:{waId}:{YYYY-MM-DD}` com TTL
- * de 25h, garantindo que cada usuario receba so uma vez por dia mesmo
- * se o job rodar 2x por algum motivo.
+ * Idempotencia: flag Redis `bomdia:{waId}:{YYYY-MM-DD}` com TTL 25h.
  */
 export async function sendBomDiaJob() {
-  const inicioHoje = new Date();
+  const agora = new Date();
+  const inicioHoje = new Date(agora);
   inicioHoje.setHours(0, 0, 0, 0);
-  const fimHoje = new Date();
+  const fimHoje = new Date(agora);
   fimHoje.setHours(23, 59, 59, 999);
 
   // Bolaoes ativos com pelo menos 1 jogo hoje
@@ -53,33 +53,79 @@ export async function sendBomDiaJob() {
 
   if (boloesComJogo.length === 0) return;
 
-  const hoje = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const hoje = agora.toISOString().slice(0, 10); // YYYY-MM-DD
 
-  // Coleta wa_ids unicos (usuario pode estar em varios bolaoes — manda 1x)
-  const targetWaIds = new Map<string, string>(); // waId -> nome
+  // ---- Decide alvo (waId, nome, jogos do dia, primeiroJogo) ----
+  // Mesmo usuario pode estar em varios bolaoes — agrega.
+  interface Alvo {
+    waId: string;
+    nome: string;
+    jogosHoje: { timeCasa: string; timeVisitante: string; dataHora: Date }[];
+    primeiroJogoHoje: Date;
+  }
+
+  const alvosMap = new Map<string, Alvo>();
   for (const bolao of boloesComJogo) {
+    const jogosBolao = bolao.rodadas.flatMap((r) => r.jogos);
+    if (jogosBolao.length === 0) continue;
     for (const p of bolao.participacoes) {
-      if (p.usuario.whatsappId) targetWaIds.set(p.usuario.whatsappId, p.usuario.nome);
+      const waId = p.usuario.whatsappId;
+      if (!waId) continue;
+      const existente = alvosMap.get(waId);
+      const jogosCombinados = existente
+        ? [...existente.jogosHoje, ...jogosBolao]
+        : [...jogosBolao];
+      jogosCombinados.sort((a, b) => a.dataHora.getTime() - b.dataHora.getTime());
+      alvosMap.set(waId, {
+        waId,
+        nome: p.usuario.nome,
+        jogosHoje: jogosCombinados,
+        primeiroJogoHoje: jogosCombinados[0].dataHora,
+      });
     }
   }
 
-  for (const [waId, nome] of targetWaIds.entries()) {
-    const flag = `bomdia:${waId}:${hoje}`;
+  // ---- Calcula janela de envio (em ms desde epoch) ----
+  // horaDefault = HORARIO_BOM_DIA hoje em Brasilia
+  const [hStr, mStr] = env.HORARIO_BOM_DIA.split(':');
+  const horaPadrao = parseInt(hStr, 10);
+  const minPadrao = parseInt(mStr ?? '0', 10);
+
+  const formatHorario = (d: Date) =>
+    d.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: env.TIMEZONE,
+    });
+
+  for (const alvo of alvosMap.values()) {
+    const flag = `bomdia:${alvo.waId}:${hoje}`;
     const ja = await redis.get(flag);
     if (ja) continue;
 
-    // Lista jogos do dia agregados (todos os bolaoes em que essa pessoa participa)
-    const jogosHoje = boloesComJogo
-      .filter((b) => b.participacoes.some((p) => p.usuario.whatsappId === waId))
-      .flatMap((b) => b.rodadas.flatMap((r) => r.jogos))
-      .sort((a, b) => a.dataHora.getTime() - b.dataHora.getTime());
+    // horaPadraoToday: 09:00 BRT do dia atual (em UTC)
+    const horaPadraoToday = brasiliaHoraToUtc(agora, horaPadrao, minPadrao);
 
-    if (jogosHoje.length === 0) continue;
+    const kickoffMenos8 = new Date(alvo.primeiroJogoHoje.getTime() - 8 * 3600_000);
+    const kickoffMenos6 = new Date(alvo.primeiroJogoHoje.getTime() - 6 * 3600_000);
 
-    const formatHorario = (d: Date) =>
-      d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+    // Regra: se default ficaria depois de kickoff-8, dispara em kickoff-6.
+    const targetTime =
+      horaPadraoToday.getTime() > kickoffMenos8.getTime() ? kickoffMenos6 : horaPadraoToday;
 
-    const linhasJogos = jogosHoje
+    // Janela de 1h: dispara quando agora ∈ [target, target + 1h)
+    const diffMs = agora.getTime() - targetTime.getTime();
+    if (diffMs < 0 || diffMs >= 3600_000) continue;
+
+    // Nao manda em horario absurdo (madrugada). Cap em 06:00 BRT.
+    const horaBrasiliaAgora = parseInt(
+      agora.toLocaleString('en-US', { timeZone: env.TIMEZONE, hour: 'numeric', hour12: false }),
+      10,
+    );
+    if (horaBrasiliaAgora < 6) continue;
+
+    // Monta mensagem
+    const linhasJogos = alvo.jogosHoje
       .slice(0, 8)
       .map((j) => `• ${formatHorario(j.dataHora)} — ${j.timeCasa} x ${j.timeVisitante}`);
 
@@ -89,10 +135,41 @@ export async function sendBomDiaJob() {
       `_Mais perto da hora eu mando a chamada pra você palpitar._ ⚽`;
 
     try {
-      await sendText({ to: waId, text: mensagem });
+      await sendText({ to: alvo.waId, text: mensagem });
       await redis.set(flag, '1', 'EX', 25 * 3600);
     } catch (error) {
-      console.error(`[bom-dia] falha ao enviar pra ${waId} (${nome}):`, (error as Error).message);
+      console.error(
+        `[bom-dia] falha ao enviar pra ${alvo.waId} (${alvo.nome}):`,
+        (error as Error).message,
+      );
     }
   }
+}
+
+/**
+ * Devolve um Date em UTC representando "HH:MM no fuso de Brasilia
+ * do mesmo dia em que `referencia` esta (em Brasilia)".
+ *
+ * Ex: referencia=2026-06-13T18:00Z (15:00 BRT), HH=9, MM=0 →
+ * devolve 2026-06-13T12:00Z (09:00 BRT).
+ *
+ * Implementacao simples: usa Intl.DateTimeFormat pra extrair o ano/mes/dia
+ * em Brasilia, depois constroi um Date UTC e adiciona o offset de -3h.
+ *
+ * Brasilia eh fixo UTC-3 (sem horario de verao desde 2019).
+ */
+function brasiliaHoraToUtc(referencia: Date, horas: number, minutos: number): Date {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const partes = fmt.formatToParts(referencia);
+  const ano = partes.find((p) => p.type === 'year')!.value;
+  const mes = partes.find((p) => p.type === 'month')!.value;
+  const dia = partes.find((p) => p.type === 'day')!.value;
+  // YYYY-MM-DDTHH:MM:00-03:00 em Brasilia
+  const iso = `${ano}-${mes}-${dia}T${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:00-03:00`;
+  return new Date(iso);
 }
