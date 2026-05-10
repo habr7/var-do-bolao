@@ -1,5 +1,5 @@
 import { prisma } from '../config/database.js';
-import { sendText } from '../whatsapp/meta.client.js';
+import { sendText } from '../whatsapp/evolution.client.js';
 import { lembrete } from '../utils/football.terms.js';
 
 /**

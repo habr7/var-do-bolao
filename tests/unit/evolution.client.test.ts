@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mocka env com DRY_RUN_META ligado
+// Mocka env com DRY_RUN_WHATSAPP ligado
 vi.mock('../../src/config/env.js', () => ({
   env: {
-    DRY_RUN_META: true,
-    WHATSAPP_API_VERSION: 'v18.0',
-    WHATSAPP_ACCESS_TOKEN: 'dry-run-token',
-    WHATSAPP_PHONE_NUMBER_ID: 'dry-run-phone',
+    DRY_RUN_WHATSAPP: true,
+    EVOLUTION_API_URL: 'http://localhost:8080',
+    EVOLUTION_API_KEY: 'dry-run-key',
+    EVOLUTION_INSTANCE: 'varbolao',
   },
 }));
 
@@ -16,9 +16,9 @@ import {
   drainCapturedMessages,
   setCaptureListener,
   type CapturedMessage,
-} from '../../src/whatsapp/meta.client.js';
+} from '../../src/whatsapp/evolution.client.js';
 
-describe('meta.client em DRY_RUN', () => {
+describe('evolution.client em DRY_RUN', () => {
   beforeEach(() => {
     drainCapturedMessages();
     setCaptureListener(null);
@@ -61,12 +61,11 @@ describe('meta.client em DRY_RUN', () => {
     expect(received[0].text).toBe('tempo real');
   });
 
-  it('listener erro nao quebra o fluxo', async () => {
+  it('listener com erro nao quebra o fluxo', async () => {
     setCaptureListener(() => {
       throw new Error('listener falhou');
     });
 
-    // nao deve lancar
     await expect(sendText({ to: '5511999999999', text: 'ok' })).resolves.toBeDefined();
   });
 });

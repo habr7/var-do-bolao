@@ -2,12 +2,10 @@ import 'dotenv/config';
 import { z } from 'zod';
 
 /**
- * Modo dry-run da Meta Cloud API: quando ligado, o meta.client NAO faz
- * requisicoes HTTP para o Graph API — ele captura as mensagens "enviadas"
- * em memoria. Util pra testar o bot localmente via `npm run sim` antes de
- * ter token/phone_number_id reais.
- *
- * Ligado por default em dev se DRY_RUN_META nao for setado.
+ * Modo dry-run do cliente WhatsApp (Evolution API): quando ligado, o
+ * evolution.client NAO faz requisicoes HTTP — captura as mensagens
+ * "enviadas" em memoria. Util pra rodar `npm run sim` ou os testes
+ * unitarios sem precisar da Evolution rodando.
  */
 function coerceBool(v: unknown): boolean {
   if (typeof v === 'boolean') return v;
@@ -27,30 +25,34 @@ const baseSchema = z.object({
   // Redis
   REDIS_URL: z.string().default('redis://localhost:6380/0'),
 
-  // Flag: se TRUE, meta.client roda em modo fake (sem HTTP)
-  DRY_RUN_META: z.preprocess(coerceBool, z.boolean()).default(false),
+  // Flag: se TRUE, evolution.client roda em modo fake (sem HTTP)
+  DRY_RUN_WHATSAPP: z.preprocess(coerceBool, z.boolean()).default(false),
 
-  // Meta WhatsApp Cloud API — em dry-run podem ter defaults
-  WHATSAPP_ACCESS_TOKEN: z.string().default('dry-run-token'),
-  WHATSAPP_PHONE_NUMBER_ID: z.string().default('dry-run-phone-id'),
-  WHATSAPP_VERIFY_TOKEN: z.string().default('dry-run-verify'),
-  WHATSAPP_APP_SECRET: z.string().default('dry-run-secret'),
-  WHATSAPP_API_VERSION: z.string().default('v18.0'),
+  // Evolution API — em dry-run podem ter defaults
+  EVOLUTION_API_URL: z.string().default('http://localhost:8080'),
+  EVOLUTION_API_KEY: z.string().default('dry-run-key'),
+  EVOLUTION_INSTANCE: z.string().default('varbolao'),
+  // Token opcional para validar requests do webhook (header x-evolution-token)
+  EVOLUTION_WEBHOOK_TOKEN: z.string().default(''),
 
   // Futebol
   FOOTBALL_API_KEY: z.string().default('mock'),
   FOOTBALL_API_URL: z.string().default('https://www.api-futebol.com.br/v1'),
+  // Provider: "mock" (3 jogos fixos) | "fifa-2026" (Copa do Mundo via JSON local + scraping)
+  FOOTBALL_PROVIDER: z.enum(['mock', 'fifa-2026']).default('fifa-2026'),
 
-  // PIX
+  // PIX (DESATIVADO no momento — bolao gratuito ate ganhar escala)
+  // Mantido apenas para nao quebrar o pagamento.service caso volte. Nao
+  // ha cobranca acontecendo.
   PIX_PROVIDER: z.enum(['mock', 'mercadopago', 'gerencianet']).default('mock'),
   PIX_ACCESS_TOKEN: z.string().optional().default(''),
-  PIX_CHAVE: z.string().default('varbolao@exemplo.com'),
-  PIX_VALOR_CENTAVOS: z.coerce.number().default(9990),
+  PIX_CHAVE: z.string().default('contato@vardobolao.com.br'),
+  PIX_VALOR_CENTAVOS: z.coerce.number().default(0),
 
   // Bot
   BOT_PREFIX: z.string().default('!'),
   TIMEZONE: z.string().default('America/Sao_Paulo'),
-  DEFAULT_CAMPEONATO: z.string().default('brasileirao-serie-a'),
+  DEFAULT_CAMPEONATO: z.string().default('copa-2026-fase-grupos'),
   HORARIO_ENVIO_JOGOS_DIA: z.string().default('09:00'),
 });
 
@@ -60,24 +62,23 @@ function loadEnv(): Env {
   const result = baseSchema.safeParse(process.env);
 
   if (!result.success) {
-    console.error('❌ Variáveis de ambiente inválidas:');
+    console.error('❌ Variaveis de ambiente invalidas:');
     console.error(result.error.flatten().fieldErrors);
     process.exit(1);
   }
 
   const data = result.data;
 
-  // Em producao, exige tokens reais da Meta (a menos que DRY_RUN_META esteja ligado)
-  if (data.NODE_ENV === 'production' && !data.DRY_RUN_META) {
-    const placeholders = ['dry-run-token', 'dry-run-phone-id', 'dry-run-verify', 'dry-run-secret'];
-    const placeholderUsado =
-      placeholders.includes(data.WHATSAPP_ACCESS_TOKEN) ||
-      placeholders.includes(data.WHATSAPP_PHONE_NUMBER_ID) ||
-      placeholders.includes(data.WHATSAPP_VERIFY_TOKEN) ||
-      placeholders.includes(data.WHATSAPP_APP_SECRET);
+  // Em producao, exige credenciais reais da Evolution (a menos que
+  // DRY_RUN_WHATSAPP esteja ligado).
+  if (data.NODE_ENV === 'production' && !data.DRY_RUN_WHATSAPP) {
+    const placeholders = ['dry-run-key'];
+    const placeholderUsado = placeholders.includes(data.EVOLUTION_API_KEY);
 
     if (placeholderUsado) {
-      console.error('❌ Em produção, defina WHATSAPP_ACCESS_TOKEN/PHONE_NUMBER_ID/VERIFY_TOKEN/APP_SECRET reais ou ative DRY_RUN_META=true explicitamente.');
+      console.error(
+        '❌ Em producao, defina EVOLUTION_API_KEY real ou ative DRY_RUN_WHATSAPP=true explicitamente.',
+      );
       process.exit(1);
     }
   }

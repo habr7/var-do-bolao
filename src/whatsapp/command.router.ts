@@ -1,4 +1,4 @@
-import { sendText } from './meta.client.js';
+import { sendText } from './evolution.client.js';
 import { Intencao, parseIntencao, parseMultiplePalpites } from './message.parser.js';
 import {
   getSession,
@@ -9,7 +9,8 @@ import {
 } from './session.manager.js';
 import { env } from '../config/env.js';
 import * as bolaoService from '../modules/bolao/bolao.service.js';
-import * as pagamentoService from '../modules/pagamento/pagamento.service.js';
+// PIX desativado nesta fase — ver handleCriandoBolaoSenha mais abaixo.
+// import * as pagamentoService from '../modules/pagamento/pagamento.service.js';
 import * as solicitacaoService from '../modules/solicitacao/solicitacao.service.js';
 import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
@@ -47,8 +48,9 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleCriandoBolaoNome(msg, usuario.id);
       case 'CRIANDO_BOLAO_SENHA':
         return await handleCriandoBolaoSenha(msg, usuario.id, session);
-      case 'CRIANDO_BOLAO_AGUARDANDO_PIX':
-        return await handleCriandoBolaoAguardandoPix(msg);
+      // PIX desativado — fluxo agora cria o bolao na hora, sem aguardar pagamento.
+      // case 'CRIANDO_BOLAO_AGUARDANDO_PIX':
+      //   return await handleCriandoBolaoAguardandoPix(msg);
       case 'ENTRANDO_NOME':
         return await handleEntrandoNome(msg, usuario.id);
       case 'ENTRANDO_SENHA':
@@ -190,38 +192,40 @@ async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, 
 
   const senhaHash = await hashPassword(senha);
 
-  // Gera cobranca PIX
-  const cobranca = await pagamentoService.gerarCobranca({
-    usuarioId,
-    valorCentavos: env.PIX_VALOR_CENTAVOS,
-    nomeBolaoPretendido: nomeBolao,
-    senhaBolaoHashPretendido: senhaHash,
+  // PIX DESATIVADO nesta fase — bolao criado de graca pra ganhar tracao.
+  // Quando reativar pagamento, voltar a chamar `pagamentoService.gerarCobranca`
+  // e setar o estado CRIANDO_BOLAO_AGUARDANDO_PIX.
+  const bolao = await bolaoService.criarBolao({
+    nome: nomeBolao,
+    senhaHash,
+    adminId: usuarioId,
+    campeonatoId: env.DEFAULT_CAMPEONATO,
+    campeonatoNome: 'Copa do Mundo FIFA 2026 — Fase de Grupos',
   });
 
-  await updateSession(msg.waId, {
-    state: 'CRIANDO_BOLAO_AGUARDANDO_PIX',
-    ctxPatch: { pagamentoId: cobranca.pagamentoId, senhaBolaoHash: senhaHash },
-  });
+  await resetSession(msg.waId);
 
-  const valor = (env.PIX_VALOR_CENTAVOS / 100).toFixed(2).replace('.', ',');
   await sendText({
     to: msg.waId,
     text:
-      `💰 *Pagamento pra criar o bolão "${nomeBolao}"*\n\n` +
-      `Valor: R$ ${valor}\n\n` +
-      `📱 *PIX Copia e Cola:*\n\`\`\`${cobranca.pixCopiaCola}\`\`\`\n\n` +
-      `🔗 QR Code: ${cobranca.pixQrCodeUrl}\n\n` +
-      `Assim que o PIX cair, eu crio o bolão e te aviso! ⚽\n\n` +
-      `_Digite "cancelar" pra abortar._`,
+      `🏆 Bolão *${bolao.nome}* criado com sucesso!\n` +
+      `👑 Você é o admin.\n\n` +
+      `Compartilhe o *nome* e a *senha* do bolão com quem você quer convidar.\n` +
+      `Eles adicionam meu número, mandam *entrar em bolão* e informam nome + senha.\n` +
+      `Os pedidos chegam aqui pra você aprovar.\n\n` +
+      `Boa sorte, craque! ⚽`,
   });
 }
 
-async function handleCriandoBolaoAguardandoPix(msg: IncomingMessage) {
-  await sendText({
-    to: msg.waId,
-    text: '⏳ Ainda aguardando seu PIX cair. Assim que confirmar, eu te aviso!\n_Digite "cancelar" pra abortar._',
-  });
-}
+// PIX desativado — handler abaixo nao eh mais chamado, mas fica como referencia
+// para quando o pagamento for reativado.
+//
+// async function handleCriandoBolaoAguardandoPix(msg: IncomingMessage) {
+//   await sendText({
+//     to: msg.waId,
+//     text: '⏳ Ainda aguardando seu PIX cair. Assim que confirmar, eu te aviso!\n_Digite "cancelar" pra abortar._',
+//   });
+// }
 
 // ============================================================
 // Fluxo: ENTRAR EM BOLAO
@@ -478,7 +482,7 @@ function boasVindasTexto(nome: string): string {
 function menuTexto(): string {
   return (
     '*O que você quer fazer?*\n\n' +
-    '• *criar bolão* — crio um novo bolão (R$ 99,90 via PIX)\n' +
+    '• *criar bolão* — crio um novo bolão (gratuito!)\n' +
     '• *entrar em bolão* — entro num bolão existente\n' +
     '• *meus bolões* — bolões que você participa\n' +
     '• *ranking* — ranking de um bolão\n' +

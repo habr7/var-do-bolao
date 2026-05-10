@@ -1,7 +1,7 @@
 import { sincronizarStatusPendentes, buscarPagamento } from '../modules/pagamento/pagamento.service.js';
 import { criarBolao } from '../modules/bolao/bolao.service.js';
 import { env } from '../config/env.js';
-import { sendText } from '../whatsapp/meta.client.js';
+import { sendText } from '../whatsapp/evolution.client.js';
 import { resetSession } from '../whatsapp/session.manager.js';
 
 /**

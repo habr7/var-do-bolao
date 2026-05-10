@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database.js';
 import * as bolaoRepo from './bolao.repository.js';
+import * as rodadaRepo from '../rodada/rodada.repository.js';
+import { buscarJogosParaRodada } from '../resultado/resultado.service.js';
 import type { CriarBolaoInput } from './bolao.types.js';
 
 export async function criarBolao(input: CriarBolaoInput) {
@@ -10,6 +12,30 @@ export async function criarBolao(input: CriarBolaoInput) {
   await prisma.participacao.create({
     data: { bolaoId: bolao.id, usuarioId: input.adminId },
   });
+
+  // Seed automatico de jogos. Hoje so temos uma "Rodada" (Fase de Grupos
+  // Copa 2026) com todos os 72 jogos dentro. Se o adapter de futebol falhar
+  // ou nao retornar jogos, o bolao fica criado mas sem jogos — admin pode
+  // rodar `npm run seed:fifa -- <bolaoId>` depois.
+  try {
+    const jogos = await buscarJogosParaRodada(input.campeonatoId, 1);
+    if (jogos.length > 0) {
+      const primeiroJogo = jogos.reduce(
+        (min, j) => (j.dataHora < min ? j.dataHora : min),
+        jogos[0].dataHora,
+      );
+      const rodada = await rodadaRepo.criarRodada({
+        bolaoId: bolao.id,
+        numero: 1,
+        dataAbertura: new Date(),
+        dataFechamento: primeiroJogo,
+      });
+      await rodadaRepo.adicionarJogos(rodada.id, jogos);
+    }
+  } catch (error) {
+    console.error('[bolao.service] erro fazendo seed de jogos:', (error as Error).message);
+    // nao falha a criacao do bolao por causa do seed
+  }
 
   return bolao;
 }

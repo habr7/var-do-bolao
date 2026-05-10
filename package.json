@@ -8,8 +8,9 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "sim": "cross-env DRY_RUN_META=true tsx scripts/sim.ts",
-    "build": "tsc",
+    "sim": "cross-env DRY_RUN_WHATSAPP=true tsx scripts/sim.ts",
+    "seed:fifa": "tsx scripts/seed-fifa-2026.ts",
+    "build": "tsc && node scripts/postbuild.mjs",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

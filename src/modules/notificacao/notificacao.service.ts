@@ -1,4 +1,4 @@
-import { sendText } from '../../whatsapp/meta.client.js';
+import { sendText } from '../../whatsapp/evolution.client.js';
 import { formatRanking, type RankingEntry } from '../../utils/formatting.js';
 
 /**

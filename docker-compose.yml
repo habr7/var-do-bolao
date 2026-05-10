@@ -1,5 +1,5 @@
 services:
-  # ---- PostgreSQL ----
+  # ---- PostgreSQL (banco do bot E da Evolution) ----
   postgres:
     image: postgres:16-alpine
     environment:
@@ -8,6 +8,8 @@ services:
       - POSTGRES_DB=varbolao
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # cria tambem o banco "evolution" no primeiro start
+      - ./scripts/init-evolution-db.sh:/docker-entrypoint-initdb.d/init-evolution-db.sh:ro
     ports:
       - "5433:5432"
     healthcheck:
@@ -17,7 +19,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ---- Redis (FSM de conversas e cache) ----
+  # ---- Redis (FSM de conversas + Evolution cache) ----
   redis:
     image: redis:7-alpine
     ports:
@@ -31,9 +33,60 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ---- Backend (opcional em dev; profile "full") ----
-  # Em dev rode `npm run dev` no host em vez de subir aqui.
-  # docker compose --profile full up -d → sobe tambem o app container
+  # ---- Evolution API (WhatsApp via Baileys) ----
+  evolution:
+    image: atendai/evolution-api:v2.1.1
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - SERVER_URL=${EVOLUTION_SERVER_URL:-http://localhost:8080}
+
+      # Auth
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+
+      # Persistencia em Postgres (mesmo cluster, banco "evolution")
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://varbolao:${POSTGRES_PASSWORD}@postgres:5432/evolution
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+
+      # Cache em Redis
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379/1
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_LOCAL_ENABLED=false
+
+      # Webhook global aponta pra app — o handler decide o que fazer
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_URL=${WEBHOOK_GLOBAL_URL:-http://app:3000/webhook/whatsapp}
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=true
+      - WEBHOOK_EVENTS_QRCODE_UPDATED=true
+
+      # Logs
+      - LOG_LEVEL=ERROR,WARN,INFO
+      - LOG_COLOR=true
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---- Backend do VAR do Bolao (perfil "full" pra subir junto) ----
+  # Em dev rode `npm run dev` no host. Em prod ative com:
+  #   docker compose --profile full up -d
   app:
     profiles: ["full"]
     build: .
@@ -45,13 +98,17 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://varbolao:${POSTGRES_PASSWORD}@postgres:5432/varbolao
       - REDIS_URL=redis://redis:6379/0
+      - EVOLUTION_API_URL=http://evolution:8080
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      evolution:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redis_data:
+  evolution_instances:

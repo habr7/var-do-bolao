@@ -1,5 +1,5 @@
 import { prisma } from '../config/database.js';
-import { sendText } from '../whatsapp/meta.client.js';
+import { sendText } from '../whatsapp/evolution.client.js';
 import { setSession } from '../whatsapp/session.manager.js';
 import { formatJogosRodada } from '../utils/formatting.js';
 

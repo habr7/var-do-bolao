@@ -1,17 +1,15 @@
 /**
- * REPL interativo para testar o bot localmente, sem precisar de token da
- * Meta Cloud API. Funciona batendo direto em `handleIncomingMessage` do
- * command.router e capturando o que o bot "enviaria" via meta.client
- * (que opera em modo DRY_RUN_META).
+ * REPL interativo para testar o bot localmente sem precisar da Evolution API.
+ * Funciona batendo direto em `handleIncomingMessage` do command.router e
+ * capturando o que o bot "enviaria" via evolution.client (que opera em modo
+ * DRY_RUN_WHATSAPP).
  *
  * Uso:
- *   DRY_RUN_META=true npm run sim
+ *   DRY_RUN_WHATSAPP=true npm run sim
  *
  * Comandos do REPL:
  *   /as <nome> <waId>   — troca o "remetente" atual (ex: /as Maria 5511988888888)
  *   /users              — lista usuarios ja criados na sessao
- *   /pix                — forca PAGO em todos os pagamentos pendentes do
- *                         MockPix e roda o job validate-pix (simula deposito)
  *   /tick-results       — roda o job fetch-results
  *   /state              — mostra a sessao FSM do usuario atual
  *   /clear              — limpa fila de mensagens capturadas
@@ -33,11 +31,8 @@ import {
   setCaptureListener,
   drainCapturedMessages,
   type CapturedMessage,
-} from '../src/whatsapp/meta.client.js';
+} from '../src/whatsapp/evolution.client.js';
 import { getSession } from '../src/whatsapp/session.manager.js';
-import { getPixAdapter } from '../src/modules/pagamento/pix.adapter.js';
-import { MockPixAdapter } from '../src/modules/pagamento/pix.adapter.js';
-import { validatePixJob } from '../src/jobs/validate-pix.job.js';
 import { fetchResultsJob } from '../src/jobs/fetch-results.job.js';
 
 // ANSI colors
@@ -92,7 +87,6 @@ ${C.bold}Comandos:${C.reset}
   ${C.cyan}/as <nome> <waId>${C.reset}   troca o remetente atual
                        ex: ${C.dim}/as Maria 5511988888888${C.reset}
   ${C.cyan}/users${C.reset}             lista usuarios ja criados na sessao
-  ${C.cyan}/pix${C.reset}               forca PAGO em todos os pagamentos pendentes
   ${C.cyan}/tick-results${C.reset}      roda job fetch-results manualmente
   ${C.cyan}/state${C.reset}             mostra sessao FSM do usuario atual
   ${C.cyan}/clear${C.reset}             limpa fila de mensagens capturadas
@@ -145,19 +139,6 @@ async function handleCommand(cmd: string, args: string[]): Promise<boolean> {
       return true;
     }
 
-    case '/pix': {
-      const adapter = getPixAdapter();
-      if (adapter instanceof MockPixAdapter) {
-        const n = adapter.forcarTodasPagas();
-        printSystem(`${n} cobranca(s) marcada(s) como PAGO no mock`);
-      } else {
-        printSystem('adapter em uso nao é MockPixAdapter');
-      }
-      printSystem('rodando job validate-pix...');
-      await validatePixJob();
-      return true;
-    }
-
     case '/tick-results': {
       printSystem('rodando job fetch-results...');
       await fetchResultsJob();
@@ -187,13 +168,13 @@ async function handleCommand(cmd: string, args: string[]): Promise<boolean> {
 }
 
 async function main() {
-  if (!env.DRY_RUN_META) {
-    console.error(`${C.red}❌ Ative DRY_RUN_META=true para rodar a simulacao (se deixar off, as mensagens iriam pro WhatsApp real).${C.reset}`);
+  if (!env.DRY_RUN_WHATSAPP) {
+    console.error(`${C.red}❌ Ative DRY_RUN_WHATSAPP=true para rodar a simulacao (se deixar off, as mensagens iriam pro WhatsApp real via Evolution API).${C.reset}`);
     process.exit(1);
   }
 
   console.log(`${C.bold}${C.cyan}⚽ VAR do Bolão — REPL local${C.reset}`);
-  console.log(`${C.dim}DRY_RUN_META=${env.DRY_RUN_META} — nenhuma mensagem real eh enviada${C.reset}`);
+  console.log(`${C.dim}DRY_RUN_WHATSAPP=${env.DRY_RUN_WHATSAPP} — nenhuma mensagem real eh enviada${C.reset}`);
 
   await connectDatabase();
 

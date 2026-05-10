@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { env } from '../config/env.js';
-import { validatePixJob } from './validate-pix.job.js';
+// PIX desativado nesta fase — bolao gratuito.
+// import { validatePixJob } from './validate-pix.job.js';
 import { fetchResultsJob } from './fetch-results.job.js';
 import { calculateScoresJob } from './calculate-scores.job.js';
 import { sendDailyGamesJob } from './send-daily-games.job.js';
@@ -18,8 +19,8 @@ function wrap(name: string, fn: () => Promise<void>) {
 }
 
 export function registerJobs() {
-  // PIX — a cada 30s
-  cron.schedule('*/30 * * * * *', wrap('validate-pix', validatePixJob));
+  // PIX desativado:
+  // cron.schedule('*/30 * * * * *', wrap('validate-pix', validatePixJob));
 
   // Resultados — a cada 5min
   cron.schedule('*/5 * * * *', wrap('fetch-results', fetchResultsJob));

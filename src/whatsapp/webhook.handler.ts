@@ -1,134 +1,138 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { env } from '../config/env.js';
-import { validateMetaSignature } from './signature.js';
-import { markAsRead } from './meta.client.js';
+import { markAsRead } from './evolution.client.js';
 import { handleIncomingMessage } from './command.router.js';
 
 // ============================================================
-// GET — Handshake de verificacao do webhook
+// Webhook da Evolution API v2
 // ============================================================
-// Meta envia uma GET com hub.verify_token; devolvemos hub.challenge em texto
-// puro caso bata com o WHATSAPP_VERIFY_TOKEN.
-export async function webhookVerifyHandler(
-  request: FastifyRequest<{
-    Querystring: {
-      'hub.mode'?: string;
-      'hub.verify_token'?: string;
-      'hub.challenge'?: string;
+// A Evolution API faz POST {APP_URL}/webhook/whatsapp com payload do tipo:
+//
+// {
+//   "event": "messages.upsert",
+//   "instance": "varbolao",
+//   "data": {
+//     "key": {
+//       "remoteJid": "5511999999999@s.whatsapp.net",   // ou ...@g.us para grupo
+//       "fromMe": false,
+//       "id": "ABCD1234..."
+//     },
+//     "pushName": "Humberto",
+//     "message": {
+//       "conversation": "oi"                                  // texto simples
+//       // OU "extendedTextMessage": { "text": "oi" }         // texto com formatacao
+//       // OU "imageMessage": { ... }                          // mídia (ignorado por enquanto)
+//     },
+//     "messageType": "conversation",
+//     "messageTimestamp": 1700000000
+//   }
+// }
+//
+// A Evolution NAO assina HMAC; protegemos via:
+//  - validacao de instance (so processa o nome configurado)
+//  - opcional: token estatico no header (EVOLUTION_WEBHOOK_TOKEN)
+//
+// Em modo dev, o GET de teste retorna 200 ok.
+// ============================================================
+
+interface EvolutionWebhookEvent {
+  event?: string;
+  instance?: string;
+  data?: {
+    key?: {
+      remoteJid?: string;
+      fromMe?: boolean;
+      id?: string;
     };
-  }>,
-  reply: FastifyReply,
-) {
-  const mode = request.query['hub.mode'];
-  const token = request.query['hub.verify_token'];
-  const challenge = request.query['hub.challenge'];
-
-  if (mode === 'subscribe' && token === env.WHATSAPP_VERIFY_TOKEN && challenge) {
-    reply.code(200).type('text/plain').send(challenge);
-    return;
-  }
-
-  reply.code(403).send({ error: 'verify_token mismatch' });
+    pushName?: string;
+    message?: {
+      conversation?: string;
+      extendedTextMessage?: { text?: string };
+      buttonsResponseMessage?: { selectedButtonId?: string; selectedDisplayText?: string };
+      listResponseMessage?: { singleSelectReply?: { selectedRowId?: string }; title?: string };
+    };
+    messageType?: string;
+    messageTimestamp?: number;
+  };
 }
 
-// ============================================================
-// POST — Eventos de mensagem
-// ============================================================
-interface MetaMessageEvent {
-  object: string;
-  entry?: Array<{
-    id: string;
-    changes?: Array<{
-      field: string;
-      value: {
-        messaging_product: string;
-        metadata?: { display_phone_number: string; phone_number_id: string };
-        contacts?: Array<{ profile?: { name?: string }; wa_id: string }>;
-        messages?: Array<{
-          from: string;
-          id: string;
-          timestamp: string;
-          type: string;
-          text?: { body: string };
-          button?: { text: string; payload: string };
-          interactive?: {
-            type: string;
-            button_reply?: { id: string; title: string };
-            list_reply?: { id: string; title: string };
-          };
-        }>;
-        statuses?: Array<unknown>;
-      };
-    }>;
-  }>;
+// GET /webhook/whatsapp — apenas resposta para healthcheck do painel.
+// A Evolution NAO faz handshake como a Meta, mas alguns painéis chamam GET pra testar.
+export async function webhookVerifyHandler(_request: FastifyRequest, reply: FastifyReply) {
+  reply.code(200).send({ ok: true, provider: 'evolution-api' });
 }
 
+// POST /webhook/whatsapp — eventos da Evolution
 export async function webhookMessageHandler(
-  request: FastifyRequest<{ Body: MetaMessageEvent }>,
+  request: FastifyRequest<{ Body: EvolutionWebhookEvent }>,
   reply: FastifyReply,
 ) {
-  // Valida assinatura (raw body precisa estar disponivel em request.rawBody — configurar no content-type parser)
-  const rawBody = (request as unknown as { rawBody?: string }).rawBody ?? JSON.stringify(request.body);
-  const signature = request.headers['x-hub-signature-256'] as string | undefined;
+  // Token simples no header (opcional). Se EVOLUTION_WEBHOOK_TOKEN estiver
+  // configurado, exige-se que o request traga o mesmo valor.
+  if (env.NODE_ENV !== 'development' && env.EVOLUTION_WEBHOOK_TOKEN) {
+    const incomingToken =
+      (request.headers['x-evolution-token'] as string | undefined) ??
+      (request.headers['authorization'] as string | undefined)?.replace(/^Bearer\s+/i, '');
 
-  if (env.NODE_ENV !== 'development' && !validateMetaSignature(rawBody, signature)) {
-    // Em producao, sempre retorna 200 mas nao processa — evita sinalizar pro atacante
-    request.log.warn('Assinatura invalida no webhook WhatsApp');
-    reply.code(200).send({ ok: true });
-    return;
+    if (incomingToken !== env.EVOLUTION_WEBHOOK_TOKEN) {
+      request.log.warn('Token de webhook invalido');
+      reply.code(200).send({ ok: true });
+      return;
+    }
   }
 
   const body = request.body;
 
-  if (body.object !== 'whatsapp_business_account') {
-    reply.code(200).send({ ok: true });
-    return;
-  }
-
-  // Responde 200 imediatamente (Meta espera ack rapido)
+  // Responde 200 imediatamente — qualquer processamento mais demorado
+  // acontece depois. A Evolution faz retry se nao receber 200 rapido.
   reply.code(200).send({ ok: true });
 
-  // Processa assincrono apos responder
   try {
-    for (const entry of body.entry ?? []) {
-      for (const change of entry.changes ?? []) {
-        if (change.field !== 'messages') continue;
-
-        const value = change.value;
-        const contacts = value.contacts ?? [];
-        const messages = value.messages ?? [];
-
-        for (const msg of messages) {
-          const contact = contacts.find((c) => c.wa_id === msg.from);
-          const senderName = contact?.profile?.name ?? 'Usuario';
-
-          // Extrai texto segundo o tipo
-          const text = extractText(msg);
-          if (!text) continue;
-
-          // Marca como lida (best effort)
-          markAsRead(msg.id).catch(() => undefined);
-
-          await handleIncomingMessage({
-            waId: msg.from,
-            messageId: msg.id,
-            senderName,
-            text,
-          });
-        }
-      }
+    if (body.event !== 'messages.upsert') return;
+    if (env.EVOLUTION_INSTANCE && body.instance && body.instance !== env.EVOLUTION_INSTANCE) {
+      return; // outra instancia, ignora
     }
+
+    const data = body.data;
+    if (!data?.key) return;
+    if (data.key.fromMe) return; // mensagens enviadas pelo proprio bot
+
+    const remoteJid = data.key.remoteJid ?? '';
+    if (remoteJid.endsWith('@g.us')) return; // ignora grupos — sistema eh DM-only
+    if (!remoteJid.endsWith('@s.whatsapp.net')) return;
+
+    const waId = remoteJid.replace(/@s\.whatsapp\.net$/, '');
+    if (!/^\d{10,15}$/.test(waId)) return;
+
+    const text = extractText(data.message);
+    if (!text) return;
+
+    const messageId = data.key.id ?? '';
+    const senderName = data.pushName?.trim() || 'Craque';
+
+    // Marca como lida (best-effort)
+    if (messageId) {
+      markAsRead(messageId, remoteJid).catch(() => undefined);
+    }
+
+    await handleIncomingMessage({
+      waId,
+      messageId,
+      senderName,
+      text,
+    });
   } catch (error) {
-    request.log.error({ err: error }, 'Erro processando webhook Meta');
+    request.log.error({ err: error }, 'Erro processando webhook Evolution');
   }
 }
 
-function extractText(msg: NonNullable<NonNullable<NonNullable<MetaMessageEvent['entry']>[0]['changes']>[0]['value']['messages']>[0]): string | null {
-  if (msg.type === 'text' && msg.text) return msg.text.body;
-  if (msg.type === 'button' && msg.button) return msg.button.text;
-  if (msg.type === 'interactive') {
-    if (msg.interactive?.type === 'button_reply') return msg.interactive.button_reply?.title ?? null;
-    if (msg.interactive?.type === 'list_reply') return msg.interactive.list_reply?.title ?? null;
-  }
+type EvolutionMessageBody = NonNullable<NonNullable<EvolutionWebhookEvent['data']>['message']>;
+
+function extractText(message: EvolutionMessageBody | undefined): string | null {
+  if (!message) return null;
+  if (message.conversation) return message.conversation.trim();
+  if (message.extendedTextMessage?.text) return message.extendedTextMessage.text.trim();
+  if (message.buttonsResponseMessage?.selectedDisplayText) return message.buttonsResponseMessage.selectedDisplayText.trim();
+  if (message.listResponseMessage?.title) return message.listResponseMessage.title.trim();
   return null;
 }

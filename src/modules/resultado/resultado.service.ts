@@ -1,9 +1,13 @@
 import { env } from '../../config/env.js';
 import { MockFootballApi, ApiFutebolAdapter } from './resultado.fetcher.js';
+import { FifaWorldCup2026Adapter } from './fifa.fetcher.js';
 import type { FootballApiAdapter } from './resultado.types.js';
 import * as rodadaRepo from '../rodada/rodada.repository.js';
 
 function getFootballApi(): FootballApiAdapter {
+  if (env.FOOTBALL_PROVIDER === 'fifa-2026') {
+    return new FifaWorldCup2026Adapter();
+  }
   if (env.FOOTBALL_API_KEY === 'mock') {
     return new MockFootballApi();
   }

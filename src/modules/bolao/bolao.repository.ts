@@ -7,7 +7,7 @@ export async function criarBolao(input: CriarBolaoInput) {
       nome: input.nome,
       senhaHash: input.senhaHash,
       adminId: input.adminId,
-      pagamentoId: input.pagamentoId,
+      ...(input.pagamentoId ? { pagamentoId: input.pagamentoId } : {}),
       campeonatoId: input.campeonatoId,
       campeonatoNome: input.campeonatoNome,
     },

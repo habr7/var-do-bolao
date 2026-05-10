@@ -1,0 +1,657 @@
+{
+  "campeonatoId": "copa-2026-fase-grupos",
+  "campeonatoNome": "Copa do Mundo FIFA 2026 - Fase de Grupos",
+  "fonte": "openfootball/worldcup.json (https://github.com/openfootball/worldcup.json/blob/master/2026/worldcup.json)",
+  "atualizadoEm": "2026-05-10",
+  "totalJogos": 72,
+  "jogos": [
+    {
+      "apiJogoId": "WC2026_A_1",
+      "grupo": "A",
+      "matchday": 1,
+      "timeCasa": "México",
+      "timeVisitante": "África do Sul",
+      "dataHora": "2026-06-11T16:00:00-03:00",
+      "estadio": "Mexico City"
+    },
+    {
+      "apiJogoId": "WC2026_A_2",
+      "grupo": "A",
+      "matchday": 1,
+      "timeCasa": "Coreia do Sul",
+      "timeVisitante": "República Tcheca",
+      "dataHora": "2026-06-11T23:00:00-03:00",
+      "estadio": "Guadalajara (Zapopan)"
+    },
+    {
+      "apiJogoId": "WC2026_B_1",
+      "grupo": "B",
+      "matchday": 1,
+      "timeCasa": "Canadá",
+      "timeVisitante": "Bósnia e Herzegovina",
+      "dataHora": "2026-06-12T16:00:00-03:00",
+      "estadio": "Toronto"
+    },
+    {
+      "apiJogoId": "WC2026_D_1",
+      "grupo": "D",
+      "matchday": 1,
+      "timeCasa": "Estados Unidos",
+      "timeVisitante": "Paraguai",
+      "dataHora": "2026-06-12T22:00:00-03:00",
+      "estadio": "Los Angeles (Inglewood)"
+    },
+    {
+      "apiJogoId": "WC2026_B_2",
+      "grupo": "B",
+      "matchday": 1,
+      "timeCasa": "Catar",
+      "timeVisitante": "Suíça",
+      "dataHora": "2026-06-13T16:00:00-03:00",
+      "estadio": "San Francisco Bay Area (Santa Clara)"
+    },
+    {
+      "apiJogoId": "WC2026_C_1",
+      "grupo": "C",
+      "matchday": 1,
+      "timeCasa": "Brasil",
+      "timeVisitante": "Marrocos",
+      "dataHora": "2026-06-13T19:00:00-03:00",
+      "estadio": "New York/New Jersey (East Rutherford)"
+    },
+    {
+      "apiJogoId": "WC2026_C_2",
+      "grupo": "C",
+      "matchday": 1,
+      "timeCasa": "Haiti",
+      "timeVisitante": "Escócia",
+      "dataHora": "2026-06-13T22:00:00-03:00",
+      "estadio": "Boston (Foxborough)"
+    },
+    {
+      "apiJogoId": "WC2026_D_2",
+      "grupo": "D",
+      "matchday": 1,
+      "timeCasa": "Austrália",
+      "timeVisitante": "Turquia",
+      "dataHora": "2026-06-14T01:00:00-03:00",
+      "estadio": "Vancouver"
+    },
+    {
+      "apiJogoId": "WC2026_E_1",
+      "grupo": "E",
+      "matchday": 1,
+      "timeCasa": "Alemanha",
+      "timeVisitante": "Curaçao",
+      "dataHora": "2026-06-14T14:00:00-03:00",
+      "estadio": "Houston"
+    },
+    {
+      "apiJogoId": "WC2026_F_1",
+      "grupo": "F",
+      "matchday": 1,
+      "timeCasa": "Holanda",
+      "timeVisitante": "Japão",
+      "dataHora": "2026-06-14T17:00:00-03:00",
+      "estadio": "Dallas (Arlington)"
+    },
+    {
+      "apiJogoId": "WC2026_E_2",
+      "grupo": "E",
+      "matchday": 1,
+      "timeCasa": "Costa do Marfim",
+      "timeVisitante": "Equador",
+      "dataHora": "2026-06-14T20:00:00-03:00",
+      "estadio": "Philadelphia"
+    },
+    {
+      "apiJogoId": "WC2026_F_2",
+      "grupo": "F",
+      "matchday": 1,
+      "timeCasa": "Suécia",
+      "timeVisitante": "Tunísia",
+      "dataHora": "2026-06-14T23:00:00-03:00",
+      "estadio": "Monterrey (Guadalupe)"
+    },
+    {
+      "apiJogoId": "WC2026_H_1",
+      "grupo": "H",
+      "matchday": 1,
+      "timeCasa": "Espanha",
+      "timeVisitante": "Cabo Verde",
+      "dataHora": "2026-06-15T13:00:00-03:00",
+      "estadio": "Atlanta"
+    },
+    {
+      "apiJogoId": "WC2026_G_1",
+      "grupo": "G",
+      "matchday": 1,
+      "timeCasa": "Bélgica",
+      "timeVisitante": "Egito",
+      "dataHora": "2026-06-15T16:00:00-03:00",
+      "estadio": "Seattle"
+    },
+    {
+      "apiJogoId": "WC2026_H_2",
+      "grupo": "H",
+      "matchday": 1,
+      "timeCasa": "Arábia Saudita",
+      "timeVisitante": "Uruguai",
+      "dataHora": "2026-06-15T19:00:00-03:00",
+      "estadio": "Miami (Miami Gardens)"
+    },
+    {
+      "apiJogoId": "WC2026_G_2",
+      "grupo": "G",
+      "matchday": 1,
+      "timeCasa": "Irã",
+      "timeVisitante": "Nova Zelândia",
+      "dataHora": "2026-06-15T22:00:00-03:00",
+      "estadio": "Los Angeles (Inglewood)"
+    },
+    {
+      "apiJogoId": "WC2026_I_1",
+      "grupo": "I",
+      "matchday": 1,
+      "timeCasa": "França",
+      "timeVisitante": "Senegal",
+      "dataHora": "2026-06-16T16:00:00-03:00",
+      "estadio": "New York/New Jersey (East Rutherford)"
+    },
+    {
+      "apiJogoId": "WC2026_I_2",
+      "grupo": "I",
+      "matchday": 1,
+      "timeCasa": "Iraque",
+      "timeVisitante": "Noruega",
+      "dataHora": "2026-06-16T19:00:00-03:00",
+      "estadio": "Boston (Foxborough)"
+    },
+    {
+      "apiJogoId": "WC2026_J_1",
+      "grupo": "J",
+      "matchday": 1,
+      "timeCasa": "Argentina",
+      "timeVisitante": "Argélia",
+      "dataHora": "2026-06-16T22:00:00-03:00",
+      "estadio": "Kansas City"
+    },
+    {
+      "apiJogoId": "WC2026_J_2",
+      "grupo": "J",
+      "matchday": 1,
+      "timeCasa": "Áustria",
+      "timeVisitante": "Jordânia",
+      "dataHora": "2026-06-17T01:00:00-03:00",
+      "estadio": "San Francisco Bay Area (Santa Clara)"
+    },
+    {
+      "apiJogoId": "WC2026_K_1",
+      "grupo": "K",
+      "matchday": 1,
+      "timeCasa": "Portugal",
+      "timeVisitante": "RD Congo",
+      "dataHora": "2026-06-17T14:00:00-03:00",
+      "estadio": "Houston"
+    },
+    {
+      "apiJogoId": "WC2026_L_1",
+      "grupo": "L",
+      "matchday": 1,
+      "timeCasa": "Inglaterra",
+      "timeVisitante": "Croácia",
+      "dataHora": "2026-06-17T17:00:00-03:00",
+      "estadio": "Dallas (Arlington)"
+    },
+    {
+      "apiJogoId": "WC2026_L_2",
+      "grupo": "L",
+      "matchday": 1,
+      "timeCasa": "Gana",
+      "timeVisitante": "Panamá",
+      "dataHora": "2026-06-17T20:00:00-03:00",
+      "estadio": "Toronto"
+    },
+    {
+      "apiJogoId": "WC2026_K_2",
+      "grupo": "K",
+      "matchday": 1,
+      "timeCasa": "Uzbequistão",
+      "timeVisitante": "Colômbia",
+      "dataHora": "2026-06-17T23:00:00-03:00",
+      "estadio": "Mexico City"
+    },
+    {
+      "apiJogoId": "WC2026_A_3",
+      "grupo": "A",
+      "matchday": 2,
+      "timeCasa": "República Tcheca",
+      "timeVisitante": "África do Sul",
+      "dataHora": "2026-06-18T13:00:00-03:00",
+      "estadio": "Atlanta"
+    },
+    {
+      "apiJogoId": "WC2026_B_3",
+      "grupo": "B",
+      "matchday": 2,
+      "timeCasa": "Suíça",
+      "timeVisitante": "Bósnia e Herzegovina",
+      "dataHora": "2026-06-18T16:00:00-03:00",
+      "estadio": "Los Angeles (Inglewood)"
+    },
+    {
+      "apiJogoId": "WC2026_B_4",
+      "grupo": "B",
+      "matchday": 2,
+      "timeCasa": "Canadá",
+      "timeVisitante": "Catar",
+      "dataHora": "2026-06-18T19:00:00-03:00",
+      "estadio": "Vancouver"
+    },
+    {
+      "apiJogoId": "WC2026_A_4",
+      "grupo": "A",
+      "matchday": 2,
+      "timeCasa": "México",
+      "timeVisitante": "Coreia do Sul",
+      "dataHora": "2026-06-18T22:00:00-03:00",
+      "estadio": "Guadalajara (Zapopan)"
+    },
+    {
+      "apiJogoId": "WC2026_D_3",
+      "grupo": "D",
+      "matchday": 2,
+      "timeCasa": "Estados Unidos",
+      "timeVisitante": "Austrália",
+      "dataHora": "2026-06-19T16:00:00-03:00",
+      "estadio": "Seattle"
+    },
+    {
+      "apiJogoId": "WC2026_C_3",
+      "grupo": "C",
+      "matchday": 2,
+      "timeCasa": "Escócia",
+      "timeVisitante": "Marrocos",
+      "dataHora": "2026-06-19T19:00:00-03:00",
+      "estadio": "Boston (Foxborough)"
+    },
+    {
+      "apiJogoId": "WC2026_C_4",
+      "grupo": "C",
+      "matchday": 2,
+      "timeCasa": "Brasil",
+      "timeVisitante": "Haiti",
+      "dataHora": "2026-06-19T21:30:00-03:00",
+      "estadio": "Philadelphia"
+    },
+    {
+      "apiJogoId": "WC2026_D_4",
+      "grupo": "D",
+      "matchday": 2,
+      "timeCasa": "Turquia",
+      "timeVisitante": "Paraguai",
+      "dataHora": "2026-06-20T00:00:00-03:00",
+      "estadio": "San Francisco Bay Area (Santa Clara)"
+    },
+    {
+      "apiJogoId": "WC2026_F_3",
+      "grupo": "F",
+      "matchday": 2,
+      "timeCasa": "Holanda",
+      "timeVisitante": "Suécia",
+      "dataHora": "2026-06-20T14:00:00-03:00",
+      "estadio": "Houston"
+    },
+    {
+      "apiJogoId": "WC2026_E_3",
+      "grupo": "E",
+      "matchday": 2,
+      "timeCasa": "Alemanha",
+      "timeVisitante": "Costa do Marfim",
+      "dataHora": "2026-06-20T17:00:00-03:00",
+      "estadio": "Toronto"
+    },
+    {
+      "apiJogoId": "WC2026_E_4",
+      "grupo": "E",
+      "matchday": 2,
+      "timeCasa": "Equador",
+      "timeVisitante": "Curaçao",
+      "dataHora": "2026-06-20T21:00:00-03:00",
+      "estadio": "Kansas City"
+    },
+    {
+      "apiJogoId": "WC2026_F_4",
+      "grupo": "F",
+      "matchday": 2,
+      "timeCasa": "Tunísia",
+      "timeVisitante": "Japão",
+      "dataHora": "2026-06-21T01:00:00-03:00",
+      "estadio": "Monterrey (Guadalupe)"
+    },
+    {
+      "apiJogoId": "WC2026_H_3",
+      "grupo": "H",
+      "matchday": 2,
+      "timeCasa": "Espanha",
+      "timeVisitante": "Arábia Saudita",
+      "dataHora": "2026-06-21T13:00:00-03:00",
+      "estadio": "Atlanta"
+    },
+    {
+      "apiJogoId": "WC2026_G_3",
+      "grupo": "G",
+      "matchday": 2,
+      "timeCasa": "Bélgica",
+      "timeVisitante": "Irã",
+      "dataHora": "2026-06-21T16:00:00-03:00",
+      "estadio": "Los Angeles (Inglewood)"
+    },
+    {
+      "apiJogoId": "WC2026_H_4",
+      "grupo": "H",
+      "matchday": 2,
+      "timeCasa": "Uruguai",
+      "timeVisitante": "Cabo Verde",
+      "dataHora": "2026-06-21T19:00:00-03:00",
+      "estadio": "Miami (Miami Gardens)"
+    },
+    {
+      "apiJogoId": "WC2026_G_4",
+      "grupo": "G",
+      "matchday": 2,
+      "timeCasa": "Nova Zelândia",
+      "timeVisitante": "Egito",
+      "dataHora": "2026-06-21T22:00:00-03:00",
+      "estadio": "Vancouver"
+    },
+    {
+      "apiJogoId": "WC2026_J_3",
+      "grupo": "J",
+      "matchday": 2,
+      "timeCasa": "Argentina",
+      "timeVisitante": "Áustria",
+      "dataHora": "2026-06-22T14:00:00-03:00",
+      "estadio": "Dallas (Arlington)"
+    },
+    {
+      "apiJogoId": "WC2026_I_3",
+      "grupo": "I",
+      "matchday": 2,
+      "timeCasa": "França",
+      "timeVisitante": "Iraque",
+      "dataHora": "2026-06-22T18:00:00-03:00",
+      "estadio": "Philadelphia"
+    },
+    {
+      "apiJogoId": "WC2026_I_4",
+      "grupo": "I",
+      "matchday": 2,
+      "timeCasa": "Noruega",
+      "timeVisitante": "Senegal",
+      "dataHora": "2026-06-22T21:00:00-03:00",
+      "estadio": "New York/New Jersey (East Rutherford)"
+    },
+    {
+      "apiJogoId": "WC2026_J_4",
+      "grupo": "J",
+      "matchday": 2,
+      "timeCasa": "Jordânia",
+      "timeVisitante": "Argélia",
+      "dataHora": "2026-06-23T00:00:00-03:00",
+      "estadio": "San Francisco Bay Area (Santa Clara)"
+    },
+    {
+      "apiJogoId": "WC2026_K_3",
+      "grupo": "K",
+      "matchday": 2,
+      "timeCasa": "Portugal",
+      "timeVisitante": "Uzbequistão",
+      "dataHora": "2026-06-23T14:00:00-03:00",
+      "estadio": "Houston"
+    },
+    {
+      "apiJogoId": "WC2026_L_3",
+      "grupo": "L",
+      "matchday": 2,
+      "timeCasa": "Inglaterra",
+      "timeVisitante": "Gana",
+      "dataHora": "2026-06-23T17:00:00-03:00",
+      "estadio": "Boston (Foxborough)"
+    },
+    {
+      "apiJogoId": "WC2026_L_4",
+      "grupo": "L",
+      "matchday": 2,
+      "timeCasa": "Panamá",
+      "timeVisitante": "Croácia",
+      "dataHora": "2026-06-23T20:00:00-03:00",
+      "estadio": "Toronto"
+    },
+    {
+      "apiJogoId": "WC2026_K_4",
+      "grupo": "K",
+      "matchday": 2,
+      "timeCasa": "Colômbia",
+      "timeVisitante": "RD Congo",
+      "dataHora": "2026-06-23T23:00:00-03:00",
+      "estadio": "Guadalajara (Zapopan)"
+    },
+    {
+      "apiJogoId": "WC2026_B_5",
+      "grupo": "B",
+      "matchday": 3,
+      "timeCasa": "Suíça",
+      "timeVisitante": "Canadá",
+      "dataHora": "2026-06-24T16:00:00-03:00",
+      "estadio": "Vancouver"
+    },
+    {
+      "apiJogoId": "WC2026_B_6",
+      "grupo": "B",
+      "matchday": 3,
+      "timeCasa": "Bósnia e Herzegovina",
+      "timeVisitante": "Catar",
+      "dataHora": "2026-06-24T16:00:00-03:00",
+      "estadio": "Seattle"
+    },
+    {
+      "apiJogoId": "WC2026_C_5",
+      "grupo": "C",
+      "matchday": 3,
+      "timeCasa": "Escócia",
+      "timeVisitante": "Brasil",
+      "dataHora": "2026-06-24T19:00:00-03:00",
+      "estadio": "Miami (Miami Gardens)"
+    },
+    {
+      "apiJogoId": "WC2026_C_6",
+      "grupo": "C",
+      "matchday": 3,
+      "timeCasa": "Marrocos",
+      "timeVisitante": "Haiti",
+      "dataHora": "2026-06-24T19:00:00-03:00",
+      "estadio": "Atlanta"
+    },
+    {
+      "apiJogoId": "WC2026_A_5",
+      "grupo": "A",
+      "matchday": 3,
+      "timeCasa": "República Tcheca",
+      "timeVisitante": "México",
+      "dataHora": "2026-06-24T22:00:00-03:00",
+      "estadio": "Mexico City"
+    },
+    {
+      "apiJogoId": "WC2026_A_6",
+      "grupo": "A",
+      "matchday": 3,
+      "timeCasa": "África do Sul",
+      "timeVisitante": "Coreia do Sul",
+      "dataHora": "2026-06-24T22:00:00-03:00",
+      "estadio": "Monterrey (Guadalupe)"
+    },
+    {
+      "apiJogoId": "WC2026_E_5",
+      "grupo": "E",
+      "matchday": 3,
+      "timeCasa": "Curaçao",
+      "timeVisitante": "Costa do Marfim",
+      "dataHora": "2026-06-25T17:00:00-03:00",
+      "estadio": "Philadelphia"
+    },
+    {
+      "apiJogoId": "WC2026_E_6",
+      "grupo": "E",
+      "matchday": 3,
+      "timeCasa": "Equador",
+      "timeVisitante": "Alemanha",
+      "dataHora": "2026-06-25T17:00:00-03:00",
+      "estadio": "New York/New Jersey (East Rutherford)"
+    },
+    {
+      "apiJogoId": "WC2026_F_5",
+      "grupo": "F",
+      "matchday": 3,
+      "timeCasa": "Japão",
+      "timeVisitante": "Suécia",
+      "dataHora": "2026-06-25T20:00:00-03:00",
+      "estadio": "Dallas (Arlington)"
+    },
+    {
+      "apiJogoId": "WC2026_F_6",
+      "grupo": "F",
+      "matchday": 3,
+      "timeCasa": "Tunísia",
+      "timeVisitante": "Holanda",
+      "dataHora": "2026-06-25T20:00:00-03:00",
+      "estadio": "Kansas City"
+    },
+    {
+      "apiJogoId": "WC2026_D_5",
+      "grupo": "D",
+      "matchday": 3,
+      "timeCasa": "Turquia",
+      "timeVisitante": "Estados Unidos",
+      "dataHora": "2026-06-25T23:00:00-03:00",
+      "estadio": "Los Angeles (Inglewood)"
+    },
+    {
+      "apiJogoId": "WC2026_D_6",
+      "grupo": "D",
+      "matchday": 3,
+      "timeCasa": "Paraguai",
+      "timeVisitante": "Austrália",
+      "dataHora": "2026-06-25T23:00:00-03:00",
+      "estadio": "San Francisco Bay Area (Santa Clara)"
+    },
+    {
+      "apiJogoId": "WC2026_I_5",
+      "grupo": "I",
+      "matchday": 3,
+      "timeCasa": "Noruega",
+      "timeVisitante": "França",
+      "dataHora": "2026-06-26T16:00:00-03:00",
+      "estadio": "Boston (Foxborough)"
+    },
+    {
+      "apiJogoId": "WC2026_I_6",
+      "grupo": "I",
+      "matchday": 3,
+      "timeCasa": "Senegal",
+      "timeVisitante": "Iraque",
+      "dataHora": "2026-06-26T16:00:00-03:00",
+      "estadio": "Toronto"
+    },
+    {
+      "apiJogoId": "WC2026_H_5",
+      "grupo": "H",
+      "matchday": 3,
+      "timeCasa": "Cabo Verde",
+      "timeVisitante": "Arábia Saudita",
+      "dataHora": "2026-06-26T21:00:00-03:00",
+      "estadio": "Houston"
+    },
+    {
+      "apiJogoId": "WC2026_H_6",
+      "grupo": "H",
+      "matchday": 3,
+      "timeCasa": "Uruguai",
+      "timeVisitante": "Espanha",
+      "dataHora": "2026-06-26T21:00:00-03:00",
+      "estadio": "Guadalajara (Zapopan)"
+    },
+    {
+      "apiJogoId": "WC2026_G_5",
+      "grupo": "G",
+      "matchday": 3,
+      "timeCasa": "Egito",
+      "timeVisitante": "Irã",
+      "dataHora": "2026-06-27T00:00:00-03:00",
+      "estadio": "Seattle"
+    },
+    {
+      "apiJogoId": "WC2026_G_6",
+      "grupo": "G",
+      "matchday": 3,
+      "timeCasa": "Nova Zelândia",
+      "timeVisitante": "Bélgica",
+      "dataHora": "2026-06-27T00:00:00-03:00",
+      "estadio": "Vancouver"
+    },
+    {
+      "apiJogoId": "WC2026_L_5",
+      "grupo": "L",
+      "matchday": 3,
+      "timeCasa": "Panamá",
+      "timeVisitante": "Inglaterra",
+      "dataHora": "2026-06-27T18:00:00-03:00",
+      "estadio": "New York/New Jersey (East Rutherford)"
+    },
+    {
+      "apiJogoId": "WC2026_L_6",
+      "grupo": "L",
+      "matchday": 3,
+      "timeCasa": "Croácia",
+      "timeVisitante": "Gana",
+      "dataHora": "2026-06-27T18:00:00-03:00",
+      "estadio": "Philadelphia"
+    },
+    {
+      "apiJogoId": "WC2026_K_5",
+      "grupo": "K",
+      "matchday": 3,
+      "timeCasa": "Colômbia",
+      "timeVisitante": "Portugal",
+      "dataHora": "2026-06-27T20:30:00-03:00",
+      "estadio": "Miami (Miami Gardens)"
+    },
+    {
+      "apiJogoId": "WC2026_K_6",
+      "grupo": "K",
+      "matchday": 3,
+      "timeCasa": "RD Congo",
+      "timeVisitante": "Uzbequistão",
+      "dataHora": "2026-06-27T20:30:00-03:00",
+      "estadio": "Atlanta"
+    },
+    {
+      "apiJogoId": "WC2026_J_5",
+      "grupo": "J",
+      "matchday": 3,
+      "timeCasa": "Argélia",
+      "timeVisitante": "Áustria",
+      "dataHora": "2026-06-27T23:00:00-03:00",
+      "estadio": "Kansas City"
+    },
+    {
+      "apiJogoId": "WC2026_J_6",
+      "grupo": "J",
+      "matchday": 3,
+      "timeCasa": "Jordânia",
+      "timeVisitante": "Argentina",
+      "dataHora": "2026-06-27T23:00:00-03:00",
+      "estadio": "Dallas (Arlington)"
+    }
+  ]
+}
