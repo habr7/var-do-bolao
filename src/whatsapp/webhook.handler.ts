@@ -93,7 +93,23 @@ export async function webhookMessageHandler(
   reply.code(200).send({ ok: true });
 
   try {
-    if (body.event !== 'messages.upsert') return;
+    // ====== LOG DIAGNOSTICO (temporario) ======
+    console.log(
+      `[webhook-debug] event=${body.event ?? '(none)'}`,
+      `instance=${body.instance ?? '(none)'}`,
+      `dataKeys=${body.data ? Object.keys(body.data).join(',') : '(no data)'}`,
+      `keyKeys=${body.data?.key ? Object.keys(body.data.key).join(',') : '(no key)'}`,
+      `remoteJid=${body.data?.key?.remoteJid ?? '(none)'}`,
+      `fromMe=${body.data?.key?.fromMe ?? '(none)'}`,
+      `messageKeys=${body.data?.message ? Object.keys(body.data.message).join(',') : '(no message)'}`,
+    );
+    // ============================================
+
+    // Aceita "messages.upsert" (formato Evolution padrao) e tambem
+    // "MESSAGES_UPSERT" (variacao uppercase usada por algumas builds v2.x).
+    const eventNorm = (body.event ?? '').toLowerCase().replace(/_/g, '.');
+    if (eventNorm !== 'messages.upsert') return;
+
     if (env.EVOLUTION_INSTANCE && body.instance && body.instance !== env.EVOLUTION_INSTANCE) {
       return; // outra instancia, ignora
     }
