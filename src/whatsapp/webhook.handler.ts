@@ -43,6 +43,11 @@ interface EvolutionWebhookEvent {
       remoteJid?: string;
       fromMe?: boolean;
       id?: string;
+      // Campos auxiliares do Baileys: quando remoteJid eh @lid (LinkedID
+      // de remetente nao-contato), estes carregam o numero real:
+      participant?: string;       // formato @s.whatsapp.net (group ou 1on1 com LID)
+      participantPn?: string;     // numero real linkado ao participant LID
+      senderPn?: string;          // 1on1 com LID: numero real do remetente
     };
     pushName?: string;
     message?: {
@@ -109,9 +114,26 @@ export async function webhookMessageHandler(
     const prefixo = remoteJid.replace(/@(s\.whatsapp\.net|lid)$/, '');
     if (!/^\d{8,20}$/.test(prefixo)) return;
 
-    // waId passa a ser o jid COMPLETO (string opaca). FSM keys em Redis usam
-    // isso. Resposta volta pelo mesmo jid — Evolution/Baileys roteia.
-    const waId = remoteJid;
+    // Quando remoteJid eh @lid, Evolution v1.8.x retorna 400 ao tentar
+    // sendText (LID nao eh um numero real). Tentamos resolver pra PN
+    // real via campos auxiliares do Baileys.
+    let waId = remoteJid;
+    if (remoteJid.endsWith('@lid')) {
+      const pnCandidato =
+        data.key.senderPn ?? data.key.participantPn ?? data.key.participant ?? null;
+      if (pnCandidato && /^\d+@s\.whatsapp\.net$/.test(pnCandidato)) {
+        waId = pnCandidato;
+        console.log(`[webhook] @lid resolvido para PN real: ${pnCandidato}`);
+      } else {
+        // Log de diagnostico — ajuda achar onde o PN real esta no payload
+        console.warn(
+          '[webhook] mensagem de @lid sem PN resolvivel. Payload key:',
+          JSON.stringify(data.key),
+          '— pulando processamento (bot nao consegue responder).',
+        );
+        return;
+      }
+    }
 
     const text = extractText(data.message);
     if (!text) return;
