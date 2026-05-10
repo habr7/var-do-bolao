@@ -1,17 +1,22 @@
 import { env } from '../config/env.js';
 
 /**
- * Cliente HTTP para a Evolution API v2.
+ * Cliente HTTP para a Evolution API v1.8.x (Baileys-based).
  *
  * Endpoints usados:
- *   POST {base}/message/sendText/{instance}   — texto puro
- *   POST {base}/message/sendMedia/{instance}  — imagem por URL ou base64
- *   POST {base}/chat/markMessageAsRead/{instance}
+ *   POST {base}/message/sendText/{instance}   — texto, body { number, textMessage: { text } }
+ *   POST {base}/message/sendMedia/{instance}  — imagem, body { number, mediaMessage: { mediatype, media, caption } }
+ *   markAsRead: endpoint /chat/markMessageAsRead nao existe em v1.8.x.
+ *               Implementado como no-op (best-effort, read receipts opcionais).
  *
  * Auth: header `apikey: {EVOLUTION_API_KEY}`.
  *
  * Em modo DRY_RUN_WHATSAPP=true, NAO faz HTTP — captura em memoria
  * para o REPL/sim e para os testes unitarios.
+ *
+ * Nota sobre formato `to`: aceita string opaca — pode ser digits puros
+ * ("5511999999999"), jid completo ("5511...@s.whatsapp.net") ou
+ * LinkedID ("198...@lid"). Baileys/Evolution normaliza.
  */
 
 interface SendTextInput {
@@ -103,9 +108,11 @@ export async function sendText({ to, text }: SendTextInput) {
     return { dryRun: true };
   }
 
+  // Evolution v1.8.x usa formato { number, textMessage: { text } }.
+  // A v2.x mudou para { number, text } direto.
   return evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
     number: to,
-    text,
+    textMessage: { text },
   });
 }
 
@@ -115,11 +122,14 @@ export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
     return { dryRun: true };
   }
 
+  // Evolution v1.8.x: { number, mediaMessage: { mediatype, media, caption } }.
   return evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {
     number: to,
-    mediatype: 'image',
-    media: imageUrl,
-    caption: caption ?? '',
+    mediaMessage: {
+      mediatype: 'image',
+      media: imageUrl,
+      caption: caption ?? '',
+    },
   });
 }
 
@@ -132,21 +142,12 @@ export async function sendImageById({ to, mediaId, caption }: SendImageByIdInput
   return sendImage({ to, imageUrl: mediaId, caption });
 }
 
-export async function markAsRead(messageId: string, remoteJid?: string) {
+export async function markAsRead(_messageId: string, _remoteJid?: string) {
+  // Evolution v1.8.x nao expoe endpoint /chat/markMessageAsRead (retorna 404).
+  // Read receipts sao puramente cosmetico — viraram no-op.
+  // Se subir para v2.x no futuro, restaurar a chamada original.
   if (env.DRY_RUN_WHATSAPP) return { dryRun: true };
-
-  // Evolution exige `readMessages: [{ remoteJid, fromMe, id }]`.
-  // Se o caller nao passar remoteJid, usamos best-effort vazio (vai falhar
-  // silenciosamente — markAsRead nao eh critico).
-  if (!remoteJid) return;
-
-  try {
-    await evoFetch(`/chat/markMessageAsRead/${env.EVOLUTION_INSTANCE}`, {
-      readMessages: [{ remoteJid, fromMe: false, id: messageId }],
-    });
-  } catch (error) {
-    console.warn('⚠️  Falha ao marcar como lida:', (error as Error).message);
-  }
+  return undefined;
 }
 
 /**
