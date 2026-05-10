@@ -4,9 +4,14 @@ import { redis } from '../config/redis.js';
  * Estados possiveis da FSM de conversa, por usuario.
  *
  * Transicoes principais:
- *   IDLE → CRIANDO_BOLAO_NOME → CRIANDO_BOLAO_SENHA → CRIANDO_BOLAO_AGUARDANDO_PIX → IDLE
+ *   IDLE → CRIANDO_BOLAO_NOME → CRIANDO_BOLAO_SENHA → IDLE
  *   IDLE → ENTRANDO_NOME → ENTRANDO_SENHA → IDLE
- *   IDLE → PALPITANDO → IDLE  (setado pelo job send-daily-games)
+ *   IDLE → PALPITANDO → IDLE  (setado pelo job send-palpite-call)
+ *   IDLE → ESCOLHENDO_BOLAO_RANKING → IDLE
+ *   IDLE → ESCOLHENDO_BOLAO_PALPITES → CONFIRMANDO_VER_PALPITES → IDLE
+ *
+ * O estado CRIANDO_BOLAO_AGUARDANDO_PIX permanece declarado mas inerte
+ * (PIX desativado). Reativar quando voltar a cobrar pagamento.
  */
 export type ConversaState =
   | 'IDLE'
@@ -15,7 +20,15 @@ export type ConversaState =
   | 'CRIANDO_BOLAO_AGUARDANDO_PIX'
   | 'ENTRANDO_NOME'
   | 'ENTRANDO_SENHA'
-  | 'PALPITANDO';
+  | 'PALPITANDO'
+  | 'ESCOLHENDO_BOLAO_RANKING'
+  | 'ESCOLHENDO_BOLAO_PALPITES'
+  | 'CONFIRMANDO_VER_PALPITES';
+
+export interface BolaoParaEscolher {
+  id: string;
+  nome: string;
+}
 
 export interface ConversaContext {
   nomeBolao?: string;
@@ -24,6 +37,9 @@ export interface ConversaContext {
   bolaoId?: string;
   rodadaId?: string;
   jogosPendentes?: string[]; // jogoIds
+  // Lista de bolaoes possiveis quando o usuario precisa escolher
+  // (estados ESCOLHENDO_BOLAO_*).
+  boloesParaEscolher?: BolaoParaEscolher[];
 }
 
 export interface Session {

@@ -6,6 +6,19 @@ import { buscarJogosParaRodada } from '../resultado/resultado.service.js';
 import type { CriarBolaoInput } from './bolao.types.js';
 
 export async function criarBolao(input: CriarBolaoInput) {
+  // Defensive check global (case-insensitive) contra duplicidade — alem
+  // do check no router. Cobre o caso TOCTOU de outro usuario ter criado
+  // bolao com o mesmo nome enquanto este estava digitando a senha.
+  const duplicado = await prisma.bolao.findFirst({
+    where: {
+      nome: { equals: input.nome, mode: 'insensitive' },
+      status: 'ATIVO',
+    },
+  });
+  if (duplicado) {
+    throw new Error(`Ja existe um bolao ativo chamado "${input.nome}". Escolhe outro nome.`);
+  }
+
   // Admin participa automaticamente do proprio bolao
   const bolao = await bolaoRepo.criarBolao(input);
 

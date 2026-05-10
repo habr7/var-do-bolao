@@ -16,10 +16,11 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { extrairPalpites } from '../llm/palpite.extractor.js';
+import { escolherBolaoDaLista, interpretarSimNao } from '../llm/bolao.matcher.js';
 import { prisma } from '../config/database.js';
 import { hashPassword, comparePassword, isValidPassword } from '../utils/password.js';
 import { formatAjuda, formatRanking } from '../utils/formatting.js';
-import { confirmacao, naoEntendi, saudacao } from '../utils/football.terms.js';
+import { confirmacao, naoEntendi, resultadoEmoji } from '../utils/football.terms.js';
 
 export interface IncomingMessage {
   waId: string; // so digitos
@@ -60,6 +61,12 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleEntrandoSenha(msg, usuario.id, session);
       case 'PALPITANDO':
         return await handlePalpitando(msg, usuario.id, session);
+      case 'ESCOLHENDO_BOLAO_RANKING':
+        return await handleEscolhendoBolaoRanking(msg, session);
+      case 'ESCOLHENDO_BOLAO_PALPITES':
+        return await handleEscolhendoBolaoPalpites(msg, usuario.id, session);
+      case 'CONFIRMANDO_VER_PALPITES':
+        return await handleConfirmandoVerPalpites(msg, usuario.id, session);
     }
 
     // IDLE — roteia pela intencao
@@ -157,9 +164,12 @@ async function dispatchIntencao(
       await handlePendentes(msg, usuarioId);
       return true;
 
-    case Intencao.JOGOS_HOJE:
     case Intencao.MEU_PALPITE:
     case Intencao.MEUS_PONTOS:
+      await handleMeusPalpites(msg, usuarioId);
+      return true;
+
+    case Intencao.JOGOS_HOJE:
       await sendText({
         to: msg.waId,
         text: '🚧 Em construção — em breve disponível!\n\n' + menuTexto(),
@@ -259,7 +269,7 @@ async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, 
 // ============================================================
 // Fluxo: ENTRAR EM BOLAO
 // ============================================================
-async function handleEntrandoNome(msg: IncomingMessage, _usuarioId: string) {
+async function handleEntrandoNome(msg: IncomingMessage, usuarioId: string) {
   const nome = msg.text.trim();
   const bolao = await bolaoService.buscarBolaoAtivoPorNome(nome);
   if (!bolao) {
@@ -267,6 +277,40 @@ async function handleEntrandoNome(msg: IncomingMessage, _usuarioId: string) {
     await sendText({
       to: msg.waId,
       text: `❌ Bolão "${nome}" não encontrado.\n\n${menuTexto()}`,
+    });
+    return;
+  }
+
+  // Curto-circuita se o usuario ja faz parte (admin OU participante OU
+  // ja tem solicitacao pendente) — evita pedir senha desnecessariamente
+  // e o erro feio "Voce ja esta neste bolao." que vinha depois.
+  if (bolao.adminId === usuarioId) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `👑 Você é o admin do bolão *${bolao.nome}* — ja faz parte!\n\n${menuTexto()}`,
+    });
+    return;
+  }
+
+  const jaParticipa = await bolaoService.ehParticipante(usuarioId, bolao.id);
+  if (jaParticipa) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `✅ Você já faz parte do bolão *${bolao.nome}*! Bom jogo!\n\n${menuTexto()}`,
+    });
+    return;
+  }
+
+  const pendente = await prisma.solicitacaoEntrada.findFirst({
+    where: { usuarioId, bolaoId: bolao.id, status: 'PENDENTE' },
+  });
+  if (pendente) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `⏳ Você já pediu pra entrar no bolão *${bolao.nome}* — esperando o admin aprovar.\n\n${menuTexto()}`,
     });
     return;
   }
@@ -420,34 +464,79 @@ async function handleMeusBoloes(msg: IncomingMessage, usuarioId: string) {
 async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: string) {
   // raw comeca com "ranking ..." — extrai nome
   const nomeBolao = raw.replace(/^ranking\s*/i, '').trim();
+  const boloesDoUsuario = await bolaoService.listarBoloesDoUsuario(usuarioId);
 
   let bolaoId: string | null = null;
+
   if (nomeBolao) {
-    const b = await bolaoService.buscarBolaoAtivoPorNome(nomeBolao);
-    if (!b) {
+    // Tenta achar entre os bolaoes do usuario primeiro (mais provavel),
+    // depois busca global. Aceita variacao de case/acentos.
+    const dosBoloes = await escolherBolaoDaLista(
+      nomeBolao,
+      boloesDoUsuario.map((b) => ({ id: b.id, nome: b.nome })),
+    );
+    if (dosBoloes) {
+      bolaoId = dosBoloes.id;
+    } else {
+      const b = await bolaoService.buscarBolaoAtivoPorNome(nomeBolao);
+      if (b) bolaoId = b.id;
+    }
+    if (!bolaoId) {
       await sendText({ to: msg.waId, text: `❌ Bolão "${nomeBolao}" não encontrado.` });
       return;
     }
-    bolaoId = b.id;
   } else {
-    const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
-    if (boloes.length === 0) {
+    if (boloesDoUsuario.length === 0) {
       await sendText({ to: msg.waId, text: '📭 Você não participa de nenhum bolão ativo.' });
       return;
     }
-    if (boloes.length > 1) {
+    if (boloesDoUsuario.length > 1) {
+      // Setai estado pro proximo turno entender que o texto eh a escolha
+      await setSession(msg.waId, {
+        state: 'ESCOLHENDO_BOLAO_RANKING',
+        ctx: {
+          boloesParaEscolher: boloesDoUsuario.map((b) => ({ id: b.id, nome: b.nome })),
+        },
+      });
+      const lista = boloesDoUsuario.map((b) => `• *${b.nome}*`).join('\n');
       await sendText({
         to: msg.waId,
-        text: `Você está em vários bolões. Diga qual:\n${boloes.map((b) => `• ${b.nome}`).join('\n')}\n\nEx: *ranking ${boloes[0].nome}*`,
+        text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}`,
       });
       return;
     }
-    bolaoId = boloes[0].id;
+    bolaoId = boloesDoUsuario[0].id;
   }
 
+  await enviarRankingDoBolao(msg.waId, bolaoId);
+}
+
+async function enviarRankingDoBolao(waId: string, bolaoId: string) {
   const dados = await rankingService.getRankingPorBolao(bolaoId);
   const texto = formatRanking(dados.bolao.nome, dados.rodadaAtual, dados.bolao.campeonatoNome, dados.ranking);
-  await sendText({ to: msg.waId, text: texto });
+  await sendText({ to: waId, text: texto });
+}
+
+async function handleEscolhendoBolaoRanking(msg: IncomingMessage, session: Session) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *ranking* de novo.' });
+    return;
+  }
+
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei qual bolão. Diz o nome de um destes:\n\n${lista}`,
+    });
+    return;
+  }
+
+  await resetSession(msg.waId);
+  await enviarRankingDoBolao(msg.waId, escolhido.id);
 }
 
 async function handlePendentes(msg: IncomingMessage, usuarioId: string) {
@@ -513,6 +602,148 @@ async function handleRecusar(msg: IncomingMessage, usuarioId: string, raw: strin
     to: pendente.usuario.whatsappId,
     text: `😕 Seu pedido pra entrar no bolão *${pendente.bolao.nome}* foi recusado.`,
   });
+}
+
+// ============================================================
+// Fluxo: MEUS PALPITES / MEUS PONTOS
+// ============================================================
+async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '📭 Você não participa de nenhum bolão ainda.\n\nPara entrar: *entrar em bolão*',
+    });
+    return;
+  }
+
+  if (boloes.length === 1) {
+    await mostrarPontuacaoEPerguntarPalpites(msg, usuarioId, boloes[0].id, boloes[0].nome);
+    return;
+  }
+
+  // Mais de 1 bolao — pergunta qual
+  await setSession(msg.waId, {
+    state: 'ESCOLHENDO_BOLAO_PALPITES',
+    ctx: {
+      boloesParaEscolher: boloes.map((b) => ({ id: b.id, nome: b.nome })),
+    },
+  });
+  const lista = boloes.map((b) => `• *${b.nome}*`).join('\n');
+  await sendText({
+    to: msg.waId,
+    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}`,
+  });
+}
+
+async function handleEscolhendoBolaoPalpites(msg: IncomingMessage, usuarioId: string, session: Session) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *meus palpites* de novo.' });
+    return;
+  }
+
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei qual bolão. Diz o nome de um destes:\n\n${lista}`,
+    });
+    return;
+  }
+
+  await mostrarPontuacaoEPerguntarPalpites(msg, usuarioId, escolhido.id, escolhido.nome);
+}
+
+async function mostrarPontuacaoEPerguntarPalpites(
+  msg: IncomingMessage,
+  usuarioId: string,
+  bolaoId: string,
+  nomeBolao: string,
+) {
+  const meusDados = await rankingService.getMeusPontosNoBolao(usuarioId, bolaoId);
+  const totalPalpites = meusDados.rodadas.reduce((acc, r) => acc + r.jogos.length, 0);
+
+  const texto =
+    `📊 *Sua pontuação no ${nomeBolao}*\n\n` +
+    `Total geral: *${meusDados.pontuacaoTotal} pts*\n` +
+    (meusDados.posicaoAtual > 0 ? `Posição: ${meusDados.posicaoAtual}º\n` : '') +
+    `Palpites registrados: ${totalPalpites}\n\n` +
+    `Quer ver todos os seus palpites detalhados? _(responda sim ou não)_`;
+
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_VER_PALPITES',
+    ctx: { bolaoId, nomeBolao },
+  });
+  await sendText({ to: msg.waId, text: texto });
+}
+
+async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: string, session: Session) {
+  const bolaoId = session.ctx?.bolaoId;
+  const nomeBolao = session.ctx?.nomeBolao ?? '';
+  if (!bolaoId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *meus palpites* de novo.' });
+    return;
+  }
+
+  const resposta = await interpretarSimNao(msg.text);
+
+  if (resposta === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '👍 Beleza! Volta quando quiser.\n\n' + menuTexto() });
+    return;
+  }
+
+  if (resposta !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Não entendi se é sim ou não. Manda *sim* ou *não*.',
+    });
+    return;
+  }
+
+  // Mostra todos os palpites do usuario nesse bolao com resultado oficial
+  const detalhes = await rankingService.getMeusPontosNoBolao(usuarioId, bolaoId);
+  if (detalhes.rodadas.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Você ainda não palpitou em nenhum jogo deste bolão.' });
+    return;
+  }
+
+  await resetSession(msg.waId);
+
+  // Monta a mensagem por rodada
+  const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`];
+  for (const rodada of detalhes.rodadas) {
+    if (rodada.jogos.length === 0) continue;
+    partes.push(`*Rodada ${rodada.rodada.numero}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
+    for (const pj of rodada.jogos) {
+      const j = pj.jogo;
+      const meu = `${pj.golsCasa}x${pj.golsVisitante}`;
+      const oficial = j.golsCasa !== null && j.golsVisitante !== null
+        ? `${j.golsCasa}x${j.golsVisitante}`
+        : null;
+
+      let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}`;
+      if (oficial) {
+        const emoji = resultadoEmoji(pj.pontosObtidos);
+        linha += `\n   ↳ oficial: *${oficial}* ${emoji} (${pj.pontosObtidos} pts)`;
+      } else if (j.status === 'AGENDADO') {
+        linha += `\n   ↳ _ainda não rolou_`;
+      } else if (j.status === 'AO_VIVO') {
+        linha += `\n   ↳ _ao vivo_`;
+      }
+      partes.push(linha);
+    }
+    partes.push('');
+  }
+  partes.push(`Total: *${detalhes.pontuacaoTotal} pts*`);
+
+  // WhatsApp aceita ate ~4096 chars; em geral cabe. Se passar, paginamos no futuro.
+  await sendText({ to: msg.waId, text: partes.join('\n') });
 }
 
 // ============================================================
