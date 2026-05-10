@@ -99,10 +99,19 @@ export async function webhookMessageHandler(
 
     const remoteJid = data.key.remoteJid ?? '';
     if (remoteJid.endsWith('@g.us')) return; // ignora grupos — sistema eh DM-only
-    if (!remoteJid.endsWith('@s.whatsapp.net')) return;
 
-    const waId = remoteJid.replace(/@s\.whatsapp\.net$/, '');
-    if (!/^\d{10,15}$/.test(waId)) return;
+    // Aceita @s.whatsapp.net (jid de numero normal) ou @lid (LinkedID, novo
+    // formato do WhatsApp usado quando o remetente nao eh contato salvo do
+    // bot — privacy feature). Recusa qualquer outro sufixo (broadcast, etc).
+    if (!remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.endsWith('@lid')) return;
+
+    // Valida prefixo numerico (digits antes do @). @lid pode ter ate 20 digitos.
+    const prefixo = remoteJid.replace(/@(s\.whatsapp\.net|lid)$/, '');
+    if (!/^\d{8,20}$/.test(prefixo)) return;
+
+    // waId passa a ser o jid COMPLETO (string opaca). FSM keys em Redis usam
+    // isso. Resposta volta pelo mesmo jid — Evolution/Baileys roteia.
+    const waId = remoteJid;
 
     const text = extractText(data.message);
     if (!text) return;
