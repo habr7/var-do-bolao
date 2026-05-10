@@ -31,6 +31,36 @@ const LEMBRETES = [
   '📢 Não esquece de palpitar, craque!',
 ];
 
+const BONS_DIAS = [
+  '☀️ Bom dia, boleiros e boleiras!',
+  '🌅 Bom dia pra galera do bolão!',
+  '⚽ E aí, craques! Bom dia!',
+  '🔆 Bom dia, time! Bola vai rolar hoje!',
+  '🥐 Bom dia! Café passado e bola no centro do gramado!',
+  '🌞 Salve, boleiros! Bom dia!',
+];
+
+const SAUDACOES_GENERICAS = [
+  '👋 Opa, fala comigo!',
+  '⚽ E aí, craque?',
+  '🏟️ Salve, boleiro!',
+  '👊 Tô aqui, manda ver!',
+];
+
+const NAO_ENTENDI = [
+  '🤔 Não peguei essa, craque.',
+  '🫣 Hum, não entendi muito bem.',
+  '❓ Não captei o que você quis dizer.',
+  '🤷 Essa eu não saquei direito.',
+];
+
+const CHAMADAS_PALPITE = [
+  '⚽ Bora palpitar!',
+  '🎯 Hora dos palpites!',
+  '📝 Manda os palpites pra hoje!',
+  '🔥 Vamos lá, palpita aí!',
+];
+
 function random<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -49,6 +79,22 @@ export function confirmacao(): string {
 
 export function lembrete(): string {
   return random(LEMBRETES);
+}
+
+export function bomDia(): string {
+  return random(BONS_DIAS);
+}
+
+export function saudacao(): string {
+  return random(SAUDACOES_GENERICAS);
+}
+
+export function naoEntendi(): string {
+  return random(NAO_ENTENDI);
+}
+
+export function chamadaPalpite(): string {
+  return random(CHAMADAS_PALPITE);
 }
 
 export function medalha(posicao: number): string {

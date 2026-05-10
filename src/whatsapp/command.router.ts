@@ -14,9 +14,12 @@ import * as bolaoService from '../modules/bolao/bolao.service.js';
 import * as solicitacaoService from '../modules/solicitacao/solicitacao.service.js';
 import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
+import { classificarIntencao } from '../llm/intent.classifier.js';
+import { extrairPalpites } from '../llm/palpite.extractor.js';
+import { prisma } from '../config/database.js';
 import { hashPassword, comparePassword, isValidPassword } from '../utils/password.js';
 import { formatAjuda, formatRanking } from '../utils/formatting.js';
-import { confirmacao } from '../utils/football.terms.js';
+import { confirmacao, naoEntendi, saudacao } from '../utils/football.terms.js';
 
 export interface IncomingMessage {
   waId: string; // so digitos
@@ -79,23 +82,52 @@ async function handleIdle(
   intencao: Intencao,
   raw: string,
 ): Promise<void> {
+  // Tenta despachar pela intencao detectada pelo regex
+  const handled = await dispatchIntencao(msg, usuarioId, intencao, raw);
+  if (handled) return;
+
+  // Fallback: pede ao LLM pra classificar a mensagem em linguagem natural
+  // antes de cair no "nao entendi". Se LLM retornar algo conhecido, despacha.
+  const intencaoLLM = await classificarIntencao(msg.text);
+  if (intencaoLLM && intencaoLLM !== Intencao.TEXTO_LIVRE) {
+    const handledLLM = await dispatchIntencao(msg, usuarioId, intencaoLLM, raw);
+    if (handledLLM) return;
+  }
+
+  // Ultimo recurso: resposta amigavel admitindo que nao entendeu
+  await sendText({
+    to: msg.waId,
+    text: `${naoEntendi()}\n\n${menuTexto()}`,
+  });
+}
+
+/**
+ * Roteia uma intencao especifica e devolve `true` se conseguiu agir, ou
+ * `false` se a intencao nao mapeia em nada (caller decide fallback).
+ */
+async function dispatchIntencao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  intencao: Intencao,
+  raw: string,
+): Promise<boolean> {
   switch (intencao) {
     case Intencao.SAUDACAO:
     case Intencao.MENU:
       await sendText({ to: msg.waId, text: boasVindasTexto(msg.senderName) });
-      return;
+      return true;
 
     case Intencao.AJUDA:
       await sendText({ to: msg.waId, text: formatAjuda(env.BOT_PREFIX) });
-      return;
+      return true;
 
     case Intencao.CRIAR_BOLAO:
       await setSession(msg.waId, { state: 'CRIANDO_BOLAO_NOME', ctx: {} });
       await sendText({
         to: msg.waId,
-        text: '⚽ Criar novo bolão!\n\nComo quer chamar o bolão?\n_(ex: Bolão da Firma)_',
+        text: '⚽ Bora criar um bolão novo!\n\nComo você quer chamar?\n_(ex: Bolão da Firma, Copa dos Amigos…)_',
       });
-      return;
+      return true;
 
     case Intencao.ENTRAR_BOLAO:
       await setSession(msg.waId, { state: 'ENTRANDO_NOME', ctx: {} });
@@ -103,27 +135,27 @@ async function handleIdle(
         to: msg.waId,
         text: '🎯 Qual o nome do bolão que você quer entrar?',
       });
-      return;
+      return true;
 
     case Intencao.MEUS_BOLOES:
       await handleMeusBoloes(msg, usuarioId);
-      return;
+      return true;
 
     case Intencao.RANKING:
       await handleRanking(msg, usuarioId, raw);
-      return;
+      return true;
 
     case Intencao.APROVAR:
       await handleAprovar(msg, usuarioId, raw);
-      return;
+      return true;
 
     case Intencao.RECUSAR:
       await handleRecusar(msg, usuarioId, raw);
-      return;
+      return true;
 
     case Intencao.PENDENTES:
       await handlePendentes(msg, usuarioId);
-      return;
+      return true;
 
     case Intencao.JOGOS_HOJE:
     case Intencao.MEU_PALPITE:
@@ -132,20 +164,17 @@ async function handleIdle(
         to: msg.waId,
         text: '🚧 Em construção — em breve disponível!\n\n' + menuTexto(),
       });
-      return;
+      return true;
 
     case Intencao.PALPITE_INLINE:
       await sendText({
         to: msg.waId,
         text: '⚽ Recebi um palpite, mas não há rodada aberta esperando por ele agora.\nEu te aviso quando houver jogos pra palpitar!',
       });
-      return;
+      return true;
 
     default:
-      await sendText({
-        to: msg.waId,
-        text: `🤖 Não entendi. ${menuTexto()}`,
-      });
+      return false;
   }
 }
 
@@ -305,11 +334,29 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
     return;
   }
 
-  const palpites = parseMultiplePalpites(msg.text);
+  // 1a tentativa: parser regex (rapido). Se nada, tenta LLM em linguagem natural.
+  let palpites = parseMultiplePalpites(msg.text);
+
+  if (palpites.length === 0) {
+    const rodada = await prisma.rodada.findUnique({
+      where: { id: rodadaId },
+      include: { jogos: true },
+    });
+    if (rodada && rodada.jogos.length > 0) {
+      palpites = await extrairPalpites(
+        msg.text,
+        rodada.jogos.map((j) => ({ timeCasa: j.timeCasa, timeVisitante: j.timeVisitante })),
+      );
+    }
+  }
+
   if (palpites.length === 0) {
     await sendText({
       to: msg.waId,
-      text: '❌ Não consegui identificar palpites. Formato: *Time1 NxN Time2*\n\n_ex: Flamengo 2x1 Palmeiras_',
+      text:
+        '🤔 Não consegui identificar nenhum palpite aí.\n\n' +
+        'Tenta no formato: *Time1 NxN Time2*\n_ex: Flamengo 2x1 Palmeiras_\n\n' +
+        'Ou em linguagem natural mesmo, tipo "_acho que o brasil ganha de 3 a 1_".',
     });
     return;
   }

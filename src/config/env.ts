@@ -53,7 +53,18 @@ const baseSchema = z.object({
   BOT_PREFIX: z.string().default('!'),
   TIMEZONE: z.string().default('America/Sao_Paulo'),
   DEFAULT_CAMPEONATO: z.string().default('copa-2026-fase-grupos'),
-  HORARIO_ENVIO_JOGOS_DIA: z.string().default('09:00'),
+  HORARIO_BOM_DIA: z.string().default('09:00'),
+  // Quantas horas antes do 1o jogo do dia disparar a chamada de palpites.
+  PALPITE_CALL_HORAS_ANTES: z.coerce.number().default(8),
+
+  // LLM (Ollama Cloud) — opcional, melhora compreensao de linguagem natural
+  // quando o parser regex falha. Se LLM_ENABLED=false, sistema continua
+  // funcional usando so regex/keywords.
+  LLM_ENABLED: z.preprocess(coerceBool, z.boolean()).default(true),
+  LLM_URL: z.string().default('https://ollama.com'),
+  LLM_API_KEY: z.string().default('dry-run-llm-key'),
+  LLM_MODEL: z.string().default('gpt-oss:20b'),
+  LLM_TIMEOUT_MS: z.coerce.number().default(5000),
 });
 
 export type Env = z.infer<typeof baseSchema>;
