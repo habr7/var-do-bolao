@@ -33,9 +33,13 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ---- Evolution API (WhatsApp via Baileys) ----
+  # ---- Evolution API v1.8.7 (WhatsApp via Baileys) ----
+  # Downgrade da v2.x. Versoes v2.x tem Baileys com versao do WhatsApp Web
+  # hardcoded ja obsoleta, causando loop close/connecting infinito.
+  # v1.8.7 foi a ultima estavel da serie v1; comunidade reportou que conecta
+  # sem o bug. Config bem diferente da v2 — env vars proprias.
   evolution:
-    image: atendai/evolution-api:v2.1.1
+    image: atendai/evolution-api:v1.8.7
     ports:
       - "8080:8080"
     environment:
@@ -44,42 +48,66 @@ services:
       - SERVER_URL=${EVOLUTION_SERVER_URL:-http://localhost:8080}
 
       # Auth
+      - AUTHENTICATION_TYPE=apikey
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      - AUTHENTICATION_JWT_EXPIRIN_IN=0
+      - AUTHENTICATION_JWT_SECRET=L=0YWt]b2w[WrFV1XmvKz#)E
 
-      # Persistencia em Postgres (mesmo cluster, banco "evolution")
-      - DATABASE_ENABLED=true
-      - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://varbolao:${POSTGRES_PASSWORD}@postgres:5432/evolution
-      - DATABASE_CONNECTION_CLIENT_NAME=evolution
-      - DATABASE_SAVE_DATA_INSTANCE=true
-      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
-      - DATABASE_SAVE_MESSAGE_UPDATE=true
-      - DATABASE_SAVE_DATA_CONTACTS=true
-      - DATABASE_SAVE_DATA_CHATS=true
+      # Persistencia das sessoes em arquivos (volume), sem DB externo
+      # (v1.x suporta MongoDB mas eh complicacao desnecessaria pra dev)
+      - DATABASE_ENABLED=false
+      - STORE_MESSAGES=true
+      - STORE_MESSAGE_UP=true
+      - STORE_CONTACTS=true
+      - STORE_CHATS=true
 
-      # Cache em Redis
-      - CACHE_REDIS_ENABLED=true
-      - CACHE_REDIS_URI=redis://redis:6379/1
-      - CACHE_REDIS_PREFIX_KEY=evolution
-      - CACHE_LOCAL_ENABLED=false
+      # Redis (cache)
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379
+      - REDIS_PREFIX_KEY=evolution
 
-      # Webhook global aponta pra app — o handler decide o que fazer
+      # Webhook global aponta pro app — o handler do bot decide o que fazer
       - WEBHOOK_GLOBAL_ENABLED=true
-      - WEBHOOK_GLOBAL_URL=${WEBHOOK_GLOBAL_URL:-http://app:3000/webhook/whatsapp}
+      - WEBHOOK_GLOBAL_URL=${WEBHOOK_GLOBAL_URL:-http://host.docker.internal:3000/webhook/whatsapp}
       - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
-      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
-      - WEBHOOK_EVENTS_CONNECTION_UPDATE=true
+      - WEBHOOK_EVENTS_APPLICATION_STARTUP=false
       - WEBHOOK_EVENTS_QRCODE_UPDATED=true
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_MESSAGES_UPDATE=false
+      - WEBHOOK_EVENTS_SEND_MESSAGE=false
+      - WEBHOOK_EVENTS_CONTACTS_UPSERT=false
+      - WEBHOOK_EVENTS_CONTACTS_UPDATE=false
+      - WEBHOOK_EVENTS_PRESENCE_UPDATE=false
+      - WEBHOOK_EVENTS_CHATS_UPSERT=false
+      - WEBHOOK_EVENTS_CHATS_UPDATE=false
+      - WEBHOOK_EVENTS_CHATS_DELETE=false
+      - WEBHOOK_EVENTS_GROUPS_UPSERT=false
+      - WEBHOOK_EVENTS_GROUPS_UPDATE=false
+      - WEBHOOK_EVENTS_GROUP_PARTICIPANTS_UPDATE=false
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=true
+      - WEBHOOK_EVENTS_CALL=false
+      - WEBHOOK_EVENTS_NEW_JWT_TOKEN=false
+
+      # Config session
+      - CONFIG_SESSION_PHONE_CLIENT=VAR_do_Bolao
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+
+      # QR code
+      - QRCODE_LIMIT=30
+      - QRCODE_COLOR=#175197
 
       # Logs
-      - LOG_LEVEL=ERROR,WARN,INFO
+      - LOG_LEVEL=ERROR,WARN,INFO,LOG
       - LOG_COLOR=true
+      - LOG_BAILEYS=error
+
+      # Delete instance auto
+      - DEL_INSTANCE=false
     volumes:
       - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
@@ -112,3 +140,4 @@ volumes:
   postgres_data:
   redis_data:
   evolution_instances:
+  evolution_store:
