@@ -1,13 +1,12 @@
 import { env } from '../config/env.js';
 
 /**
- * Cliente HTTP para a Evolution API v1.8.x (Baileys-based).
+ * Cliente HTTP para a Evolution API v2.x (evoapicloud/evolution-api).
  *
  * Endpoints usados:
- *   POST {base}/message/sendText/{instance}   — texto, body { number, textMessage: { text } }
- *   POST {base}/message/sendMedia/{instance}  — imagem, body { number, mediaMessage: { mediatype, media, caption } }
- *   markAsRead: endpoint /chat/markMessageAsRead nao existe em v1.8.x.
- *               Implementado como no-op (best-effort, read receipts opcionais).
+ *   POST {base}/message/sendText/{instance}   — texto, body { number, text }
+ *   POST {base}/message/sendMedia/{instance}  — imagem, body { number, mediatype, media, caption }
+ *   POST {base}/chat/markMessageAsRead/{instance} — marca lida (best-effort)
  *
  * Auth: header `apikey: {EVOLUTION_API_KEY}`.
  *
@@ -17,6 +16,9 @@ import { env } from '../config/env.js';
  * Nota sobre formato `to`: aceita string opaca — pode ser digits puros
  * ("5511999999999"), jid completo ("5511...@s.whatsapp.net") ou
  * LinkedID ("198...@lid"). Baileys/Evolution normaliza.
+ *
+ * Se voltar pra Evolution v1.8.x: usar formato comentado em cada metodo
+ * abaixo (envelopa em textMessage/mediaMessage; markAsRead vira no-op).
  */
 
 interface SendTextInput {
@@ -108,12 +110,17 @@ export async function sendText({ to, text }: SendTextInput) {
     return { dryRun: true };
   }
 
-  // Evolution v1.8.x usa formato { number, textMessage: { text } }.
-  // A v2.x mudou para { number, text } direto.
+  // Formato Evolution v2.x (evoapicloud/evolution-api:latest)
   return evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
     number: to,
-    textMessage: { text },
+    text,
   });
+
+  // FALLBACK v1.8.x — descomentar (e comentar acima) se voltar pra v1:
+  // return evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
+  //   number: to,
+  //   textMessage: { text },
+  // });
 }
 
 export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
@@ -122,15 +129,23 @@ export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
     return { dryRun: true };
   }
 
-  // Evolution v1.8.x: { number, mediaMessage: { mediatype, media, caption } }.
+  // Formato Evolution v2.x (evoapicloud/evolution-api:latest)
   return evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {
     number: to,
-    mediaMessage: {
-      mediatype: 'image',
-      media: imageUrl,
-      caption: caption ?? '',
-    },
+    mediatype: 'image',
+    media: imageUrl,
+    caption: caption ?? '',
   });
+
+  // FALLBACK v1.8.x — descomentar (e comentar acima) se voltar pra v1:
+  // return evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {
+  //   number: to,
+  //   mediaMessage: {
+  //     mediatype: 'image',
+  //     media: imageUrl,
+  //     caption: caption ?? '',
+  //   },
+  // });
 }
 
 /**
@@ -142,12 +157,19 @@ export async function sendImageById({ to, mediaId, caption }: SendImageByIdInput
   return sendImage({ to, imageUrl: mediaId, caption });
 }
 
-export async function markAsRead(_messageId: string, _remoteJid?: string) {
-  // Evolution v1.8.x nao expoe endpoint /chat/markMessageAsRead (retorna 404).
-  // Read receipts sao puramente cosmetico — viraram no-op.
-  // Se subir para v2.x no futuro, restaurar a chamada original.
+export async function markAsRead(messageId: string, remoteJid?: string) {
   if (env.DRY_RUN_WHATSAPP) return { dryRun: true };
-  return undefined;
+  if (!remoteJid) return;
+
+  // Evolution v2.x expoe /chat/markMessageAsRead/{instance}.
+  // (v1.8.x retornava 404 — se voltar pra v1, virar no-op.)
+  try {
+    await evoFetch(`/chat/markMessageAsRead/${env.EVOLUTION_INSTANCE}`, {
+      readMessages: [{ remoteJid, fromMe: false, id: messageId }],
+    });
+  } catch (error) {
+    console.warn('⚠️  Falha ao marcar como lida:', (error as Error).message);
+  }
 }
 
 /**
