@@ -20,6 +20,7 @@ yarn-debug.log*
 .env.local
 .env.*.local
 !.env.example
+API Keys.txt
 
 # Editor / OS
 .DS_Store
