@@ -22,6 +22,7 @@ import { hashPassword, comparePassword, isValidPassword } from '../utils/passwor
 import { formatAjuda, formatRanking } from '../utils/formatting.js';
 import { confirmacao, naoEntendi, resultadoEmoji } from '../utils/football.terms.js';
 import { extrairCodigoBolao } from '../utils/bolao-codigo.js';
+import { detectarAcaoAdmin, type AdminAcao } from './admin.parser.js';
 
 export interface IncomingMessage {
   waId: string; // so digitos
@@ -80,7 +81,20 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleEscolhendoBolaoPalpites(msg, usuario.id, session);
       case 'CONFIRMANDO_VER_PALPITES':
         return await handleConfirmandoVerPalpites(msg, usuario.id, session);
+      case 'CONFIRMANDO_APROVAR_TODOS':
+        return await handleConfirmandoAprovarTodos(msg, usuario.id);
+      case 'CONFIRMANDO_RECUSAR_TODOS':
+        return await handleConfirmandoRecusarTodos(msg, usuario.id);
+      case 'CONFIRMANDO_RECUSAR_NOMEADO':
+        return await handleConfirmandoRecusarNomeado(msg, usuario.id, session);
     }
+
+    // IDLE — verifica primeiro se admin tem pendentes e a mensagem
+    // soa como acao de admin (aprovar/recusar em linguagem natural).
+    // So intercepta se nao reconheceu intencao explicita ou se a
+    // mensagem claramente eh resposta a aprovacao.
+    const acaoAdmin = await tentarAcaoAdminEmIdle(msg, usuario.id, parsed.intencao);
+    if (acaoAdmin) return;
 
     // IDLE — roteia pela intencao
     await handleIdle(msg, usuario.id, parsed.intencao, parsed.raw);
@@ -458,15 +472,25 @@ async function handleEntrandoSenha(msg: IncomingMessage, usuarioId: string, sess
       `Assim que ele aprovar, eu te aviso e você já começa a receber os jogos! 🏆`,
   });
 
-  // Notifica admin
-  await sendText({
-    to: bolao.admin.whatsappId,
-    text:
-      `🔔 *Novo pedido de entrada!*\n\n` +
-      `👤 ${solicitacao.usuario.nome} quer entrar no bolão *${bolao.nome}*.\n\n` +
-      `Pra aprovar: *!aprovar ${solicitacao.usuario.nome}*\n` +
-      `Pra recusar: *!recusar ${solicitacao.usuario.nome}*`,
-  });
+  // Notifica admin com instrucoes em linguagem natural. Se ele ja tem
+  // varios pendentes, adiciona dica do "aprovar todos".
+  const totalPendentes = await solicitacaoService.contarPendentesDoAdmin(bolao.adminId);
+
+  let textoAdmin =
+    `🔔 *Novo pedido de entrada!*\n\n` +
+    `👤 *${solicitacao.usuario.nome}* quer entrar no bolão *${bolao.nome}*.\n\n` +
+    `Responde com:\n` +
+    `• *aprovado* — pra liberar a entrada\n` +
+    `• *recusar* — pra rejeitar`;
+
+  if (totalPendentes >= 3) {
+    textoAdmin +=
+      `\n\n💡 _Você tem ${totalPendentes} pedidos pendentes acumulados. Pode mandar *aprovar todos* pra liberar todo mundo de uma vez, ou me dizer só os nomes que quer recusar._`;
+  } else if (totalPendentes > 1) {
+    textoAdmin += `\n\n_(Você tem ${totalPendentes} pedidos pendentes no total. Manda *!pendentes* pra ver a lista.)_`;
+  }
+
+  await sendText({ to: bolao.admin.whatsappId, text: textoAdmin });
 }
 
 // ============================================================
@@ -659,19 +683,31 @@ async function handlePendentes(msg: IncomingMessage, usuarioId: string) {
     .map((p) => `• ${p.usuario.nome} → ${p.bolao.nome}`)
     .join('\n');
 
-  await sendText({
-    to: msg.waId,
-    text: `📋 *Pedidos pendentes:*\n\n${lista}\n\nUse *!aprovar NOME* ou *!recusar NOME*`,
-  });
+  let resposta = `📋 *Pedidos pendentes:*\n\n${lista}\n\n`;
+  if (pendentes.length === 1) {
+    resposta +=
+      `Responde com *aprovado* pra liberar ou *recusar* pra rejeitar.`;
+  } else {
+    resposta +=
+      `Manda *aprovar todos* pra liberar todo mundo de uma vez,\n` +
+      `ou diz *aprovar NOME* / *recusar NOME* pra cada um.`;
+  }
+  await sendText({ to: msg.waId, text: resposta });
 }
 
 async function handleAprovar(msg: IncomingMessage, usuarioId: string, raw: string) {
-  const nome = raw.replace(/^!aprovar\s+/i, '').trim();
+  // Aceita formatos: "!aprovar NOME", "aprovar NOME", "aprovado NOME"
+  const nome = raw
+    .replace(/^!?\s*(?:aprovar|aprovado|aprovo|aprova)\s+/i, '')
+    .trim();
   if (!nome) {
-    await sendText({ to: msg.waId, text: '❌ Uso: *!aprovar NomeDoSolicitante*' });
+    await sendText({ to: msg.waId, text: '❌ Manda: *aprovar NomeDoSolicitante*' });
     return;
   }
+  await aprovarPorNome(msg, usuarioId, nome);
+}
 
+async function aprovarPorNome(msg: IncomingMessage, usuarioId: string, nome: string) {
   const pendente = await solicitacaoService.buscarPendentePorNome(usuarioId, nome);
   if (!pendente) {
     await sendText({ to: msg.waId, text: `❌ Não achei pedido pendente de "${nome}".` });
@@ -694,23 +730,327 @@ async function handleAprovar(msg: IncomingMessage, usuarioId: string, raw: strin
 async function handleRecusar(msg: IncomingMessage, usuarioId: string, raw: string) {
   const nome = raw.replace(/^!recusar\s+/i, '').trim();
   if (!nome) {
-    await sendText({ to: msg.waId, text: '❌ Uso: *!recusar NomeDoSolicitante*' });
+    await sendText({ to: msg.waId, text: '❌ Manda: *recusar NomeDoSolicitante*' });
     return;
   }
+  await pedirConfirmacaoRecusar(msg, usuarioId, nome);
+}
 
+/**
+ * Pede confirmacao antes de recusar — recusa eh irreversivel via UI atual,
+ * entao vale o sim/nao pra evitar acidente. Aprovar nao precisa confirmar
+ * porque eh o caminho feliz e o admin pode aprovar errado depois sem dano
+ * (mas recusar tira o cara do bolao silenciosamente).
+ */
+async function pedirConfirmacaoRecusar(
+  msg: IncomingMessage,
+  usuarioId: string,
+  nome: string,
+) {
   const pendente = await solicitacaoService.buscarPendentePorNome(usuarioId, nome);
   if (!pendente) {
     await sendText({ to: msg.waId, text: `❌ Não achei pedido pendente de "${nome}".` });
     return;
   }
 
-  await solicitacaoService.recusarSolicitacao(pendente.id, usuarioId);
-
-  await sendText({ to: msg.waId, text: `❌ Pedido de ${pendente.usuario.nome} recusado.` });
-  await sendText({
-    to: pendente.usuario.whatsappId,
-    text: `😕 Seu pedido pra entrar no bolão *${pendente.bolao.nome}* foi recusado.`,
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_RECUSAR_NOMEADO',
+    ctx: {
+      solicitacaoIdParaConfirmar: pendente.id,
+      nomeSolicitanteParaConfirmar: pendente.usuario.nome,
+      nomeBolaoSolicitacao: pendente.bolao.nome,
+    },
   });
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚠️ Vai recusar *${pendente.usuario.nome}* no bolão *${pendente.bolao.nome}*?\n\n` +
+      `_Responde *sim* pra confirmar ou *não* pra cancelar._`,
+  });
+}
+
+// ============================================================
+// Fluxo: AÇÃO DE ADMIN EM IDLE (linguagem natural)
+// ============================================================
+/**
+ * Roteia uma mensagem em IDLE quando o usuario tem pendentes:
+ *   - "aprovado fulano" → aprova direto
+ *   - "recusar fulano" → pede confirmacao
+ *   - "aprovar todos" → pede confirmacao em lote
+ *   - "aprovado" / "ok" / "sim" sem nome:
+ *       - se ha 1 pendente: aprova esse
+ *       - se ha varios: lista e instrui
+ *   - "recusar" / "nao" sem nome: idem mas pra recusa
+ *
+ * Retorna `true` se interceptou (entao caller nao processa o caminho IDLE
+ * normal). `false` significa "passa pra dispatcher de intencoes normal".
+ *
+ * Importante: o parser do admin so dispara se ja existem pendentes — pra
+ * "sim" / "ok" / "aprovado" nao virarem acoes fantasma quando o admin
+ * abriu uma conversa do nada.
+ */
+async function tentarAcaoAdminEmIdle(
+  msg: IncomingMessage,
+  usuarioId: string,
+  intencaoDetectada: Intencao,
+): Promise<boolean> {
+  // Otimizacao: contar pendentes evita query pesada quando nao tem nada
+  const totalPendentes = await solicitacaoService.contarPendentesDoAdmin(usuarioId);
+  if (totalPendentes === 0) return false;
+
+  // Se a mensagem ja foi reconhecida como intencao explicita do bot (criar
+  // bolao, ranking, etc), NAO interceptar — o admin pode querer outra coisa
+  // mesmo tendo pendentes. So intercepta TEXTO_LIVRE OU intencoes que se
+  // confundem com aprovacao (SAUDACAO/MENU geralmente nao confundem, mas
+  // SAUDACAO sim em casos tipo "tranquilo, libera").
+  const intencoesQueNaoCedem = new Set<Intencao>([
+    Intencao.CRIAR_BOLAO,
+    Intencao.ENTRAR_BOLAO,
+    Intencao.MEUS_BOLOES,
+    Intencao.RANKING,
+    Intencao.MEUS_PONTOS,
+    Intencao.MEU_PALPITE,
+    Intencao.JOGOS_HOJE,
+    Intencao.PROXIMOS_JOGOS,
+    Intencao.AJUDA,
+    Intencao.PENDENTES,
+    Intencao.PALPITE_INLINE,
+  ]);
+  if (intencoesQueNaoCedem.has(intencaoDetectada)) return false;
+
+  const acao = detectarAcaoAdmin(msg.text);
+  if (!acao) return false;
+
+  await despacharAcaoAdmin(msg, usuarioId, acao, totalPendentes);
+  return true;
+}
+
+async function despacharAcaoAdmin(
+  msg: IncomingMessage,
+  usuarioId: string,
+  acao: AdminAcao,
+  totalPendentes: number,
+): Promise<void> {
+  switch (acao.tipo) {
+    case 'APROVAR_TODOS':
+      await pedirConfirmacaoAprovarTodos(msg, totalPendentes);
+      return;
+
+    case 'RECUSAR_TODOS':
+      await pedirConfirmacaoRecusarTodos(msg, totalPendentes);
+      return;
+
+    case 'APROVAR_NOMEADO':
+      await aprovarPorNome(msg, usuarioId, acao.nome);
+      return;
+
+    case 'RECUSAR_NOMEADO':
+      await pedirConfirmacaoRecusar(msg, usuarioId, acao.nome);
+      return;
+
+    case 'AFIRMATIVO_GENERICO': {
+      if (totalPendentes === 1) {
+        const [unico] = await solicitacaoService.listarPendentesDoAdmin(usuarioId);
+        await aprovarPorNome(msg, usuarioId, unico.usuario.nome);
+        return;
+      }
+      // Multiplos pendentes — instrui
+      const pendentes = await solicitacaoService.listarPendentesDoAdmin(usuarioId);
+      const lista = pendentes
+        .map((p) => `• ${p.usuario.nome} → ${p.bolao.nome}`)
+        .join('\n');
+      await sendText({
+        to: msg.waId,
+        text:
+          `🤔 Você tem *${totalPendentes} pedidos pendentes*. De qual você quer aprovar?\n\n` +
+          `${lista}\n\n` +
+          `Pra liberar todo mundo de uma vez, manda *aprovar todos*.\n` +
+          `Pra um especifico: *aprovar NOME*.`,
+      });
+      return;
+    }
+
+    case 'NEGATIVO_GENERICO': {
+      if (totalPendentes === 1) {
+        const [unico] = await solicitacaoService.listarPendentesDoAdmin(usuarioId);
+        await pedirConfirmacaoRecusar(msg, usuarioId, unico.usuario.nome);
+        return;
+      }
+      const pendentes = await solicitacaoService.listarPendentesDoAdmin(usuarioId);
+      const lista = pendentes
+        .map((p) => `• ${p.usuario.nome} → ${p.bolao.nome}`)
+        .join('\n');
+      await sendText({
+        to: msg.waId,
+        text:
+          `🤔 Você tem *${totalPendentes} pedidos pendentes*. Qual você quer recusar?\n\n` +
+          `${lista}\n\n` +
+          `Manda *recusar NOME* (eu peço confirmação antes).`,
+      });
+      return;
+    }
+  }
+}
+
+async function pedirConfirmacaoAprovarTodos(msg: IncomingMessage, total: number) {
+  if (total === 0) {
+    await sendText({ to: msg.waId, text: '📭 Nenhum pedido pendente.' });
+    return;
+  }
+  await setSession(msg.waId, { state: 'CONFIRMANDO_APROVAR_TODOS', ctx: {} });
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚠️ Vai aprovar *${total}* pedido(s) de uma vez. Confirma?\n\n` +
+      `_Responde *sim* pra liberar todo mundo, ou *não* pra cancelar._`,
+  });
+}
+
+async function pedirConfirmacaoRecusarTodos(msg: IncomingMessage, total: number) {
+  if (total === 0) {
+    await sendText({ to: msg.waId, text: '📭 Nenhum pedido pendente.' });
+    return;
+  }
+  await setSession(msg.waId, { state: 'CONFIRMANDO_RECUSAR_TODOS', ctx: {} });
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚠️ Vai *recusar* todos os ${total} pedidos pendentes. Confirma?\n\n` +
+      `_Responde *sim* pra recusar todo mundo, ou *não* pra cancelar._`,
+  });
+}
+
+// ============================================================
+// Estados de confirmacao (admin)
+// ============================================================
+async function handleConfirmandoAprovarTodos(msg: IncomingMessage, usuarioId: string) {
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '👍 Beleza, cancelei. Nenhum pedido foi aprovado.' });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Manda *sim* pra confirmar a aprovação em lote, ou *não* pra cancelar.',
+    });
+    return;
+  }
+
+  await resetSession(msg.waId);
+  const aprovadas = await solicitacaoService.aprovarTodosPendentes(usuarioId);
+  if (aprovadas.length === 0) {
+    await sendText({ to: msg.waId, text: '📭 Nenhum pedido foi aprovado (lista vazia agora).' });
+    return;
+  }
+
+  // Notifica cada solicitante
+  await Promise.all(
+    aprovadas.map((sol) =>
+      sendText({
+        to: sol.usuario.whatsappId,
+        text: `🎉 Boa notícia! Você foi aprovado no bolão *${sol.bolao.nome}*! ⚽\n\nNos próximos jogos eu te mando direto aqui pra palpitar.`,
+      }).catch(() => undefined),
+    ),
+  );
+
+  const nomes = aprovadas.map((s) => `• ${s.usuario.nome} → ${s.bolao.nome}`).join('\n');
+  await sendText({
+    to: msg.waId,
+    text: `✅ Aprovados ${aprovadas.length} pedido(s):\n\n${nomes}`,
+  });
+}
+
+async function handleConfirmandoRecusarTodos(msg: IncomingMessage, usuarioId: string) {
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '👍 Beleza, cancelei. Nenhum pedido foi recusado.' });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Manda *sim* pra confirmar a recusa em lote, ou *não* pra cancelar.',
+    });
+    return;
+  }
+
+  await resetSession(msg.waId);
+  const recusadas = await solicitacaoService.recusarTodosPendentes(usuarioId);
+  if (recusadas.length === 0) {
+    await sendText({ to: msg.waId, text: '📭 Nenhum pedido foi recusado (lista vazia agora).' });
+    return;
+  }
+
+  await Promise.all(
+    recusadas.map((sol) =>
+      sendText({
+        to: sol.usuario.whatsappId,
+        text: `😕 Seu pedido pra entrar no bolão *${sol.bolao.nome}* foi recusado.`,
+      }).catch(() => undefined),
+    ),
+  );
+
+  const nomes = recusadas.map((s) => `• ${s.usuario.nome} → ${s.bolao.nome}`).join('\n');
+  await sendText({
+    to: msg.waId,
+    text: `❌ Recusados ${recusadas.length} pedido(s):\n\n${nomes}`,
+  });
+}
+
+async function handleConfirmandoRecusarNomeado(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const solicitacaoId = session.ctx?.solicitacaoIdParaConfirmar;
+  const nomeSolicitante = session.ctx?.nomeSolicitanteParaConfirmar;
+  const nomeBolao = session.ctx?.nomeBolaoSolicitacao;
+  if (!solicitacaoId || !nomeSolicitante) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *!pendentes* pra começar de novo.' });
+    return;
+  }
+
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `👍 Cancelei a recusa. *${nomeSolicitante}* segue pendente — pode mandar *aprovado* quando decidir.`,
+    });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Manda *sim* pra confirmar que vai recusar *${nomeSolicitante}*, ou *não* pra cancelar.`,
+    });
+    return;
+  }
+
+  await resetSession(msg.waId);
+  await solicitacaoService.recusarSolicitacao(solicitacaoId, usuarioId);
+
+  await sendText({
+    to: msg.waId,
+    text: `❌ Pedido de *${nomeSolicitante}* recusado${nomeBolao ? ` (bolão ${nomeBolao})` : ''}.`,
+  });
+
+  // Notifica o solicitante (best-effort: precisamos do whatsappId)
+  const sol = await prisma.solicitacaoEntrada.findUnique({
+    where: { id: solicitacaoId },
+    include: { usuario: true, bolao: true },
+  });
+  if (sol) {
+    await sendText({
+      to: sol.usuario.whatsappId,
+      text: `😕 Seu pedido pra entrar no bolão *${sol.bolao.nome}* foi recusado.`,
+    }).catch(() => undefined);
+  }
 }
 
 // ============================================================

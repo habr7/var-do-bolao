@@ -23,7 +23,11 @@ export type ConversaState =
   | 'PALPITANDO'
   | 'ESCOLHENDO_BOLAO_RANKING'
   | 'ESCOLHENDO_BOLAO_PALPITES'
-  | 'CONFIRMANDO_VER_PALPITES';
+  | 'CONFIRMANDO_VER_PALPITES'
+  // Estados do fluxo admin (aprovacao em DM natural)
+  | 'CONFIRMANDO_APROVAR_TODOS'
+  | 'CONFIRMANDO_RECUSAR_TODOS'
+  | 'CONFIRMANDO_RECUSAR_NOMEADO';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -40,6 +44,10 @@ export interface ConversaContext {
   // Lista de bolaoes possiveis quando o usuario precisa escolher
   // (estados ESCOLHENDO_BOLAO_*).
   boloesParaEscolher?: BolaoParaEscolher[];
+  // Fluxo admin de aprovacao em DM natural
+  solicitacaoIdParaConfirmar?: string;
+  nomeSolicitanteParaConfirmar?: string;
+  nomeBolaoSolicitacao?: string;
 }
 
 export interface Session {

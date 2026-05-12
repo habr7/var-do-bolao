@@ -59,10 +59,106 @@ export async function recusarSolicitacao(solicitacaoId: string, adminId: string)
 /**
  * Aprovar/recusar pelo NOME do solicitante (fluxo do admin via DM):
  * busca a solicitacao pendente mais recente do admin cujo usuario bata.
+ *
+ * Match eh tolerante a acento, case e ordem das palavras (admin pode
+ * digitar "joao silva" pra um usuario chamado "João da Silva").
  */
 export async function buscarPendentePorNome(adminId: string, nomeParcial: string) {
   const pendentes = await repo.buscarPendentesPorAdmin(adminId);
-  const alvo = nomeParcial.toLowerCase().trim();
+  const alvo = normalize(nomeParcial);
+  if (!alvo) return null;
 
-  return pendentes.find((p) => p.usuario.nome.toLowerCase().includes(alvo)) ?? null;
+  // 1) Match exato normalizado (mais especifico)
+  const exato = pendentes.find((p) => normalize(p.usuario.nome) === alvo);
+  if (exato) return exato;
+
+  // 2) Substring nos dois sentidos (inclui ou eh incluido)
+  const subs = pendentes.find((p) => {
+    const n = normalize(p.usuario.nome);
+    return n.includes(alvo) || alvo.includes(n);
+  });
+  if (subs) return subs;
+
+  // 3) Match por sobreposicao de tokens (1+ palavra em comum)
+  const tokensAlvo = new Set(alvo.split(/\s+/).filter((t) => t.length >= 3));
+  if (tokensAlvo.size > 0) {
+    const candidatos = pendentes
+      .map((p) => {
+        const tokens = new Set(normalize(p.usuario.nome).split(/\s+/).filter((t) => t.length >= 3));
+        const overlap = [...tokensAlvo].filter((t) => tokens.has(t)).length;
+        return { p, overlap };
+      })
+      .filter((c) => c.overlap > 0)
+      .sort((a, b) => b.overlap - a.overlap);
+    if (candidatos.length > 0) return candidatos[0].p;
+  }
+
+  return null;
+}
+
+/**
+ * Aprova TODOS os pedidos pendentes do admin de uma vez (operacao em lote).
+ * Cria participacao + marca solicitacao como APROVADA em uma transacao
+ * por solicitacao — se uma falhar (ex: solicitacao corrida), as outras
+ * seguem. Retorna a lista de solicitacoes efetivamente aprovadas (com
+ * usuario + bolao incluidos) pra caller mandar notificacao.
+ */
+export async function aprovarTodosPendentes(adminId: string) {
+  const pendentes = await repo.buscarPendentesPorAdmin(adminId);
+  const aprovadas: typeof pendentes = [];
+
+  for (const sol of pendentes) {
+    try {
+      await prisma.$transaction([
+        prisma.participacao.upsert({
+          where: { usuarioId_bolaoId: { usuarioId: sol.usuarioId, bolaoId: sol.bolaoId } },
+          create: { usuarioId: sol.usuarioId, bolaoId: sol.bolaoId },
+          update: {},
+        }),
+        prisma.solicitacaoEntrada.update({
+          where: { id: sol.id },
+          data: { status: 'APROVADA', respondidoEm: new Date() },
+        }),
+      ]);
+      aprovadas.push(sol);
+    } catch (err) {
+      console.error(`[solicitacao] falha ao aprovar em lote ${sol.id}:`, (err as Error).message);
+    }
+  }
+
+  return aprovadas;
+}
+
+/**
+ * Recusa TODOS os pedidos pendentes do admin. Best-effort, igual ao
+ * aprovarTodos: se uma falhar, as demais continuam.
+ */
+export async function recusarTodosPendentes(adminId: string) {
+  const pendentes = await repo.buscarPendentesPorAdmin(adminId);
+  const recusadas: typeof pendentes = [];
+
+  for (const sol of pendentes) {
+    try {
+      await repo.atualizarStatus(sol.id, 'RECUSADA');
+      recusadas.push(sol);
+    } catch (err) {
+      console.error(`[solicitacao] falha ao recusar em lote ${sol.id}:`, (err as Error).message);
+    }
+  }
+
+  return recusadas;
+}
+
+export async function contarPendentesDoAdmin(adminId: string): Promise<number> {
+  return prisma.solicitacaoEntrada.count({
+    where: { status: 'PENDENTE', bolao: { adminId } },
+  });
+}
+
+function normalize(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
 }
