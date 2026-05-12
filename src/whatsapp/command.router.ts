@@ -21,6 +21,7 @@ import { prisma } from '../config/database.js';
 import { hashPassword, comparePassword, isValidPassword } from '../utils/password.js';
 import { formatAjuda, formatRanking } from '../utils/formatting.js';
 import { confirmacao, naoEntendi, resultadoEmoji } from '../utils/football.terms.js';
+import { extrairCodigoBolao } from '../utils/bolao-codigo.js';
 
 export interface IncomingMessage {
   waId: string; // so digitos
@@ -44,6 +45,18 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       await resetSession(msg.waId);
       await sendText({ to: msg.waId, text: '👍 Cancelado. O que quer fazer agora?\n\n' + menuTexto() });
       return;
+    }
+
+    // FAST-PATH: usuario colou a mensagem-convite ("quero entrar no bolão #K3MZ8P ...").
+    // Detecta o codigo independente do estado atual (so quando NAO esta no
+    // meio do fluxo de criar/palpitar — pra nao confundir senha com codigo).
+    const codigoNaMsg = extrairCodigoBolao(msg.text);
+    const podeAceitarCodigoAqui =
+      session.state === 'IDLE' ||
+      session.state === 'ENTRANDO_NOME';
+    if (codigoNaMsg && podeAceitarCodigoAqui) {
+      const handledByCodigo = await tentarEntrarPorCodigo(msg, usuario.id, codigoNaMsg);
+      if (handledByCodigo) return;
     }
 
     // Estados com entrada de texto livre (sem comando explicito): tratados primeiro
@@ -140,7 +153,9 @@ async function dispatchIntencao(
       await setSession(msg.waId, { state: 'ENTRANDO_NOME', ctx: {} });
       await sendText({
         to: msg.waId,
-        text: '🎯 Qual o nome do bolão que você quer entrar?',
+        text:
+          '🎯 Pra entrar, manda o *ID do bolão* (aquele tipo `#K3MZ8P` que o admin compartilhou).\n\n' +
+          '_Se não tiver o ID, pode mandar o nome — mas com ID é mais rápido e sem risco de errar de bolão._',
       });
       return true;
 
@@ -170,10 +185,8 @@ async function dispatchIntencao(
       return true;
 
     case Intencao.JOGOS_HOJE:
-      await sendText({
-        to: msg.waId,
-        text: '🚧 Em construção — em breve disponível!\n\n' + menuTexto(),
-      });
+    case Intencao.PROXIMOS_JOGOS:
+      await handleProximosJogos(msg, usuarioId);
       return true;
 
     case Intencao.PALPITE_INLINE:
@@ -244,15 +257,25 @@ async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, 
 
   await resetSession(msg.waId);
 
+  // Mensagem 1: confirmacao + explicacao do "convite encaminhavel".
   await sendText({
     to: msg.waId,
     text:
-      `🏆 Bolão *${bolao.nome}* criado com sucesso!\n` +
+      `🏆 Bolão *${bolao.nome}* criado, craque!\n` +
       `👑 Você é o admin.\n\n` +
-      `Compartilhe o *nome* e a *senha* do bolão com quem você quer convidar.\n` +
-      `Eles adicionam meu número, mandam *entrar em bolão* e informam nome + senha.\n` +
-      `Os pedidos chegam aqui pra você aprovar.\n\n` +
-      `Boa sorte, craque! ⚽`,
+      `🎟️ *ID do bolão:* \`#${bolao.codigo}\`\n` +
+      `🔒 *Senha:* (a que você acabou de definir)\n\n` +
+      `📨 Pra convidar gente, encaminha a mensagem abaixo. Quem mandar ela pro meu número entra direto no bolão certo, sem confusão de nome parecido. Depois você passa a senha pra cada um (em particular). 🤙`,
+  });
+
+  // Mensagem 2: convite pronto pra encaminhar (uma mensagem separada
+  // facilita "manter pressionado → encaminhar").
+  await sendText({
+    to: msg.waId,
+    text:
+      `Olá! Quero entrar no bolão *${bolao.nome}* 🏆\n` +
+      `ID: *#${bolao.codigo}*\n\n` +
+      `Manda esse texto pro número *${env.WHATSAPP_BUSINESS_NUMBER || 'do VAR do Bolão'}* — eu mesmo te coloco no bolão certo! ⚽`,
   });
 }
 
@@ -267,16 +290,95 @@ async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, 
 // }
 
 // ============================================================
+// Fast-path: usuario colou a mensagem-convite ("...#K3MZ8P...")
+// ============================================================
+/**
+ * Tenta entrar no bolao identificado pelo codigo curto. Eh chamado tanto
+ * a partir do estado IDLE (usuario encaminhou a mensagem do admin) quanto
+ * de ENTRANDO_NOME (usuario digitou o ID no fluxo normal).
+ *
+ * Retorna `true` se conseguiu identificar o bolao (entrou no fluxo de
+ * senha OU avisou que ja participa). Retorna `false` se o codigo nao
+ * casou com nenhum bolao ativo — nesse caso, caller deve seguir com o
+ * processamento normal (pode ser que o "codigo" detectado tenha sido
+ * falso positivo, tipo o usuario mandou "ABACAXI").
+ */
+async function tentarEntrarPorCodigo(
+  msg: IncomingMessage,
+  usuarioId: string,
+  codigo: string,
+): Promise<boolean> {
+  const bolao = await bolaoService.buscarBolaoAtivoPorCodigo(codigo);
+  if (!bolao) return false;
+
+  // Curto-circuito se ja participa ou eh admin (mesma logica do fluxo normal)
+  if (bolao.adminId === usuarioId) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `👑 Você é o admin do bolão *${bolao.nome}* — já faz parte!\n\n${menuTexto()}`,
+    });
+    return true;
+  }
+
+  const jaParticipa = await bolaoService.ehParticipante(usuarioId, bolao.id);
+  if (jaParticipa) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `✅ Você já está no bolão *${bolao.nome}*! Bom jogo!\n\n${menuTexto()}`,
+    });
+    return true;
+  }
+
+  const pendente = await prisma.solicitacaoEntrada.findFirst({
+    where: { usuarioId, bolaoId: bolao.id, status: 'PENDENTE' },
+  });
+  if (pendente) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `⏳ Seu pedido pra entrar no *${bolao.nome}* já foi enviado — esperando o admin aprovar.\n\n${menuTexto()}`,
+    });
+    return true;
+  }
+
+  // Pula direto pra senha — ja achou o bolao certo pelo codigo.
+  await setSession(msg.waId, {
+    state: 'ENTRANDO_SENHA',
+    ctx: { bolaoId: bolao.id, nomeBolao: bolao.nome },
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `🎯 Achei o bolão *${bolao.nome}* (\`#${bolao.codigo}\`).\n\n` +
+      `Manda a *senha* que o admin te passou pra eu confirmar sua entrada:`,
+  });
+  return true;
+}
+
+// ============================================================
 // Fluxo: ENTRAR EM BOLAO
 // ============================================================
 async function handleEntrandoNome(msg: IncomingMessage, usuarioId: string) {
-  const nome = msg.text.trim();
-  const bolao = await bolaoService.buscarBolaoAtivoPorNome(nome);
+  const texto = msg.text.trim();
+
+  // Tenta achar codigo primeiro (caminho preferido, sem ambiguidade).
+  // Se nada bater, cai pra busca por nome.
+  const codigo = extrairCodigoBolao(texto);
+  let bolao = codigo ? await bolaoService.buscarBolaoAtivoPorCodigo(codigo) : null;
+
+  if (!bolao) {
+    bolao = await bolaoService.buscarBolaoAtivoPorNome(texto);
+  }
+
   if (!bolao) {
     await resetSession(msg.waId);
     await sendText({
       to: msg.waId,
-      text: `❌ Bolão "${nome}" não encontrado.\n\n${menuTexto()}`,
+      text:
+        `❌ Não achei nenhum bolão com isso.\n\n` +
+        `Confere com o admin se o *ID* (formato \`#K3MZ8P\`) ou o nome estão certinhos e tenta de novo.\n\n${menuTexto()}`,
     });
     return;
   }
@@ -453,8 +555,15 @@ async function handleMeusBoloes(msg: IncomingMessage, usuarioId: string) {
 
   const lista = boloes
     .map((b) => {
-      const admin = b.adminId === usuarioId ? '👑 _admin_' : '';
-      return `• *${b.nome}* (${b.campeonatoNome}) ${admin}`;
+      const admin = b.adminId === usuarioId ? ' 👑 _admin_' : '';
+      // Mostra o codigo so quando o usuario eh admin — pra ele poder
+      // reenviar o convite. Pra participante o codigo nao agrega muito
+      // (ele ja esta dentro).
+      const idLinha =
+        b.adminId === usuarioId
+          ? `\n   _ID:_ \`#${b.codigo}\``
+          : '';
+      return `• *${b.nome}* (${b.campeonatoNome})${admin}${idLinha}`;
     })
     .join('\n');
 
@@ -601,6 +710,86 @@ async function handleRecusar(msg: IncomingMessage, usuarioId: string, raw: strin
   await sendText({
     to: pendente.usuario.whatsappId,
     text: `😕 Seu pedido pra entrar no bolão *${pendente.bolao.nome}* foi recusado.`,
+  });
+}
+
+// ============================================================
+// Fluxo: PROXIMOS JOGOS / JOGOS HOJE
+// ============================================================
+/**
+ * Lista os jogos pendentes que o usuario ainda nao palpitou, agregados
+ * pelos bolaes em que ele participa. Mostra ate ~10 proximos jogos por
+ * bolao pra nao estourar 4kb do WhatsApp. Se nao houver rodada aberta
+ * em lugar nenhum, explica que nao tem jogo aberto pra palpite agora.
+ */
+async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '📭 Você não participa de nenhum bolão ainda.\n\nPara entrar: *entrar em bolão*',
+    });
+    return;
+  }
+
+  const agora = new Date();
+  const partes: string[] = [];
+
+  for (const b of boloes) {
+    // Pega a rodada mais recente ABERTA pra esse bolao (caso geral em
+    // Copa: uma rodada so com varios jogos espalhados ao longo da fase).
+    const rodada = await prisma.rodada.findFirst({
+      where: { bolaoId: b.id, status: 'ABERTA' },
+      include: {
+        jogos: {
+          where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+          orderBy: { dataHora: 'asc' },
+          take: 10,
+        },
+      },
+    });
+
+    if (!rodada || rodada.jogos.length === 0) continue;
+
+    // Quais jogos o usuario ja palpitou?
+    const palpite = await prisma.palpite.findUnique({
+      where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
+      include: { jogos: true },
+    });
+    const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
+
+    const linhas = rodada.jogos.map((j) => {
+      const data = j.dataHora.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const marcado = palpitadosIds.has(j.id) ? '✅' : '⚪';
+      return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}`;
+    });
+
+    const faltam = rodada.jogos.filter((j) => !palpitadosIds.has(j.id)).length;
+    partes.push(
+      `🏆 *${b.nome}*\n` +
+      linhas.join('\n') +
+      (faltam > 0 ? `\n_Faltam *${faltam}* palpite(s) — manda no formato \`Time1 NxN Time2\` pra registrar._` : '\n_Todos os palpites desta rodada já estão registrados! 🍀_'),
+    );
+  }
+
+  if (partes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '⚽ Não tem rodada aberta com jogos pendentes nos seus bolões agora.\n\n' +
+        'Eu te aviso assim que abrir a próxima rodada pra palpite. 🍀',
+    });
+    return;
+  }
+
+  await sendText({
+    to: msg.waId,
+    text: `📅 *Próximos jogos:*\n\n${partes.join('\n\n')}\n\n_✅ = você já palpitou • ⚪ = falta palpitar_`,
   });
 }
 
@@ -761,9 +950,12 @@ function menuTexto(): string {
   return (
     '*O que você quer fazer?*\n\n' +
     '• *criar bolão* — crio um novo bolão (gratuito!)\n' +
-    '• *entrar em bolão* — entro num bolão existente\n' +
+    '• *entrar em bolão* — pode me mandar o ID (\\`#ABCD12\\`) ou o nome\n' +
     '• *meus bolões* — bolões que você participa\n' +
+    '• *próximos jogos* — o que ainda não palpitei\n' +
+    '• *meus palpites* — palpites que já dei e pontuação\n' +
     '• *ranking* — ranking de um bolão\n' +
-    '• *ajuda* — ver todos os comandos'
+    '• *ajuda* — ver todos os comandos\n\n' +
+    '_Pode falar comigo no zap mesmo — entendo perguntas como "quais meus palpites?", "tem jogo hoje?", "quanto fiz no Bolão da Firma?"_'
   );
 }

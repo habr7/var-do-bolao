@@ -111,6 +111,114 @@ describe('parseIntencao', () => {
       expect(parseIntencao('').intencao).toBe(Intencao.TEXTO_LIVRE);
     });
   });
+
+  describe('variantes naturais — MEU_PALPITE', () => {
+    it('"quais sao meus palpites?"', () => {
+      expect(parseIntencao('quais sao meus palpites?').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"quais são meus palpites" (com acento)', () => {
+      expect(parseIntencao('quais são meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"o que eu palpitei?"', () => {
+      expect(parseIntencao('o que eu palpitei?').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"o que chutei"', () => {
+      expect(parseIntencao('o que chutei').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"ver meus palpites"', () => {
+      expect(parseIntencao('ver meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+  });
+
+  describe('variantes naturais — PROXIMOS_JOGOS', () => {
+    it('"proximos jogos"', () => {
+      expect(parseIntencao('proximos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"próximos jogos" (com acento)', () => {
+      expect(parseIntencao('próximos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"quais ainda nao palpitei"', () => {
+      expect(parseIntencao('quais ainda nao palpitei').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"o que falta palpitar"', () => {
+      expect(parseIntencao('o que falta palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"quero palpitar"', () => {
+      expect(parseIntencao('quero palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"bora palpitar"', () => {
+      expect(parseIntencao('bora palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"jogos pendentes"', () => {
+      expect(parseIntencao('jogos pendentes').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+  });
+
+  describe('variantes naturais — MEUS_PONTOS', () => {
+    it('"quanto eu fiz"', () => {
+      expect(parseIntencao('quanto eu fiz').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"meu placar"', () => {
+      expect(parseIntencao('meu placar').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"estou em qual posicao"', () => {
+      expect(parseIntencao('estou em qual posicao').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+  });
+
+  describe('variantes naturais — CRIAR_BOLAO', () => {
+    it('"quero abrir um bolao"', () => {
+      expect(parseIntencao('quero abrir um bolao').intencao).toBe(Intencao.CRIAR_BOLAO);
+    });
+    it('"bora criar bolão"', () => {
+      expect(parseIntencao('bora criar bolão').intencao).toBe(Intencao.CRIAR_BOLAO);
+    });
+    it('"vamos montar um bolao"', () => {
+      expect(parseIntencao('vamos montar um bolao').intencao).toBe(Intencao.CRIAR_BOLAO);
+    });
+  });
+
+  describe('variantes naturais — ENTRAR_BOLAO', () => {
+    it('"quero participar"', () => {
+      expect(parseIntencao('quero participar').intencao).toBe(Intencao.ENTRAR_BOLAO);
+    });
+    it('"quero entrar num bolao"', () => {
+      expect(parseIntencao('quero entrar num bolao').intencao).toBe(Intencao.ENTRAR_BOLAO);
+    });
+    it('"quero jogar"', () => {
+      expect(parseIntencao('quero jogar').intencao).toBe(Intencao.ENTRAR_BOLAO);
+    });
+  });
+
+  describe('variantes naturais — MEUS_BOLOES', () => {
+    it('"quais sao meus boloes"', () => {
+      expect(parseIntencao('quais sao meus boloes').intencao).toBe(Intencao.MEUS_BOLOES);
+    });
+    it('"onde eu participo"', () => {
+      expect(parseIntencao('onde eu participo').intencao).toBe(Intencao.MEUS_BOLOES);
+    });
+  });
+
+  describe('variantes naturais — RANKING', () => {
+    it('"classificacao"', () => {
+      expect(parseIntencao('classificacao').intencao).toBe(Intencao.RANKING);
+    });
+    it('"quem ta na frente"', () => {
+      expect(parseIntencao('quem ta na frente').intencao).toBe(Intencao.RANKING);
+    });
+  });
+
+  describe('variantes naturais — JOGOS_HOJE', () => {
+    it('"tem jogo hoje?"', () => {
+      expect(parseIntencao('tem jogo hoje?').intencao).toBe(Intencao.JOGOS_HOJE);
+    });
+    it('"o que tem hoje"', () => {
+      expect(parseIntencao('o que tem hoje').intencao).toBe(Intencao.JOGOS_HOJE);
+    });
+    it('"agenda"', () => {
+      expect(parseIntencao('agenda').intencao).toBe(Intencao.JOGOS_HOJE);
+    });
+  });
 });
 
 describe('parseMultiplePalpites', () => {

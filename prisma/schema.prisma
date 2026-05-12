@@ -32,6 +32,11 @@ model Usuario {
 // ============================================
 model Bolao {
   id              String      @id @default(uuid())
+  // Codigo curto publico (6 chars alfanum sem chars confundiveis: ex: "K3MZ8P").
+  // Usado pra entrar no bolao sem ambiguidade ("nomes parecidos" risco zero).
+  // O usuario manda "entrar #K3MZ8P" ou cola a mensagem-convite gerada na
+  // criacao, e o bot identifica o bolao certo. Unique globalmente.
+  codigo          String      @unique
   nome            String // Nome visivel ("Bolao da Firma")
   senhaHash       String // bcrypt hash da senha que participantes usam pra entrar
   adminId         String // Usuario criador

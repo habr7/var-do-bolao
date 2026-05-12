@@ -2,8 +2,12 @@ import { prisma } from '../../config/database.js';
 import type { CriarBolaoInput } from './bolao.types.js';
 
 export async function criarBolao(input: CriarBolaoInput) {
+  if (!input.codigo) {
+    throw new Error('codigo obrigatorio — service deve gerar antes de criar');
+  }
   return prisma.bolao.create({
     data: {
+      codigo: input.codigo,
       nome: input.nome,
       senhaHash: input.senhaHash,
       adminId: input.adminId,
@@ -11,6 +15,16 @@ export async function criarBolao(input: CriarBolaoInput) {
       campeonatoId: input.campeonatoId,
       campeonatoNome: input.campeonatoNome,
     },
+    include: { admin: true },
+  });
+}
+
+/**
+ * Busca bolao ATIVO pelo codigo curto. Codigo eh sempre upper.
+ */
+export async function buscarBolaoAtivoPorCodigo(codigo: string) {
+  return prisma.bolao.findFirst({
+    where: { codigo: codigo.toUpperCase(), status: 'ATIVO' },
     include: { admin: true },
   });
 }

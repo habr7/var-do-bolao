@@ -4,6 +4,7 @@ import * as bolaoRepo from './bolao.repository.js';
 import * as rodadaRepo from '../rodada/rodada.repository.js';
 import { buscarJogosParaRodada } from '../resultado/resultado.service.js';
 import type { CriarBolaoInput } from './bolao.types.js';
+import { gerarCodigoBolao } from '../../utils/bolao-codigo.js';
 
 export async function criarBolao(input: CriarBolaoInput) {
   // Defensive check global (case-insensitive) contra duplicidade — alem
@@ -19,8 +20,13 @@ export async function criarBolao(input: CriarBolaoInput) {
     throw new Error(`Ja existe um bolao ativo chamado "${input.nome}". Escolhe outro nome.`);
   }
 
+  // Gera codigo curto unico. Tenta ate 8x — colisao em alfabeto de 30^6
+  // (~729M) eh extremamente improvavel pra qualquer escala razoavel, mas
+  // o retry blinda contra o caso teorico.
+  const codigo = await gerarCodigoUnico();
+
   // Admin participa automaticamente do proprio bolao
-  const bolao = await bolaoRepo.criarBolao(input);
+  const bolao = await bolaoRepo.criarBolao({ ...input, codigo });
 
   await prisma.participacao.create({
     data: { bolaoId: bolao.id, usuarioId: input.adminId },
@@ -82,6 +88,29 @@ export async function compararSenha(plain: string, hash: string): Promise<boolea
 
 export async function buscarBolaoAtivoPorNome(nome: string) {
   return bolaoRepo.buscarBolaoAtivoPorNome(nome);
+}
+
+export async function buscarBolaoAtivoPorCodigo(codigo: string) {
+  return bolaoRepo.buscarBolaoAtivoPorCodigo(codigo);
+}
+
+/**
+ * Gera codigo curto unico (nao colidente com nenhum bolao existente).
+ * Tenta ate 8x com codigo de 6 chars; se ainda colidir, sobe pra 7 chars.
+ */
+async function gerarCodigoUnico(): Promise<string> {
+  for (let i = 0; i < 8; i++) {
+    const candidato = gerarCodigoBolao(6);
+    const existe = await prisma.bolao.findUnique({ where: { codigo: candidato } });
+    if (!existe) return candidato;
+  }
+  // Fallback ultra-improvavel — sobe pra 7 chars
+  for (let i = 0; i < 4; i++) {
+    const candidato = gerarCodigoBolao(7);
+    const existe = await prisma.bolao.findUnique({ where: { codigo: candidato } });
+    if (!existe) return candidato;
+  }
+  throw new Error('nao consegui gerar codigo unico — tente novamente');
 }
 
 export async function listarBoloesDoUsuario(usuarioId: string) {

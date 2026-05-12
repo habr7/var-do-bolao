@@ -1,4 +1,7 @@
 export interface CriarBolaoInput {
+  // Codigo curto unico (6 chars). Gerado no service — caller nao precisa
+  // passar; mantido como opcional aqui pro service que controla a unicidade.
+  codigo?: string;
   nome: string;
   senhaHash: string;
   adminId: string;

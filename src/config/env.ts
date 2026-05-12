@@ -56,6 +56,10 @@ const baseSchema = z.object({
   HORARIO_BOM_DIA: z.string().default('09:00'),
   // Quantas horas antes do 1o jogo do dia disparar a chamada de palpites.
   PALPITE_CALL_HORAS_ANTES: z.coerce.number().default(6),
+  // Numero do bot em formato amigavel ("+55 11 97827-7516") — usado nas
+  // mensagens-convite que o admin encaminha pros convidados. Opcional;
+  // se vazio, a mensagem usa "do VAR do Bolão" como fallback.
+  WHATSAPP_BUSINESS_NUMBER: z.string().default(''),
 
   // LLM (Ollama Cloud) — opcional, melhora compreensao de linguagem natural
   // quando o parser regex falha. Se LLM_ENABLED=false, sistema continua
