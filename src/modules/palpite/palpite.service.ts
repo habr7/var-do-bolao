@@ -77,3 +77,82 @@ function encontrarJogo<T extends { timeCasa: string; timeVisitante: string }>(
     return (jc.includes(normCasa) || normCasa.includes(jc)) && (jv.includes(normVis) || normVis.includes(jv));
   });
 }
+
+/**
+ * Busca em quais bolaes do usuario existe rodada ABERTA com o jogo
+ * informado (matching tolerante a acento/case/parcial). Retorna lista
+ * com bolaoId, rodadaId, jogoId, nomeBolao, nomeBolaoCodigo pra UI
+ * decidir o que fazer (auto-registrar se 1 so, perguntar se varios).
+ *
+ * Usado pelo fluxo de palpite inline em IDLE: usuario manda
+ * "Brasil 2x1 Marrocos" e queremos achar onde registrar.
+ */
+export async function buscarBoloesComJogo(
+  usuarioId: string,
+  timeCasa: string,
+  timeVisitante: string,
+): Promise<Array<{
+  bolaoId: string;
+  bolaoNome: string;
+  bolaoCodigo: string;
+  rodadaId: string;
+  rodadaNumero: number;
+  jogoId: string;
+  jogoTimeCasa: string;
+  jogoTimeVisitante: string;
+}>> {
+  // Pega bolaes em que usuario participa (admin OU participante)
+  const participacoes = await prisma.participacao.findMany({
+    where: { usuarioId },
+    select: { bolaoId: true },
+  });
+  const adminados = await prisma.bolao.findMany({
+    where: { adminId: usuarioId, status: 'ATIVO' },
+    select: { id: true },
+  });
+
+  const bolaoIds = new Set<string>([
+    ...participacoes.map((p) => p.bolaoId),
+    ...adminados.map((a) => a.id),
+  ]);
+  if (bolaoIds.size === 0) return [];
+
+  // Rodadas ABERTAS desses bolaes, com jogos AGENDADO/AO_VIVO
+  const rodadas = await prisma.rodada.findMany({
+    where: {
+      bolaoId: { in: [...bolaoIds] },
+      status: 'ABERTA',
+    },
+    include: {
+      bolao: true,
+      jogos: {
+        where: { status: { in: ['AGENDADO', 'AO_VIVO'] } },
+      },
+    },
+  });
+
+  const resultado: Array<ReturnType<typeof buildItem>> = [];
+  for (const rodada of rodadas) {
+    const jogo = encontrarJogo(rodada.jogos, timeCasa, timeVisitante);
+    if (jogo) {
+      resultado.push(buildItem(rodada, jogo));
+    }
+  }
+  return resultado;
+}
+
+function buildItem(
+  rodada: { id: string; numero: number; bolao: { id: string; nome: string; codigo: string } },
+  jogo: { id: string; timeCasa: string; timeVisitante: string },
+) {
+  return {
+    bolaoId: rodada.bolao.id,
+    bolaoNome: rodada.bolao.nome,
+    bolaoCodigo: rodada.bolao.codigo,
+    rodadaId: rodada.id,
+    rodadaNumero: rodada.numero,
+    jogoId: jogo.id,
+    jogoTimeCasa: jogo.timeCasa,
+    jogoTimeVisitante: jogo.timeVisitante,
+  };
+}

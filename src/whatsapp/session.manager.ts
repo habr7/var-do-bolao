@@ -27,7 +27,18 @@ export type ConversaState =
   // Estados do fluxo admin (aprovacao em DM natural)
   | 'CONFIRMANDO_APROVAR_TODOS'
   | 'CONFIRMANDO_RECUSAR_TODOS'
-  | 'CONFIRMANDO_RECUSAR_NOMEADO';
+  | 'CONFIRMANDO_RECUSAR_NOMEADO'
+  // Estados de palpite inline (quando usuario manda palpite em IDLE e
+  // o jogo existe em multiplos bolaes — bot pergunta qual)
+  | 'ESCOLHENDO_BOLAO_PALPITE_INLINE'
+  // Como convidar — usuario tem varios bolaes admin, escolhe qual
+  | 'ESCOLHENDO_BOLAO_CONVITE'
+  // Sair do bolao — pede confirmacao
+  | 'CONFIRMANDO_SAIR_BOLAO'
+  // Escolher bolao quando ha varios pro fluxo "sair"
+  | 'ESCOLHENDO_BOLAO_SAIR'
+  // Escolher bolao quando ha varios pro fluxo "quem participa"
+  | 'ESCOLHENDO_BOLAO_PARTICIPANTES';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -48,6 +59,14 @@ export interface ConversaContext {
   solicitacaoIdParaConfirmar?: string;
   nomeSolicitanteParaConfirmar?: string;
   nomeBolaoSolicitacao?: string;
+  // Palpite inline ambiguo: usuario mandou palpite, jogo existe em
+  // multiplos bolaes — bot pergunta qual bolao registrar
+  palpiteInlinePendente?: {
+    timeCasa: string;
+    timeVisitante: string;
+    golsCasa: number;
+    golsVisitante: number;
+  };
 }
 
 export interface Session {
@@ -95,4 +114,31 @@ export async function updateSession(
 
 export async function resetSession(waId: string): Promise<void> {
   await redis.del(key(waId));
+}
+
+/**
+ * "Janela de palpite livre" — quando o bot mostra a lista de jogos
+ * (handler PROXIMOS_JOGOS), marca em Redis com TTL curto que esse
+ * usuario provavelmente vai mandar palpites nos proximos minutos.
+ *
+ * No proximo turno em IDLE, o router checa essa flag pra rodar o LLM
+ * extrator de palpite (`extrairPalpites`) mesmo que o regex nao tenha
+ * casado — cobre coisas como "2 a zero pra Africa" ou "1 a 1 Coreia".
+ *
+ * TTL curto (5min) pra nao confundir mensagens que cheguem horas depois.
+ */
+const PALPITE_WINDOW_PREFIX = 'palpite_window:';
+const PALPITE_WINDOW_TTL_SECONDS = 5 * 60;
+
+export async function abrirJanelaPalpiteLivre(waId: string): Promise<void> {
+  await redis.setex(`${PALPITE_WINDOW_PREFIX}${waId}`, PALPITE_WINDOW_TTL_SECONDS, '1');
+}
+
+export async function janelaPalpiteLivreAtiva(waId: string): Promise<boolean> {
+  const v = await redis.get(`${PALPITE_WINDOW_PREFIX}${waId}`);
+  return v === '1';
+}
+
+export async function fecharJanelaPalpiteLivre(waId: string): Promise<void> {
+  await redis.del(`${PALPITE_WINDOW_PREFIX}${waId}`);
 }

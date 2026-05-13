@@ -219,6 +219,126 @@ describe('parseIntencao', () => {
       expect(parseIntencao('agenda').intencao).toBe(Intencao.JOGOS_HOJE);
     });
   });
+
+  describe('PROXIMOS_JOGOS — ordem invertida (Bug 4)', () => {
+    it('"quais os jogos próximos?"', () => {
+      expect(parseIntencao('quais os jogos próximos?').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"jogos proximos"', () => {
+      expect(parseIntencao('jogos proximos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"lista de jogos"', () => {
+      expect(parseIntencao('lista de jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"me mostra os jogos"', () => {
+      expect(parseIntencao('me mostra os jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+  });
+
+  describe('saudacao prefixada (P11)', () => {
+    it('"oi, quais os proximos jogos?" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('oi, quais os proximos jogos?').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"opa bolão!!! quais os próximos jogos?" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('opa bolão!!! quais os próximos jogos?').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"oi, ranking" → RANKING', () => {
+      expect(parseIntencao('oi, ranking').intencao).toBe(Intencao.RANKING);
+    });
+    it('"oi" sozinho continua SAUDACAO', () => {
+      expect(parseIntencao('oi').intencao).toBe(Intencao.SAUDACAO);
+    });
+  });
+
+  describe('ABRIR_RODADA', () => {
+    it('"abrir rodada"', () => {
+      expect(parseIntencao('abrir rodada').intencao).toBe(Intencao.ABRIR_RODADA);
+    });
+    it('"abrir rodada para palpites"', () => {
+      expect(parseIntencao('abrir rodada para palpites').intencao).toBe(Intencao.ABRIR_RODADA);
+    });
+    it('"iniciar rodada"', () => {
+      expect(parseIntencao('iniciar rodada').intencao).toBe(Intencao.ABRIR_RODADA);
+    });
+    it('"como inicio a rodada?"', () => {
+      expect(parseIntencao('como inicio a rodada?').intencao).toBe(Intencao.ABRIR_RODADA);
+    });
+  });
+
+  describe('COMO_CONVIDAR', () => {
+    it('"como convido pessoas?"', () => {
+      expect(parseIntencao('como convido pessoas?').intencao).toBe(Intencao.COMO_CONVIDAR);
+    });
+    it('"como compartilho o bolão"', () => {
+      expect(parseIntencao('como compartilho o bolão').intencao).toBe(Intencao.COMO_CONVIDAR);
+    });
+    it('"convidar pessoas pro Bolao da Jeni"', () => {
+      expect(parseIntencao('convidar pessoas pro Bolao da Jeni').intencao).toBe(Intencao.COMO_CONVIDAR);
+    });
+    it('"quero convidar amigos"', () => {
+      expect(parseIntencao('quero convidar amigos').intencao).toBe(Intencao.COMO_CONVIDAR);
+    });
+    it('"mandar convite"', () => {
+      expect(parseIntencao('mandar convite').intencao).toBe(Intencao.COMO_CONVIDAR);
+    });
+  });
+
+  describe('SAIR_BOLAO', () => {
+    it('"sair do bolão"', () => {
+      expect(parseIntencao('sair do bolão').intencao).toBe(Intencao.SAIR_BOLAO);
+    });
+    it('"quero sair"', () => {
+      expect(parseIntencao('quero sair').intencao).toBe(Intencao.SAIR_BOLAO);
+    });
+    it('"me remove"', () => {
+      expect(parseIntencao('me remove').intencao).toBe(Intencao.SAIR_BOLAO);
+    });
+  });
+
+  describe('QUEM_PARTICIPA', () => {
+    it('"quem participa"', () => {
+      expect(parseIntencao('quem participa').intencao).toBe(Intencao.QUEM_PARTICIPA);
+    });
+    it('"quem ta no bolão"', () => {
+      expect(parseIntencao('quem ta no bolão').intencao).toBe(Intencao.QUEM_PARTICIPA);
+    });
+    it('"lista de participantes"', () => {
+      expect(parseIntencao('lista de participantes').intencao).toBe(Intencao.QUEM_PARTICIPA);
+    });
+  });
+
+  describe('Palpite inline — variantes de placar (Bug 5a, P1, P2, P3)', () => {
+    it('"Brasil 2x1 Marrocos" (canonico)', () => {
+      const r = parseIntencao('Brasil 2x1 Marrocos');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite).toMatchObject({ timeCasa: 'Brasil', golsCasa: 2, golsVisitante: 1, timeVisitante: 'Marrocos' });
+    });
+    it('"Brasil 2 a 1 Marrocos"', () => {
+      const r = parseIntencao('Brasil 2 a 1 Marrocos');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite).toMatchObject({ golsCasa: 2, golsVisitante: 1 });
+    });
+    it('"Brasil 2-1 Marrocos"', () => {
+      const r = parseIntencao('Brasil 2-1 Marrocos');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite).toMatchObject({ golsCasa: 2, golsVisitante: 1 });
+    });
+    it('"Brasil 2 por 1 Marrocos"', () => {
+      const r = parseIntencao('Brasil 2 por 1 Marrocos');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite).toMatchObject({ golsCasa: 2, golsVisitante: 1 });
+    });
+    it('"Brasil dois a um Marrocos" (extenso)', () => {
+      const r = parseIntencao('Brasil dois a um Marrocos');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite).toMatchObject({ golsCasa: 2, golsVisitante: 1 });
+    });
+    it('"México 1 x 2 África do Sul" (multipalavra)', () => {
+      const r = parseIntencao('México 1 x 2 África do Sul');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite?.timeVisitante).toContain('África');
+    });
+  });
 });
 
 describe('parseMultiplePalpites', () => {

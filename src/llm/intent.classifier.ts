@@ -27,6 +27,10 @@ const INTENCOES_VALIDAS = [
   Intencao.JOGOS_HOJE,
   Intencao.PROXIMOS_JOGOS,
   Intencao.MEU_PALPITE,
+  Intencao.ABRIR_RODADA,
+  Intencao.COMO_CONVIDAR,
+  Intencao.SAIR_BOLAO,
+  Intencao.QUEM_PARTICIPA,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
 ] as const;
@@ -48,6 +52,10 @@ INTENCOES:
 - JOGOS_HOJE: o que tem hoje. Ex: "tem jogo hoje?", "agenda", "que jogo vai rolar?".
 - PROXIMOS_JOGOS: jogos futuros, especialmente os que faltam palpite. Ex: "proximos jogos", "quais eu ainda nao palpitei?", "o que falta palpitar?", "quero palpitar", "bora palpitar nos jogos".
 - MEU_PALPITE: ver palpites JA dados. Ex: "meus palpites", "o que eu chutei?", "quais palpites dei?".
+- ABRIR_RODADA: admin quer abrir/iniciar uma rodada de palpites. Ex: "abrir rodada", "como inicio a rodada", "começar bolão", "abrir os palpites".
+- COMO_CONVIDAR: usuario (admin) quer saber como compartilhar o bolao com gente nova. Ex: "como convido pessoas", "manda o convite", "pegar o ID do bolão", "como chamo amigos pro bolão".
+- SAIR_BOLAO: usuario quer sair de um bolao. Ex: "sair do bolão", "não quero mais jogar", "me remove".
+- QUEM_PARTICIPA: listar quem esta em um bolao. Ex: "quem participa", "quem ta no bolão", "lista de participantes".
 - PENDENTES: admin perguntando solicitacoes pendentes de aprovacao. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.

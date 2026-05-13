@@ -25,6 +25,10 @@ export enum Intencao {
   JOGOS_HOJE = 'JOGOS_HOJE',
   PROXIMOS_JOGOS = 'PROXIMOS_JOGOS', // jogos que ainda nao rolaram + status de palpite
   MEU_PALPITE = 'MEU_PALPITE',
+  ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
+  COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
+  SAIR_BOLAO = 'SAIR_BOLAO',         // sair de um bolao
+  QUEM_PARTICIPA = 'QUEM_PARTICIPA', // listar participantes
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
@@ -52,7 +56,45 @@ export interface PalpiteInline {
   timeVisitante: string;
 }
 
-const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*[xX]\s*(\d+)\s+(.+)$/;
+// Aceita varios separadores entre os placares: x/X, " a ", " - ", " por ".
+// "x"/"X"/"-" podem vir colados ou com espacos; "a"/"por" exigem espacos
+// em volta pra nao casar com palavras (tipo "Acre"). Suporta:
+//   "Brasil 2x1 Marrocos"
+//   "Brasil 2 X 1 Marrocos"
+//   "Brasil 2-1 Marrocos"
+//   "Brasil 2 a 1 Marrocos"
+//   "Brasil 2 por 1 Marrocos"
+const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+)$/;
+
+// Mapa de numeros por extenso → digito. So 0-10 — placar maior que 10 eh
+// raro o suficiente pra forcar o usuario a digitar.
+const NUMEROS_EXTENSO: Record<string, string> = {
+  zero: '0',
+  um: '1', uma: '1',
+  dois: '2', duas: '2',
+  tres: '3',
+  quatro: '4',
+  cinco: '5',
+  seis: '6',
+  sete: '7',
+  oito: '8',
+  nove: '9',
+  dez: '10',
+};
+
+/**
+ * Substitui numeros por extenso por digitos. So toca palavras inteiras
+ * (\b...\b). Aplicado no texto NORMALIZADO (sem acento), entao trata
+ * "três" e "tres" igual.
+ */
+function substituirNumerosExtenso(textoNormalizado: string): string {
+  let resultado = textoNormalizado;
+  for (const [palavra, digito] of Object.entries(NUMEROS_EXTENSO)) {
+    const re = new RegExp(`\\b${palavra}\\b`, 'g');
+    resultado = resultado.replace(re, digito);
+  }
+  return resultado;
+}
 
 const SAUDACOES = new Set([
   'oi', 'ola', 'hey', 'e ai', 'eai', 'bom dia', 'boa tarde', 'boa noite',
@@ -88,9 +130,12 @@ const MEU_PALPITE_PATTERNS: RegExp[] = [
 ];
 
 // "Proximos jogos / quais jogos faltam / o que ainda nao palpitei"
+// Cobre tambem inversao "jogos proximos" e variantes com "qual/quais".
 const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   /\bproximos? jogos?\b/,
+  /\bjogos? proximos?\b/, // ordem invertida — Bug 4
   /\bquais (?:os )?proximos? jogos?\b/,
+  /\bquais (?:os )?jogos? proximos?\b/,
   /\bjogos? que (?:ainda )?(?:nao palpitei|faltam|tem)\b/,
   /\bo que (?:ainda )?(?:nao palpitei|falta palpitar)\b/,
   /\bquais (?:eu )?(?:ainda )?(?:nao palpitei|preciso palpitar)\b/,
@@ -98,6 +143,10 @@ const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   /\bfaltam quais? jogos?\b/,
   /\bquero palpitar\b/,
   /\bbora palpitar\b/,
+  /\blista (?:de )?jogos?\b/,
+  /\bme mostra os jogos?\b/,
+  /\bmostra(?:r)? os jogos?\b/,
+  /\bver os jogos?\b/,
 ];
 
 // "Jogos hoje / agenda"
@@ -158,8 +207,54 @@ const RANKING_PATTERNS: RegExp[] = [
   /\btabela do bol/,
 ];
 
+// "Abrir rodada / iniciar / começar bolao"
+const ABRIR_RODADA_PATTERNS: RegExp[] = [
+  /\babrir rodada\b/,
+  /\biniciar rodada\b/,
+  /\bcomec[aá]r rodada\b/,
+  /\bcomec[aá]r o bol(?:a|o)o\b/,
+  /\babre (?:os )?palpites?\b/,
+  /\babrir (?:os )?palpites?\b/,
+  /\biniciar (?:os )?palpites?\b/,
+  /\bcomo (?:eu )?(?:abro|inicio|comeco)( a)? rodada\b/,
+];
+
+// "Como convidar / compartilhar / chamar gente"
+const COMO_CONVIDAR_PATTERNS: RegExp[] = [
+  /\bcomo (?:eu )?(?:convido|compartilho|chamo)\b/,
+  /\bcomo (?:fac[oç]o pra )?(?:convidar|chamar)\b/,
+  /\bmandar (?:o )?convite\b/,
+  /\bpegar (?:o )?(?:convite|link|id)( do bol)?/,
+  /\bconvidar (?:pessoas?|gente|amigos?|galera)\b/,
+  /\bcomo (?:eu )?(?:adiciono|add) (?:gente|amigos?|pessoas?)\b/,
+  /\bquero (?:convidar|chamar) (?:gente|amigos?|pessoas?|galera)\b/,
+  /\bmensagem de convite\b/,
+];
+
+// "Sair do bolao / quero sair"
+const SAIR_BOLAO_PATTERNS: RegExp[] = [
+  /\bsair (?:de|do)? bol(?:a|o)o\b/,
+  /\bquero sair\b/,
+  /\bme (?:tira|remove)\b/,
+  /\bnao quero mais (?:jogar|participar)\b/,
+  /\bdesistir do bol(?:a|o)o\b/,
+];
+
+// "Quem participa / quem esta no bolao / lista do bolao"
+const QUEM_PARTICIPA_PATTERNS: RegExp[] = [
+  /\bquem (?:ta|esta) no bol(?:a|o)o\b/,
+  /\bquem participa\b/,
+  /\bquem (?:joga|esta jogando) no bol/,
+  /\blista (?:de )?(?:participantes?|gente|jogadores?)\b/,
+  /\bparticipantes do bol/,
+];
+
 const INTENT_RULES: IntentRules[] = [
-  // Ordem: mais especificos antes (palpite tem prioridade)
+  // Ordem: mais especificos antes
+  { intencao: Intencao.COMO_CONVIDAR, padroes: COMO_CONVIDAR_PATTERNS },
+  { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },
+  { intencao: Intencao.SAIR_BOLAO, padroes: SAIR_BOLAO_PATTERNS },
+  { intencao: Intencao.QUEM_PARTICIPA, padroes: QUEM_PARTICIPA_PATTERNS },
   { intencao: Intencao.MEU_PALPITE, padroes: MEU_PALPITE_PATTERNS },
   { intencao: Intencao.PROXIMOS_JOGOS, padroes: PROXIMOS_JOGOS_PATTERNS },
   { intencao: Intencao.MEUS_PONTOS, padroes: MEUS_PONTOS_PATTERNS },
@@ -187,14 +282,49 @@ function matchIntent(norm: string): Intencao | null {
   return null;
 }
 
+/**
+ * Remove saudações no início da mensagem ("oi bot, quais os próximos jogos?")
+ * pra desbloquear o matching das intents reais. Idempotente, não destrutivo:
+ * se após o strip sobrar string vazia, devolve o original.
+ */
+function stripSaudacao(textoNormalizado: string): string {
+  const SAUDACAO_PREFIX_REGEX =
+    /^(?:oi+e?\b|ola\b|hey\b|opa+\b|salve\b|fala\b|eaee?\b|bom dia\b|boa tarde\b|boa noite\b|iae?\b|opa bol(?:a|o)o\b|opa bot\b)\b[\s,!.;:]*/;
+  let resultado = textoNormalizado;
+  // pode ter encadeado: "oi, opa, fala" — aplica ate 3x
+  for (let i = 0; i < 3; i++) {
+    const novo = resultado.replace(SAUDACAO_PREFIX_REGEX, '').trim();
+    if (novo === resultado) break;
+    resultado = novo;
+  }
+  return resultado.length > 0 ? resultado : textoNormalizado;
+}
+
 export function parseIntencao(text: string): ParsedMessage {
   const raw = text.trim();
   const lower = raw.toLowerCase();
   const norm = normalize(raw);
 
-  // Saudacoes / menu (matching exato em palavras curtas)
-  if (SAUDACOES.has(norm) || norm.startsWith('oi ') || norm.startsWith('bom dia ') || norm.startsWith('boa tarde ') || norm.startsWith('boa noite ')) {
+  // Saudacao "sozinha" — matching exato
+  if (SAUDACOES.has(norm)) {
     return { intencao: Intencao.SAUDACAO, raw, args: [] };
+  }
+
+  // Saudacao SEGUIDA de outra intent ("oi, ranking", "opa bolao quais
+  // proximos jogos"): faz strip da saudacao e tenta matchIntent no resto.
+  const semSaudacao = stripSaudacao(norm);
+  if (semSaudacao !== norm && semSaudacao.length >= 3) {
+    const intentEmbutida = matchIntent(semSaudacao);
+    if (intentEmbutida) {
+      return { intencao: intentEmbutida, raw, args: [] };
+    }
+    // Se o resto nao casou intent conhecida, considera SAUDACAO pura
+    // pra manter UX amigavel (o classifier LLM ainda pode pegar depois
+    // se a frase for natural complexa).
+    if (norm.length <= semSaudacao.length + 10) {
+      // saudacao curta + texto curto sem match → SAUDACAO + texto pro user
+      return { intencao: Intencao.SAUDACAO, raw, args: [] };
+    }
   }
   if (MENU_WORDS.has(norm)) {
     return { intencao: Intencao.MENU, raw, args: [] };
@@ -260,20 +390,16 @@ export function parseIntencao(text: string): ParsedMessage {
     return { intencao: intentPorPadrao, raw, args: [] };
   }
 
-  // Palpite inline — "Flamengo 2x1 Palmeiras"
+  // Palpite inline — "Flamengo 2x1 Palmeiras", "Brasil 2 a 1 Marrocos",
+  // "Brasil dois a um Marrocos", etc.
   // (depois das intent rules, pra "quero palpitar" nao virar palpite_inline)
-  const palpiteMatch = raw.match(PALPITE_REGEX);
-  if (palpiteMatch) {
+  const palpite = tentarParsearPalpiteInline(raw);
+  if (palpite) {
     return {
       intencao: Intencao.PALPITE_INLINE,
       raw,
       args: [],
-      palpite: {
-        timeCasa: palpiteMatch[1].trim(),
-        golsCasa: parseInt(palpiteMatch[2], 10),
-        golsVisitante: parseInt(palpiteMatch[3], 10),
-        timeVisitante: palpiteMatch[4].trim(),
-      },
+      palpite,
     };
   }
 
@@ -281,6 +407,46 @@ export function parseIntencao(text: string): ParsedMessage {
   void lower;
 
   return { intencao: Intencao.TEXTO_LIVRE, raw, args: [] };
+}
+
+/**
+ * Tenta extrair palpite inline de uma linha. Estrategia:
+ *   1. Aplica regex no texto bruto (formato digitos).
+ *   2. Se falhar, pre-processa numeros por extenso ("dois a um" → "2 a 1")
+ *      e tenta de novo.
+ *
+ * Retorna `null` se nada bateu.
+ */
+function tentarParsearPalpiteInline(linha: string): PalpiteInline | null {
+  const direto = linha.match(PALPITE_REGEX);
+  if (direto) {
+    return {
+      timeCasa: direto[1].trim(),
+      golsCasa: parseInt(direto[2], 10),
+      golsVisitante: parseInt(direto[3], 10),
+      timeVisitante: direto[4].trim(),
+    };
+  }
+
+  // Substitui extenso no texto original (preserva case dos times)
+  // mas operando palavra a palavra de forma case-insensitive
+  const comDigitos = linha.replace(
+    /\b(zero|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\b/gi,
+    (m) => NUMEROS_EXTENSO[m.toLowerCase()] ?? m,
+  );
+  if (comDigitos !== linha) {
+    const segunda = comDigitos.match(PALPITE_REGEX);
+    if (segunda) {
+      return {
+        timeCasa: segunda[1].trim(),
+        golsCasa: parseInt(segunda[2], 10),
+        golsVisitante: parseInt(segunda[3], 10),
+        timeVisitante: segunda[4].trim(),
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -295,15 +461,11 @@ export function parseMultiplePalpites(text: string): PalpiteInline[] {
 
   const palpites: PalpiteInline[] = [];
   for (const line of lines) {
-    const m = line.match(PALPITE_REGEX);
-    if (m) {
-      palpites.push({
-        timeCasa: m[1].trim(),
-        golsCasa: parseInt(m[2], 10),
-        golsVisitante: parseInt(m[3], 10),
-        timeVisitante: m[4].trim(),
-      });
-    }
+    const p = tentarParsearPalpiteInline(line);
+    if (p) palpites.push(p);
   }
   return palpites;
 }
+
+// Suprime "imports usados apenas pelo regex"
+void substituirNumerosExtenso;
