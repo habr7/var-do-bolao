@@ -249,8 +249,21 @@ const QUEM_PARTICIPA_PATTERNS: RegExp[] = [
   /\bparticipantes do bol/,
 ];
 
+// "Pendentes / tem solicitacao / tem pedido pra aprovar"
+// (admin perguntando sobre solicitacoes pendentes — mais permissivo
+// pra nao cair em APROVAR_NOMEADO com nome=\"tem pedido\")
+const PENDENTES_PATTERNS: RegExp[] = [
+  /\btem (?:algum |alguma )?(?:pedido|solicita[cç][aã]o|aprova[cç][aã]o|gente|pessoa) (?:pra|para) aprovar\b/,
+  /\btem (?:algum |alguma )?(?:pedido|solicita[cç][aã]o)s? pendentes?\b/,
+  /\b(?:quais )?aprovac[oõ]es pendentes\b/,
+  /\b(?:quais )?pedidos? pendentes?\b/,
+  /\bquem (?:esta|ta) (?:esperando|aguardando) (?:aprova[cç][aã]o|pra entrar)\b/,
+  /\balguem (?:querendo|pedindo)(?: (?:pra|para))? entrar\b/,
+];
+
 const INTENT_RULES: IntentRules[] = [
   // Ordem: mais especificos antes
+  { intencao: Intencao.PENDENTES, padroes: PENDENTES_PATTERNS },
   { intencao: Intencao.COMO_CONVIDAR, padroes: COMO_CONVIDAR_PATTERNS },
   { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },
   { intencao: Intencao.SAIR_BOLAO, padroes: SAIR_BOLAO_PATTERNS },
@@ -393,7 +406,20 @@ export function parseIntencao(text: string): ParsedMessage {
   // Palpite inline — "Flamengo 2x1 Palmeiras", "Brasil 2 a 1 Marrocos",
   // "Brasil dois a um Marrocos", etc.
   // (depois das intent rules, pra "quero palpitar" nao virar palpite_inline)
-  const palpite = tentarParsearPalpiteInline(raw);
+  //
+  // Tenta 1) string toda; 2) se houver multiplas linhas, primeira linha
+  // que casa palpite (pra cobrir multi-palpite em IDLE — handler depois
+  // re-parseia com parseMultiplePalpites).
+  let palpite = tentarParsearPalpiteInline(raw);
+  if (!palpite && raw.includes('\n')) {
+    for (const linha of raw.split('\n').map((l) => l.trim()).filter(Boolean)) {
+      const p = tentarParsearPalpiteInline(linha);
+      if (p) {
+        palpite = p;
+        break;
+      }
+    }
+  }
   if (palpite) {
     return {
       intencao: Intencao.PALPITE_INLINE,

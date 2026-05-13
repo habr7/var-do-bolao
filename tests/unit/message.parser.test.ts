@@ -307,6 +307,30 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('PENDENTES coloquial (bug descoberto na simulacao)', () => {
+    it('"tem pedido pra aprovar?" → PENDENTES (nao APROVAR_NOMEADO)', () => {
+      expect(parseIntencao('tem pedido pra aprovar?').intencao).toBe(Intencao.PENDENTES);
+    });
+    it('"aprovações pendentes?" → PENDENTES', () => {
+      expect(parseIntencao('aprovações pendentes?').intencao).toBe(Intencao.PENDENTES);
+    });
+    it('"tem alguém querendo entrar" → PENDENTES', () => {
+      expect(parseIntencao('tem alguém querendo entrar').intencao).toBe(Intencao.PENDENTES);
+    });
+  });
+
+  describe('Multi-palpite em IDLE (bug descoberto na simulacao)', () => {
+    it('multilinha com placar valido em todas → PALPITE_INLINE', () => {
+      const r = parseIntencao('Brasil 2x1 Marrocos\nFrança 1x0 Argentina\nAlemanha 3x2 Espanha');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(r.palpite).toBeDefined();
+    });
+    it('multilinha com lixo + 1 palpite valido → PALPITE_INLINE', () => {
+      const r = parseIntencao('blablabla\nBrasil 2x1 Marrocos');
+      expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+    });
+  });
+
   describe('Palpite inline — variantes de placar (Bug 5a, P1, P2, P3)', () => {
     it('"Brasil 2x1 Marrocos" (canonico)', () => {
       const r = parseIntencao('Brasil 2x1 Marrocos');

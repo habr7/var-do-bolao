@@ -635,6 +635,14 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
  * - 0 matches: explica que nao achou.
  */
 async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string) {
+  // Caso multi-linha: tenta extrair varios palpites de uma vez. Cada
+  // linha vira uma busca por jogo aberto + registro.
+  const todosPalpites = parseMultiplePalpites(msg.text);
+  if (todosPalpites.length > 1) {
+    await handleMultiPalpiteInlineEmIdle(msg, usuarioId, todosPalpites);
+    return;
+  }
+
   const parsed = parseIntencao(msg.text);
   if (!parsed.palpite) {
     // Nao deveria cair aqui se intencao=PALPITE_INLINE, mas blindagem
@@ -685,6 +693,62 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
     text:
       `🤔 Esse jogo está aberto em mais de um bolão seu. Pra qual você quer registrar o palpite *${p.timeCasa} ${p.golsCasa}x${p.golsVisitante} ${p.timeVisitante}*?\n\n${lista}\n\n_(Manda o nome do bolão. Pra registrar em todos, manda *todos*.)_`,
   });
+}
+
+/**
+ * Multi-palpite em IDLE: usuario mandou varias linhas de palpite de uma
+ * vez (depois de "proximos jogos"). Pra cada palpite, busca em qual
+ * bolao registrar e tenta. Se acabar com ambiguidade em qualquer, avisa
+ * pra usuario refazer aquele especifico.
+ */
+async function handleMultiPalpiteInlineEmIdle(
+  msg: IncomingMessage,
+  usuarioId: string,
+  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }>,
+) {
+  let registrados = 0;
+  const erros: string[] = [];
+  const ambiguos: string[] = [];
+
+  for (const p of palpites) {
+    const matches = await palpiteService.buscarBoloesComJogo(
+      usuarioId,
+      p.timeCasa,
+      p.timeVisitante,
+    );
+    if (matches.length === 0) {
+      erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: jogo não encontrado em rodada aberta`);
+      continue;
+    }
+    if (matches.length > 1) {
+      ambiguos.push(`• ${p.timeCasa} x ${p.timeVisitante} (existe em ${matches.length} bolões)`);
+      continue;
+    }
+    const m = matches[0];
+    try {
+      await palpiteService.registrarPalpiteEmRodada({
+        usuarioId,
+        rodadaId: m.rodadaId,
+        timeCasa: m.jogoTimeCasa,
+        timeVisitante: m.jogoTimeVisitante,
+        golsCasa: p.golsCasa,
+        golsVisitante: p.golsVisitante,
+      });
+      registrados++;
+    } catch (err) {
+      erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
+    }
+  }
+
+  let resposta =
+    registrados > 0
+      ? `${confirmacao()} ${registrados} palpite(s) registrado(s)!`
+      : '⚠️ Não consegui registrar nenhum palpite.';
+  if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
+  if (ambiguos.length > 0) {
+    resposta += `\n\n🤔 Estes jogos existem em múltiplos bolões seus — manda um de cada vez pra escolher:\n${ambiguos.join('\n')}`;
+  }
+  await sendText({ to: msg.waId, text: resposta });
 }
 
 async function handleEscolhendoBolaoPalpiteInline(msg: IncomingMessage, usuarioId: string, session: Session) {
