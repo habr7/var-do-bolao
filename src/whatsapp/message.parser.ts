@@ -132,7 +132,8 @@ const MEU_PALPITE_PATTERNS: RegExp[] = [
 ];
 
 // "Proximos jogos / quais jogos faltam / o que ainda nao palpitei"
-// Cobre tambem inversao "jogos proximos" e variantes com "qual/quais".
+// Cobre tambem inversao "jogos proximos", variantes com "qual/quais",
+// e AÇÃO de palpitar ("quero dar palpites", "vou fazer um palpite", etc).
 const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   /\bproximos? jogos?\b/,
   /\bjogos? proximos?\b/, // ordem invertida — Bug 4
@@ -143,8 +144,15 @@ const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   /\bquais (?:eu )?(?:ainda )?(?:nao palpitei|preciso palpitar)\b/,
   /\bjogos? pendentes?\b/,
   /\bfaltam quais? jogos?\b/,
-  /\bquero palpitar\b/,
-  /\bbora palpitar\b/,
+  // Acao de palpitar (substantivo): "quero dar palpites", "vou fazer
+  // um palpite", "bora dar uns palpites", "preciso registrar palpites".
+  // Bug feedback 14/05: "quero dar palpites" estava caindo em MEU_PALPITE.
+  /\b(?:quero|bora|vou|vamos|preciso) (?:eu )?(?:dar|fazer|registrar) (?:um |uns |meus |novos |o |os )?palpites?\b/,
+  // Acao de palpitar (verbo): cobre "quero palpitar", "vou palpitar",
+  // "vamos palpitar", "bora palpitar" numa unica regex.
+  /\b(?:quero|bora|vou|vamos) palpitar\b/,
+  /\bdeixa eu (?:dar|fazer|registrar|palpitar)\b/,
+  /\bpalpitar (?:nos? |em |nesses? )?jogos?\b/,
   /\blista (?:de )?jogos?\b/,
   /\bme mostra os jogos?\b/,
   /\bmostra(?:r)? os jogos?\b/,

@@ -220,6 +220,49 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('PROXIMOS_JOGOS — acao de palpitar (Bug feedback 14/05)', () => {
+    it('"quero dar palpites" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('quero dar palpites').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"quero fazer palpites" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('quero fazer palpites').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"vou palpitar" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('vou palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"vamos palpitar" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('vamos palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"bora dar uns palpites" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('bora dar uns palpites').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"preciso registrar palpites" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('preciso registrar palpites').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"deixa eu palpitar" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('deixa eu palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"deixa eu dar uns palpites" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('deixa eu dar uns palpites').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"palpitar nos jogos" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('palpitar nos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"vou fazer um palpite" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('vou fazer um palpite').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    // Regressao garantida
+    it('REGRESSAO: "meus palpites" continua MEU_PALPITE', () => {
+      expect(parseIntencao('meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('REGRESSAO: "ver meus palpites" continua MEU_PALPITE', () => {
+      expect(parseIntencao('ver meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('REGRESSAO: "palpites" sozinho continua PALPITES_AMBIGUO', () => {
+      expect(parseIntencao('palpites').intencao).toBe(Intencao.PALPITES_AMBIGUO);
+    });
+  });
+
   describe('PROXIMOS_JOGOS — ordem invertida (Bug 4)', () => {
     it('"quais os jogos próximos?"', () => {
       expect(parseIntencao('quais os jogos próximos?').intencao).toBe(Intencao.PROXIMOS_JOGOS);

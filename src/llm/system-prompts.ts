@@ -57,10 +57,14 @@ INTENCOES:
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.
 
 DISTINCAO IMPORTANTE:
-- "Meus palpites" (MEU_PALPITE) = ver historico de palpites JA dados.
+- "Meus palpites" / "ver palpites" / "o que chutei" (MEU_PALPITE) = CONSULTA — ver historico de palpites JA dados.
+- "Quero/vou/bora DAR/FAZER palpites" / "quero palpitar" (PROXIMOS_JOGOS) = AÇÃO — usuario quer palpitar agora nos jogos abertos.
 - "Proximos jogos" / "o que falta palpitar" (PROXIMOS_JOGOS) = ver o que ainda falta.
+- "palpites" sozinho (sem verbo, sem "meus") (PALPITES_AMBIGUO) = bot vai perguntar entre ver/fazer/regras.
 - "Meus pontos" (MEUS_PONTOS) = ver pontuacao numerica.
 - "Ranking" (RANKING) = ver tabela com todo mundo.
+
+REGRA-OURO: se a frase contem verbo de AÇÃO ("dar", "fazer", "registrar", "palpitar") junto da palavra "palpite(s)" -> PROXIMOS_JOGOS. So vire MEU_PALPITE quando for CONSULTA explicita ("meus", "ver", "quais", "o que palpitei").
 
 OUTPUT (so JSON, nada antes ou depois):
 {"intencao": "NOME", "confianca": 0.0-1.0, "motivo": "frase curta"}

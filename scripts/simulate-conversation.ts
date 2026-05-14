@@ -362,6 +362,28 @@ const CENARIOS: Cenario[] = [
     msg: 'meus palpites',
     esperado: { intencao: Intencao.MEU_PALPITE },
   },
+
+  // ====================================================================
+  // GRUPO 11: "quero dar palpites" (Bug feedback 14/05)
+  // ====================================================================
+  {
+    grupo: '🆕 Acao de palpitar #1',
+    desc: '"quero dar palpites" → PROXIMOS_JOGOS (era MEU_PALPITE)',
+    msg: 'quero dar palpites',
+    esperado: { intencao: Intencao.PROXIMOS_JOGOS },
+  },
+  {
+    grupo: '🆕 Acao de palpitar #2',
+    desc: '"vou palpitar" → PROXIMOS_JOGOS',
+    msg: 'vou palpitar',
+    esperado: { intencao: Intencao.PROXIMOS_JOGOS },
+  },
+  {
+    grupo: '🆕 Acao de palpitar #3',
+    desc: '"bora dar uns palpites" → PROXIMOS_JOGOS',
+    msg: 'bora dar uns palpites',
+    esperado: { intencao: Intencao.PROXIMOS_JOGOS },
+  },
 ];
 
 // ============================================================
