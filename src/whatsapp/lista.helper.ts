@@ -48,6 +48,29 @@ export function formatarBoloesNumerados(boloes: BolaoListaItem[]): string {
 }
 
 /**
+ * Dica padrao que o bot adiciona apos listas com numeracao, pra
+ * reforcar que o usuario pode responder so com o numero.
+ */
+export const DICA_RESPOSTA_NUMERICA =
+  '_Pode responder com o número correspondente que é mais fácil pra você._';
+
+/**
+ * Helper que monta a mensagem inteira: pergunta + lista numerada + dica.
+ *
+ * Uso:
+ *   const texto = montarPerguntaListaBoloes(
+ *     'De qual bolão você quer ver os participantes?',
+ *     boloes,
+ *   );
+ */
+export function montarPerguntaListaBoloes(
+  pergunta: string,
+  boloes: BolaoListaItem[],
+): string {
+  return `${pergunta}\n\n${formatarBoloesNumerados(boloes)}\n\n${DICA_RESPOSTA_NUMERICA}`;
+}
+
+/**
  * Tenta resolver a escolha do usuario contra uma lista numerada.
  * Retorna o item escolhido ou null se nao bateu.
  *

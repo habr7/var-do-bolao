@@ -5,8 +5,9 @@ import {
   parseMultiplePalpites,
   parseMultiplePalpitesDetalhado,
 } from './message.parser.js';
-import { formatarBoloesNumerados } from './lista.helper.js';
+import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA } from './lista.helper.js';
 import { normalizeTeamName } from '../utils/validators.js';
+import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import {
   getSession,
   resetSession,
@@ -25,6 +26,7 @@ import * as solicitacaoService from '../modules/solicitacao/solicitacao.service.
 import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
+import { responderConversacional } from '../llm/conversational.responder.js';
 import { extrairPalpites } from '../llm/palpite.extractor.js';
 import { escolherBolaoDaLista, interpretarSimNao } from '../llm/bolao.matcher.js';
 import { prisma } from '../config/database.js';
@@ -131,6 +133,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleEscolhendoBolaoParaPalpitar(msg, usuario.id, session);
       case 'CONFIRMANDO_PALPITES_INLINE':
         return await handleConfirmandoPalpitesInline(msg, usuario.id, session);
+      case 'ESCOLHENDO_INTENCAO_PALPITES':
+        return await handleEscolhendoIntencaoPalpites(msg, usuario.id);
       case 'ESCOLHENDO_BOLAO_CONVITE':
         return await handleEscolhendoBolaoConvite(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_SAIR':
@@ -190,6 +194,19 @@ async function handleIdle(
   if (intencaoLLM && intencaoLLM !== Intencao.TEXTO_LIVRE) {
     const handledLLM = await dispatchIntencao(msg, usuarioId, intencaoLLM, raw);
     if (handledLLM) return;
+  }
+
+  // Smart fallback: em vez de devolver "nao entendi" direto, tenta uma
+  // resposta conversacional via LLM com prompt que sabe redirecionar
+  // pros comandos certos sem inventar dados. So se isso falhar, cai no
+  // "nao entendi" textual + menu.
+  const respostaLLM = await responderConversacional(msg.text);
+  if (respostaLLM) {
+    console.log(
+      `[smart-fallback] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} respondido_via_llm`,
+    );
+    await sendText({ to: msg.waId, text: respostaLLM });
+    return;
   }
 
   // Ultimo recurso: resposta amigavel admitindo que nao entendeu.
@@ -285,6 +302,14 @@ async function dispatchIntencao(
 
     case Intencao.QUEM_PARTICIPA:
       await handleQuemParticipa(msg, usuarioId);
+      return true;
+
+    case Intencao.REGRAS:
+      await sendText({ to: msg.waId, text: regrasTexto() });
+      return true;
+
+    case Intencao.PALPITES_AMBIGUO:
+      await handlePalpitesAmbiguo(msg);
       return true;
 
     case Intencao.PALPITE_INLINE:
@@ -694,7 +719,7 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
   await sendText({
     to: msg.waId,
     text:
-      `🤔 Pra qual bolão é esse palpite?\n\n${lista}\n\n_(manda o número ou o nome do bolão)_`,
+      `🤔 Pra qual bolão é esse palpite?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
   });
 }
 
@@ -745,7 +770,7 @@ async function handleEscolhendoBolaoParaPalpitar(
     const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
-      text: `🤔 Não identifiquei. Manda o *número* ou o nome de um destes bolões:\n\n${lista}`,
+      text: `🤔 Não identifiquei. Manda o *número* ou o nome de um destes bolões:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
     });
     return;
   }
@@ -1158,7 +1183,7 @@ async function handleComoConvidar(msg: IncomingMessage, usuarioId: string) {
   const lista = formatarBoloesNumerados(adminados);
   await sendText({
     to: msg.waId,
-    text: `📨 Pra qual bolão você quer o convite?\n\n${lista}`,
+    text: `📨 Pra qual bolão você quer o convite?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
   });
 }
 
@@ -1174,7 +1199,7 @@ async function handleEscolhendoBolaoConvite(msg: IncomingMessage, usuarioId: str
     const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
-      text: `🤔 Não identifiquei. Manda o nome de um destes:\n\n${lista}`,
+      text: `🤔 Não identifiquei. Manda o número ou o nome de um destes:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
     });
     return;
   }
@@ -1247,7 +1272,7 @@ async function handleSairBolao(msg: IncomingMessage, usuarioId: string) {
   const lista = formatarBoloesNumerados(elegiveis);
   await sendText({
     to: msg.waId,
-    text: `De qual bolão você quer sair?\n\n${lista}`,
+    text: `De qual bolão você quer sair?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
   });
 }
 
@@ -1261,7 +1286,7 @@ async function handleEscolhendoBolaoSair(msg: IncomingMessage, usuarioId: string
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
     const lista = formatarBoloesNumerados(opcoes);
-    await sendText({ to: msg.waId, text: `🤔 Não identifiquei. Manda o nome de um destes:\n\n${lista}` });
+    await sendText({ to: msg.waId, text: `🤔 Não identifiquei. Manda o número ou o nome de um destes:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}` });
     return;
   }
   void usuarioId;
@@ -1330,7 +1355,7 @@ async function handleQuemParticipa(msg: IncomingMessage, usuarioId: string) {
   const lista = formatarBoloesNumerados(boloes);
   await sendText({
     to: msg.waId,
-    text: `De qual bolão você quer ver os participantes?\n\n${lista}`,
+    text: `De qual bolão você quer ver os participantes?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
   });
 }
 
@@ -1344,7 +1369,7 @@ async function handleEscolhendoBolaoParticipantes(msg: IncomingMessage, session:
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
     const lista = formatarBoloesNumerados(opcoes);
-    await sendText({ to: msg.waId, text: `🤔 Não identifiquei. Manda o nome de um destes:\n\n${lista}` });
+    await sendText({ to: msg.waId, text: `🤔 Não identifiquei. Manda o número ou o nome de um destes:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}` });
     return;
   }
   await resetSession(msg.waId);
@@ -1373,6 +1398,66 @@ async function enviarListaParticipantes(msg: IncomingMessage, bolaoId: string, n
     to: msg.waId,
     text: `🏆 *Quem está no ${nomeBolao}* (${participacoes.length}):\n\n${lista}`,
   });
+}
+
+// ============================================================
+// Fluxo: PALPITES_AMBIGUO
+// ============================================================
+/**
+ * Usuario digitou so "palpites" — ambiguo entre 3 intents possiveis.
+ * Bot apresenta lista numerada e espera resposta no novo state.
+ */
+async function handlePalpitesAmbiguo(msg: IncomingMessage) {
+  await setSession(msg.waId, { state: 'ESCOLHENDO_INTENCAO_PALPITES' });
+  await sendText({
+    to: msg.waId,
+    text:
+      '🤔 *Palpites* — me diz qual você quer:\n\n' +
+      '1. Ver os meus palpites já dados 📋\n' +
+      '2. Fazer novos palpites (jogos abertos) ⚽\n' +
+      '3. Ver as regras de pontuação 📖\n\n' +
+      '_Pode responder com o número correspondente que é mais fácil pra você._',
+  });
+}
+
+async function handleEscolhendoIntencaoPalpites(
+  msg: IncomingMessage,
+  usuarioId: string,
+) {
+  const texto = msg.text.trim();
+  // Aceita "1"/"2"/"3" como atalho, ou tenta classificar a frase
+  const matchNum = texto.match(/^([123])\b/);
+  let escolha: 1 | 2 | 3 | null = null;
+  if (matchNum) {
+    escolha = Number(matchNum[1]) as 1 | 2 | 3;
+  } else {
+    // Reusa o parser pra ver se ele disse algo claro tipo "meus palpites"
+    const parsed = parseIntencao(texto);
+    if (parsed.intencao === Intencao.MEU_PALPITE) escolha = 1;
+    else if (parsed.intencao === Intencao.PROXIMOS_JOGOS) escolha = 2;
+    else if (parsed.intencao === Intencao.REGRAS) escolha = 3;
+  }
+
+  if (!escolha) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '🤔 Não identifiquei. Manda *1*, *2* ou *3* — ou então o que você quer:\n\n' +
+        '1. *Meus palpites* — ver os palpites já dados\n' +
+        '2. *Próximos jogos* — palpitar nos jogos abertos\n' +
+        '3. *Regras* — como funciona a pontuação',
+    });
+    return;
+  }
+
+  await resetSession(msg.waId);
+  if (escolha === 1) {
+    await handleMeusPalpites(msg, usuarioId);
+  } else if (escolha === 2) {
+    await handleProximosJogos(msg, usuarioId);
+  } else {
+    await sendText({ to: msg.waId, text: regrasTexto() });
+  }
 }
 
 // ============================================================
@@ -1445,7 +1530,7 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
       const lista = formatarBoloesNumerados(boloesDoUsuario);
       await sendText({
         to: msg.waId,
-        text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}`,
+        text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
       });
       return;
     }
@@ -1474,7 +1559,7 @@ async function handleEscolhendoBolaoRanking(msg: IncomingMessage, session: Sessi
     const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
-      text: `🤔 Não identifiquei qual bolão. Diz o nome de um destes:\n\n${lista}`,
+      text: `🤔 Não identifiquei qual bolão. Manda o número ou o nome de um destes:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
     });
     return;
   }
@@ -1534,7 +1619,7 @@ async function aprovarPorNome(msg: IncomingMessage, usuarioId: string, nome: str
   // Notifica o solicitante
   await sendText({
     to: pendente.usuario.whatsappId,
-    text: `🎉 Boa notícia! Você foi aprovado no bolão *${pendente.bolao.nome}*! ⚽\n\nNos próximos jogos eu te mando direto aqui pra palpitar.`,
+    text: boasVindasComRegras(pendente.bolao.nome),
   });
 }
 
@@ -1669,6 +1754,7 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     'ESCOLHENDO_BOLAO_SAIR',
     'ESCOLHENDO_BOLAO_PARTICIPANTES',
     'CONFIRMANDO_SAIR_BOLAO',
+    'ESCOLHENDO_INTENCAO_PALPITES',
   ]);
   if (!ESTADOS_INTERROMPIVEIS.has(session.state)) return false;
 
@@ -1855,7 +1941,7 @@ async function handleConfirmandoAprovarTodos(msg: IncomingMessage, usuarioId: st
     aprovadas.map((sol) =>
       sendText({
         to: sol.usuario.whatsappId,
-        text: `🎉 Boa notícia! Você foi aprovado no bolão *${sol.bolao.nome}*! ⚽\n\nNos próximos jogos eu te mando direto aqui pra palpitar.`,
+        text: boasVindasComRegras(sol.bolao.nome),
       }).catch(() => undefined),
     ),
   );
@@ -2069,7 +2155,7 @@ async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
   const lista = formatarBoloesNumerados(boloes);
   await sendText({
     to: msg.waId,
-    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}`,
+    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
   });
 }
 
@@ -2086,7 +2172,7 @@ async function handleEscolhendoBolaoPalpites(msg: IncomingMessage, usuarioId: st
     const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
-      text: `🤔 Não identifiquei qual bolão. Diz o nome de um destes:\n\n${lista}`,
+      text: `🤔 Não identifiquei qual bolão. Manda o número ou o nome de um destes:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
     });
     return;
   }

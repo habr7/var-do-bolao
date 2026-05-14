@@ -50,6 +50,8 @@ INTENCOES:
 - COMO_CONVIDAR: admin quer compartilhar bolao. Ex: "como convido", "manda o convite", "pegar o ID do bolão".
 - SAIR_BOLAO: quer sair de um bolao. Ex: "sair do bolão", "não quero mais jogar", "me remove".
 - QUEM_PARTICIPA: listar quem esta no bolao. Ex: "quem participa", "quem ta no bolão".
+- REGRAS: regras de pontuacao e funcionamento. Ex: "regras", "como pontua", "quantos pontos por placar exato", "criterio de pontuacao".
+- PALPITES_AMBIGUO: usuario digitou so "palpites" (sem dizer "meus" ou "novos") — bot vai perguntar entre ver/fazer/regras.
 - PENDENTES: admin perguntando solicitacoes pendentes. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.

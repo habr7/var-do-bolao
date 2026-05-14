@@ -42,7 +42,9 @@ export type ConversaState =
   //   IDLE -> ESCOLHENDO_BOLAO_PARA_PALPITAR -> CONFIRMANDO_PALPITES_INLINE -> IDLE
   // O texto cru do palpite eh guardado em ctx.palpiteTextoCru.
   | 'ESCOLHENDO_BOLAO_PARA_PALPITAR'
-  | 'CONFIRMANDO_PALPITES_INLINE';
+  | 'CONFIRMANDO_PALPITES_INLINE'
+  // Usuario digitou so "palpites" — bot pergunta entre opcoes numeradas
+  | 'ESCOLHENDO_INTENCAO_PALPITES';
 
 export interface BolaoParaEscolher {
   id: string;

@@ -29,6 +29,8 @@ export enum Intencao {
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
   SAIR_BOLAO = 'SAIR_BOLAO',         // sair de um bolao
   QUEM_PARTICIPA = 'QUEM_PARTICIPA', // listar participantes
+  REGRAS = 'REGRAS',                 // ver regras de pontuacao/funcionamento
+  PALPITES_AMBIGUO = 'PALPITES_AMBIGUO', // user digitou so "palpites" — bot pergunta o que ele quis
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
@@ -249,6 +251,29 @@ const QUEM_PARTICIPA_PATTERNS: RegExp[] = [
   /\bparticipantes do bol/,
 ];
 
+// "Regras do bolao / como pontua / pontuacao"
+// IMPORTANTE: nao pode bater "como funciona" generico (que vira AJUDA).
+const REGRAS_PATTERNS: RegExp[] = [
+  /^regras?\b/,
+  /\bregras (?:do |de )?bol/,
+  /\bcomo (?:eu )?(?:pontuo|pontua)\b/,
+  /\bcomo (?:eu )?ganho ponto/,
+  /\bcomo (?:eh|funciona) (?:a )?pontuacao\b/,
+  /\bpontuacao do bol/,
+  /\bcriterio de pontuacao\b/,
+  /\bquantos? pontos? (?:eu )?(?:ganho|faco|pego) (?:por|quando)/,
+  /\bvalor (?:dos )?palpites?\b/,
+];
+
+// "palpites" sozinho — ambiguo entre "meus palpites" e "fazer palpites".
+// Tambem cobre "palpite" sem contexto adicional.
+// Pre-filtro pra evitar capturar quando vem "meus palpites", "palpites do
+// joao", etc — essas frases ja casam outros padroes mais especificos.
+const PALPITES_AMBIGUO_PATTERNS: RegExp[] = [
+  /^palpites?\??!?$/,
+  /^palpite[!.]?$/,
+];
+
 // "Pendentes / tem solicitacao / tem pedido pra aprovar"
 // (admin perguntando sobre solicitacoes pendentes — mais permissivo
 // pra nao cair em APROVAR_NOMEADO com nome=\"tem pedido\")
@@ -262,13 +287,18 @@ const PENDENTES_PATTERNS: RegExp[] = [
 ];
 
 const INTENT_RULES: IntentRules[] = [
-  // Ordem: mais especificos antes
+  // Ordem: mais especificos antes. REGRAS antes de AJUDA pq "como funciona
+  // pontuacao" vs "como funciona" sao bem proximos.
+  { intencao: Intencao.REGRAS, padroes: REGRAS_PATTERNS },
   { intencao: Intencao.PENDENTES, padroes: PENDENTES_PATTERNS },
   { intencao: Intencao.COMO_CONVIDAR, padroes: COMO_CONVIDAR_PATTERNS },
   { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },
   { intencao: Intencao.SAIR_BOLAO, padroes: SAIR_BOLAO_PATTERNS },
   { intencao: Intencao.QUEM_PARTICIPA, padroes: QUEM_PARTICIPA_PATTERNS },
+  // MEU_PALPITE (mais especifico) antes do PALPITES_AMBIGUO
   { intencao: Intencao.MEU_PALPITE, padroes: MEU_PALPITE_PATTERNS },
+  // PALPITES_AMBIGUO so casa "palpites" sozinho — quando nada acima bateu
+  { intencao: Intencao.PALPITES_AMBIGUO, padroes: PALPITES_AMBIGUO_PATTERNS },
   { intencao: Intencao.PROXIMOS_JOGOS, padroes: PROXIMOS_JOGOS_PATTERNS },
   { intencao: Intencao.MEUS_PONTOS, padroes: MEUS_PONTOS_PATTERNS },
   { intencao: Intencao.MEUS_BOLOES, padroes: MEUS_BOLOES_PATTERNS },
@@ -342,7 +372,12 @@ export function parseIntencao(text: string): ParsedMessage {
   if (MENU_WORDS.has(norm)) {
     return { intencao: Intencao.MENU, raw, args: [] };
   }
-  if (AJUDA_WORDS.has(norm) || norm === '!ajuda' || norm.startsWith('como funciona') || norm.startsWith('o que (?:vc|voce) faz')) {
+  // "como funciona" generico vira AJUDA — mas "como funciona a pontuacao"
+  // eh REGRAS, entao excluimos esse caso aqui pra que o INTENT_RULES capture.
+  const ehComoFuncionaGenerico =
+    norm.startsWith('como funciona') &&
+    !/^como (?:eh|funciona) (?:a )?pontuacao\b/.test(norm);
+  if (AJUDA_WORDS.has(norm) || norm === '!ajuda' || ehComoFuncionaGenerico || norm.startsWith('o que (?:vc|voce) faz')) {
     return { intencao: Intencao.AJUDA, raw, args: [] };
   }
   if (CANCELAR_WORDS.has(norm)) {

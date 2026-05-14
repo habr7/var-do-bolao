@@ -307,6 +307,36 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('REGRAS / PALPITES_AMBIGUO', () => {
+    it('"regras" → REGRAS', () => {
+      expect(parseIntencao('regras').intencao).toBe(Intencao.REGRAS);
+    });
+    it('"regras do bolão" → REGRAS', () => {
+      expect(parseIntencao('regras do bolão').intencao).toBe(Intencao.REGRAS);
+    });
+    it('"como pontua" → REGRAS', () => {
+      expect(parseIntencao('como pontua').intencao).toBe(Intencao.REGRAS);
+    });
+    it('"como funciona a pontuação" → REGRAS', () => {
+      expect(parseIntencao('como funciona a pontuação').intencao).toBe(Intencao.REGRAS);
+    });
+    it('"palpites" sozinho → PALPITES_AMBIGUO', () => {
+      expect(parseIntencao('palpites').intencao).toBe(Intencao.PALPITES_AMBIGUO);
+    });
+    it('"palpite" sozinho → PALPITES_AMBIGUO', () => {
+      expect(parseIntencao('palpite').intencao).toBe(Intencao.PALPITES_AMBIGUO);
+    });
+    it('"palpites?" com pontuacao → PALPITES_AMBIGUO', () => {
+      expect(parseIntencao('palpites?').intencao).toBe(Intencao.PALPITES_AMBIGUO);
+    });
+    it('"meus palpites" continua MEU_PALPITE (mais especifico vence)', () => {
+      expect(parseIntencao('meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"como funciona" sem "pontuação" → AJUDA', () => {
+      expect(parseIntencao('como funciona').intencao).toBe(Intencao.AJUDA);
+    });
+  });
+
   describe('PENDENTES coloquial (bug descoberto na simulacao)', () => {
     it('"tem pedido pra aprovar?" → PENDENTES (nao APROVAR_NOMEADO)', () => {
       expect(parseIntencao('tem pedido pra aprovar?').intencao).toBe(Intencao.PENDENTES);

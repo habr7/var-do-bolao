@@ -322,6 +322,46 @@ const CENARIOS: Cenario[] = [
     msg: 'México 2 a 0 na África',
     esperado: { intencao: Intencao.PALPITE_INLINE },
   },
+
+  // ====================================================================
+  // GRUPO 10: REGRAS + PALPITES_AMBIGUO (feedback do user)
+  // ====================================================================
+  {
+    grupo: '📖 Regras direto',
+    desc: '"regras" → REGRAS',
+    msg: 'regras',
+    esperado: { intencao: Intencao.REGRAS },
+  },
+  {
+    grupo: '📖 Regras coloquial',
+    desc: '"como pontua" → REGRAS',
+    msg: 'como pontua',
+    esperado: { intencao: Intencao.REGRAS },
+  },
+  {
+    grupo: '📖 Regras frase',
+    desc: '"como funciona a pontuação?" → REGRAS',
+    msg: 'como funciona a pontuação?',
+    esperado: { intencao: Intencao.REGRAS },
+  },
+  {
+    grupo: '🤔 Palpites ambiguo',
+    desc: '"palpites" → PALPITES_AMBIGUO (pergunta entre 3 opcoes)',
+    msg: 'palpites',
+    esperado: { intencao: Intencao.PALPITES_AMBIGUO },
+  },
+  {
+    grupo: '🤔 Palpite singular ambiguo',
+    desc: '"palpite" → PALPITES_AMBIGUO',
+    msg: 'palpite',
+    esperado: { intencao: Intencao.PALPITES_AMBIGUO },
+  },
+  {
+    grupo: '✅ Meus palpites (especifico) NAO deve cair em ambiguo',
+    desc: '"meus palpites" → MEU_PALPITE',
+    msg: 'meus palpites',
+    esperado: { intencao: Intencao.MEU_PALPITE },
+  },
 ];
 
 // ============================================================
