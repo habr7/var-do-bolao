@@ -1,5 +1,6 @@
 import type { PalpiteInline } from '../whatsapp/message.parser.js';
-import { chat, tryParseJson } from './ollama.client.js';
+import { chat, tryParseJson } from './llm.client.js';
+import { PALPITE_EXTRACTOR_PROMPT } from './system-prompts.js';
 
 /**
  * Extrai palpites de mensagens em linguagem natural.
@@ -32,7 +33,10 @@ interface ExtractionResult {
   palpites: ExtractedPalpite[];
 }
 
-const SYSTEM_PROMPT = `Voce eh um extrator de palpites de futebol em mensagens informais em portugues do Brasil.
+// Prompt antigo (inline) — mantido pra rollback. O ativo eh
+// PALPITE_EXTRACTOR_PROMPT de system-prompts.ts.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _LEGACY_INLINE_PROMPT = `Voce eh um extrator de palpites de futebol em mensagens informais em portugues do Brasil.
 
 Vai receber:
 1. Uma lista de jogos disponiveis (cada jogo tem timeCasa e timeVisitante).
@@ -65,7 +69,7 @@ export async function extrairPalpites(
 
   const raw = await chat(
     [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: PALPITE_EXTRACTOR_PROMPT },
       { role: 'user', content: userPrompt },
     ],
     { json: true, temperature: 0.1, maxTokens: 400 },

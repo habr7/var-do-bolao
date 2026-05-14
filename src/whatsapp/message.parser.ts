@@ -477,20 +477,42 @@ function tentarParsearPalpiteInline(linha: string): PalpiteInline | null {
 
 /**
  * Parseia mensagens com varias linhas de palpite (ex: 5 palpites de uma rodada).
- * Ignora linhas invalidas.
+ * Ignora linhas invalidas. Versao DEPRECATED — preferir parseMultiplePalpitesDetalhado.
  */
 export function parseMultiplePalpites(text: string): PalpiteInline[] {
+  return parseMultiplePalpitesDetalhado(text).ok;
+}
+
+/**
+ * Variante que devolve tambem as linhas que NAO casaram nenhum regex —
+ * usada pelo fluxo de palpite inline em IDLE pra reportar ao usuario o
+ * que o bot nao entendeu (ou passar pro LLM como fallback).
+ *
+ * Ignora linhas vazias e linhas curtas demais (<5 chars).
+ */
+export function parseMultiplePalpitesDetalhado(text: string): {
+  ok: PalpiteInline[];
+  descartadas: string[];
+} {
   const lines = text
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const palpites: PalpiteInline[] = [];
+  const ok: PalpiteInline[] = [];
+  const descartadas: string[] = [];
   for (const line of lines) {
     const p = tentarParsearPalpiteInline(line);
-    if (p) palpites.push(p);
+    if (p) {
+      ok.push(p);
+    } else if (line.length >= 5) {
+      descartadas.push(line);
+    }
   }
-  return palpites;
+  if (descartadas.length > 0) {
+    console.log(`[multi-palpite] ok=${ok.length} descartadas=${descartadas.length}`);
+  }
+  return { ok, descartadas };
 }
 
 // Suprime "imports usados apenas pelo regex"

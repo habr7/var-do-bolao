@@ -28,9 +28,8 @@ export type ConversaState =
   | 'CONFIRMANDO_APROVAR_TODOS'
   | 'CONFIRMANDO_RECUSAR_TODOS'
   | 'CONFIRMANDO_RECUSAR_NOMEADO'
-  // Estados de palpite inline (quando usuario manda palpite em IDLE e
-  // o jogo existe em multiplos bolaes — bot pergunta qual)
-  | 'ESCOLHENDO_BOLAO_PALPITE_INLINE'
+  // (estado antigo ESCOLHENDO_BOLAO_PALPITE_INLINE removido — substituido
+  // pelo fluxo novo ESCOLHENDO_BOLAO_PARA_PALPITAR + CONFIRMANDO_PALPITES_INLINE)
   // Como convidar — usuario tem varios bolaes admin, escolhe qual
   | 'ESCOLHENDO_BOLAO_CONVITE'
   // Sair do bolao — pede confirmacao
@@ -38,7 +37,12 @@ export type ConversaState =
   // Escolher bolao quando ha varios pro fluxo "sair"
   | 'ESCOLHENDO_BOLAO_SAIR'
   // Escolher bolao quando ha varios pro fluxo "quem participa"
-  | 'ESCOLHENDO_BOLAO_PARTICIPANTES';
+  | 'ESCOLHENDO_BOLAO_PARTICIPANTES'
+  // Novo fluxo de palpite em IDLE (substitui PALPITE_INLINE direto):
+  //   IDLE -> ESCOLHENDO_BOLAO_PARA_PALPITAR -> CONFIRMANDO_PALPITES_INLINE -> IDLE
+  // O texto cru do palpite eh guardado em ctx.palpiteTextoCru.
+  | 'ESCOLHENDO_BOLAO_PARA_PALPITAR'
+  | 'CONFIRMANDO_PALPITES_INLINE';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -67,6 +71,23 @@ export interface ConversaContext {
     golsCasa: number;
     golsVisitante: number;
   };
+  // Novo fluxo de palpite em IDLE (>1 bolao com rodada aberta):
+  //   1. Bot guarda o texto cru do palpite
+  //   2. Pergunta qual bolao (numerado)
+  //   3. Extrai palpites (regex + LLM) com base na rodada do bolao escolhido
+  //   4. Mostra preview pra confirmacao
+  palpiteTextoCru?: string;
+  palpiteRodadaIdEscolhida?: string;
+  palpiteBolaoNomeEscolhido?: string;
+  // Lista de palpites prontos pra registrar (apos extracao + LLM)
+  palpitesParaConfirmar?: Array<{
+    timeCasa: string;
+    timeVisitante: string;
+    golsCasa: number;
+    golsVisitante: number;
+    jogoId: string;
+  }>;
+  palpitesNaoEntendidos?: string[];
 }
 
 export interface Session {

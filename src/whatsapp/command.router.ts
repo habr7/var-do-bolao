@@ -1,5 +1,12 @@
 import { sendText } from './evolution.client.js';
-import { Intencao, parseIntencao, parseMultiplePalpites } from './message.parser.js';
+import {
+  Intencao,
+  parseIntencao,
+  parseMultiplePalpites,
+  parseMultiplePalpitesDetalhado,
+} from './message.parser.js';
+import { formatarBoloesNumerados } from './lista.helper.js';
+import { normalizeTeamName } from '../utils/validators.js';
 import {
   getSession,
   resetSession,
@@ -63,7 +70,7 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       if (handledByCodigo) return;
     }
 
-    // FSM ESCAPE: se admin tem pendentes E mandou claramente uma acao
+    // FSM ESCAPE #1: se admin tem pendentes E mandou claramente uma acao
     // admin (aprovar/recusar) E o estado atual eh "stale" (de outro fluxo
     // de leitura como ranking/palpites), reseta o estado pra processar a
     // aprovacao. Estados criticos (criando bolao, palpitando, confirmando
@@ -78,6 +85,19 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         await handleIdle(msg, usuario.id, parsed.intencao, parsed.raw);
         return;
       }
+    }
+
+    // FSM ESCAPE #2: se usuario esta em estado de "leitura/escolha" (ex:
+    // CONFIRMANDO_VER_PALPITES, ESCOLHENDO_BOLAO_RANKING) e mandou uma
+    // NOVA intent forte (ex: "ranking", "criar bolao"), abandona o
+    // estado atual silenciosamente e processa a nova intent.
+    if (escapouFsmStaleParaNovaIntent(session, parsed.intencao)) {
+      console.log(
+        `[fsm-escape] state=${session.state} → IDLE (nova intent=${parsed.intencao})`,
+      );
+      await resetSession(msg.waId);
+      await handleIdle(msg, usuario.id, parsed.intencao, parsed.raw);
+      return;
     }
 
     // Estados com entrada de texto livre (sem comando explicito): tratados primeiro
@@ -107,8 +127,10 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleConfirmandoRecusarTodos(msg, usuario.id);
       case 'CONFIRMANDO_RECUSAR_NOMEADO':
         return await handleConfirmandoRecusarNomeado(msg, usuario.id, session);
-      case 'ESCOLHENDO_BOLAO_PALPITE_INLINE':
-        return await handleEscolhendoBolaoPalpiteInline(msg, usuario.id, session);
+      case 'ESCOLHENDO_BOLAO_PARA_PALPITAR':
+        return await handleEscolhendoBolaoParaPalpitar(msg, usuario.id, session);
+      case 'CONFIRMANDO_PALPITES_INLINE':
+        return await handleConfirmandoPalpitesInline(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_CONVITE':
         return await handleEscolhendoBolaoConvite(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_SAIR':
@@ -624,113 +646,320 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
 }
 
 // ============================================================
-// Fluxo: PALPITE INLINE EM IDLE
+// Fluxo: PALPITE INLINE EM IDLE (3 passos)
+//   1. handlePalpiteInlineEmIdle: detecta bolao(es) + se >1, pergunta qual
+//   2. handleEscolhendoBolaoParaPalpitar: recebe escolha + extrai palpites
+//   3. handleConfirmandoPalpitesInline: registra apos confirmacao do user
 // ============================================================
 /**
- * Usuario mandou "Brasil 2x1 Marrocos" sem estar em PALPITANDO. Procura
- * em todas as rodadas abertas dos bolaes do usuario onde o jogo bate.
- *
- * - 1 match: registra direto.
- * - >1 matches (mesmo jogo em multiplos bolaes do usuario): pergunta qual.
- * - 0 matches: explica que nao achou.
+ * Step 1: usuario mandou texto que parece palpite em IDLE.
+ * Lista os bolaes com rodada aberta:
+ *   - 0 → mensagem amigavel
+ *   - 1 → pula direto pro step 2 (extracao + preview)
+ *   - >1 → pergunta qual bolao primeiro (state ESCOLHENDO_BOLAO_PARA_PALPITAR)
  */
 async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string) {
-  // Caso multi-linha: tenta extrair varios palpites de uma vez. Cada
-  // linha vira uma busca por jogo aberto + registro.
-  const todosPalpites = parseMultiplePalpites(msg.text);
-  if (todosPalpites.length > 1) {
-    await handleMultiPalpiteInlineEmIdle(msg, usuarioId, todosPalpites);
-    return;
-  }
+  const boloesComRodadaAberta = await listarBoloesComRodadaAberta(usuarioId);
 
-  const parsed = parseIntencao(msg.text);
-  if (!parsed.palpite) {
-    // Nao deveria cair aqui se intencao=PALPITE_INLINE, mas blindagem
-    await sendText({ to: msg.waId, text: '🤔 Não captei o palpite, manda no formato *Time1 NxN Time2*.' });
-    return;
-  }
-  const p = parsed.palpite;
-
-  const matches = await palpiteService.buscarBoloesComJogo(
-    usuarioId,
-    p.timeCasa,
-    p.timeVisitante,
-  );
-
-  if (matches.length === 0) {
+  if (boloesComRodadaAberta.length === 0) {
     await sendText({
       to: msg.waId,
       text:
-        `🤔 Não achei o jogo *${p.timeCasa} x ${p.timeVisitante}* em rodada aberta de nenhum dos seus bolões.\n\n` +
-        `Confere se o jogo já está disponível pra palpite com *próximos jogos*.`,
+        '🤔 Não achei rodada aberta em nenhum dos seus bolões agora.\n\n' +
+        'Pra ver o que está aberto, manda *próximos jogos*.',
     });
     return;
   }
 
-  if (matches.length === 1) {
-    const m = matches[0];
-    await registrarPalpiteInline(msg, usuarioId, m, p.golsCasa, p.golsVisitante);
+  if (boloesComRodadaAberta.length === 1) {
+    const b = boloesComRodadaAberta[0];
+    await iniciarConfirmacaoPalpites(msg, usuarioId, msg.text, b.bolaoId, b.nome, b.rodadaId);
     return;
   }
 
-  // Multiplos bolaes com o mesmo jogo — pergunta
+  // >1 bolao com rodada aberta — guarda texto cru e pergunta qual
   await setSession(msg.waId, {
-    state: 'ESCOLHENDO_BOLAO_PALPITE_INLINE',
+    state: 'ESCOLHENDO_BOLAO_PARA_PALPITAR',
     ctx: {
-      boloesParaEscolher: matches.map((m) => ({ id: m.bolaoId, nome: m.bolaoNome })),
-      palpiteInlinePendente: {
-        timeCasa: p.timeCasa,
-        timeVisitante: p.timeVisitante,
-        golsCasa: p.golsCasa,
-        golsVisitante: p.golsVisitante,
-      },
+      palpiteTextoCru: msg.text,
+      boloesParaEscolher: boloesComRodadaAberta.map((b) => ({
+        id: b.bolaoId,
+        nome: b.nome,
+      })),
     },
   });
-
-  const lista = matches.map((m) => `• *${m.bolaoNome}* (\`#${m.bolaoCodigo}\`)`).join('\n');
+  const lista = formatarBoloesNumerados(
+    boloesComRodadaAberta.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
+  );
   await sendText({
     to: msg.waId,
     text:
-      `🤔 Esse jogo está aberto em mais de um bolão seu. Pra qual você quer registrar o palpite *${p.timeCasa} ${p.golsCasa}x${p.golsVisitante} ${p.timeVisitante}*?\n\n${lista}\n\n_(Manda o nome do bolão. Pra registrar em todos, manda *todos*.)_`,
+      `🤔 Pra qual bolão é esse palpite?\n\n${lista}\n\n_(manda o número ou o nome do bolão)_`,
   });
 }
 
+async function listarBoloesComRodadaAberta(
+  usuarioId: string,
+): Promise<Array<{ bolaoId: string; nome: string; codigo: string; rodadaId: string }>> {
+  const participacoes = await prisma.participacao.findMany({
+    where: { usuarioId },
+    include: {
+      bolao: {
+        include: {
+          rodadas: {
+            where: { status: 'ABERTA' },
+            orderBy: { numero: 'desc' },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+  return participacoes
+    .filter((p) => p.bolao.status === 'ATIVO' && p.bolao.rodadas.length > 0)
+    .map((p) => ({
+      bolaoId: p.bolao.id,
+      nome: p.bolao.nome,
+      codigo: p.bolao.codigo,
+      rodadaId: p.bolao.rodadas[0].id,
+    }));
+}
+
 /**
- * Multi-palpite em IDLE: usuario mandou varias linhas de palpite de uma
- * vez (depois de "proximos jogos"). Pra cada palpite, busca em qual
- * bolao registrar e tenta. Se acabar com ambiguidade em qualquer, avisa
- * pra usuario refazer aquele especifico.
+ * Step 2 handler: usuario respondeu "1" ou "Bolao da Jeni".
  */
-async function handleMultiPalpiteInlineEmIdle(
+async function handleEscolhendoBolaoParaPalpitar(
   msg: IncomingMessage,
   usuarioId: string,
-  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }>,
+  session: Session,
 ) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  const textoCru = session.ctx?.palpiteTextoCru;
+  if (opcoes.length === 0 || !textoCru) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o *número* ou o nome de um destes bolões:\n\n${lista}`,
+    });
+    return;
+  }
+  // Acha a rodada aberta do bolao escolhido
+  const rodada = await prisma.rodada.findFirst({
+    where: { bolaoId: escolhido.id, status: 'ABERTA' },
+    orderBy: { numero: 'desc' },
+  });
+  if (!rodada) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `❌ O bolão *${escolhido.nome}* não tem rodada aberta agora.`,
+    });
+    return;
+  }
+  await iniciarConfirmacaoPalpites(
+    msg,
+    usuarioId,
+    textoCru,
+    escolhido.id,
+    escolhido.nome,
+    rodada.id,
+  );
+}
+
+/**
+ * Step 2 (parte 2): extrai palpites do texto cru (regex + LLM combinados)
+ * e apresenta preview pra confirmacao (state CONFIRMANDO_PALPITES_INLINE).
+ */
+async function iniciarConfirmacaoPalpites(
+  msg: IncomingMessage,
+  usuarioId: string,
+  textoCru: string,
+  bolaoId: string,
+  bolaoNome: string,
+  rodadaId: string,
+) {
+  const rodada = await prisma.rodada.findUnique({
+    where: { id: rodadaId },
+    include: { jogos: { where: { status: { in: ['AGENDADO', 'AO_VIVO'] } } } },
+  });
+  if (!rodada || rodada.jogos.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `❌ O bolão *${bolaoNome}* não tem jogos abertos pra palpite agora.`,
+    });
+    return;
+  }
+  const jogos = rodada.jogos;
+
+  // 1) Regex (rapido, cobre formato canonico)
+  const regexResult = parseMultiplePalpitesDetalhado(textoCru);
+
+  // 2) LLM (sempre — robusto a frases naturais como "Brasil perde do
+  //    Marrocos de 1 a 0"). Usa os jogos da rodada como ground truth.
+  const llmPalpites = await extrairPalpites(
+    textoCru,
+    jogos.map((j) => ({ timeCasa: j.timeCasa, timeVisitante: j.timeVisitante })),
+  );
+
+  // 3) Mescla os 2 resultados, dedup por jogoId. LLM vence empate
+  //    porque tende a normalizar nomes pros oficiais da rodada.
+  const acumulado = new Map<
+    string,
+    { jogoId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
+  >();
+
+  // helper local: dado um par (timeCasa, timeVisitante), acha o jogoId
+  const acharJogo = (tc: string, tv: string) => {
+    const normTc = normalizeTeamName(tc);
+    const normTv = normalizeTeamName(tv);
+    return jogos.find((j) => {
+      const jc = normalizeTeamName(j.timeCasa);
+      const jv = normalizeTeamName(j.timeVisitante);
+      return (jc.includes(normTc) || normTc.includes(jc)) && (jv.includes(normTv) || normTv.includes(jv));
+    });
+  };
+
+  for (const p of regexResult.ok) {
+    const j = acharJogo(p.timeCasa, p.timeVisitante);
+    if (j) {
+      acumulado.set(j.id, {
+        jogoId: j.id,
+        timeCasa: j.timeCasa,
+        timeVisitante: j.timeVisitante,
+        golsCasa: p.golsCasa,
+        golsVisitante: p.golsVisitante,
+      });
+    }
+  }
+  for (const p of llmPalpites) {
+    const j = acharJogo(p.timeCasa, p.timeVisitante);
+    if (j) {
+      // LLM vence (sobrescreve regex)
+      acumulado.set(j.id, {
+        jogoId: j.id,
+        timeCasa: j.timeCasa,
+        timeVisitante: j.timeVisitante,
+        golsCasa: p.golsCasa,
+        golsVisitante: p.golsVisitante,
+      });
+    }
+  }
+
+  const palpitesParaConfirmar = [...acumulado.values()];
+
+  // Linhas descartadas pelo regex que o LLM tambem nao pegou
+  const naoEntendidos = regexResult.descartadas.filter((linha) => {
+    // se o LLM extraiu algo "similar" pra essa linha (mesmo time
+    // mencionado), considera como entendido
+    const norm = normalizeTeamName(linha);
+    for (const p of palpitesParaConfirmar) {
+      if (
+        norm.includes(normalizeTeamName(p.timeCasa)) ||
+        norm.includes(normalizeTeamName(p.timeVisitante))
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (palpitesParaConfirmar.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não consegui entender nenhum palpite dessa mensagem pro bolão *${bolaoNome}*.\n\n` +
+        `Tenta de novo no formato *Time1 NxN Time2* (ex: \`Brasil 2x1 Marrocos\`).\n` +
+        `Pra ver os jogos abertos: *próximos jogos*.`,
+    });
+    return;
+  }
+
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_PALPITES_INLINE',
+    ctx: {
+      palpiteRodadaIdEscolhida: rodadaId,
+      palpiteBolaoNomeEscolhido: bolaoNome,
+      palpitesParaConfirmar,
+      palpitesNaoEntendidos: naoEntendidos,
+    },
+  });
+
+  const linhasPalpite = palpitesParaConfirmar
+    .map(
+      (p, i) =>
+        `${i + 1}. ${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`,
+    )
+    .join('\n');
+  let texto = `📝 Vou registrar ${palpitesParaConfirmar.length} palpite(s) no *${bolaoNome}*:\n\n${linhasPalpite}`;
+  if (naoEntendidos.length > 0) {
+    const lista = naoEntendidos.slice(0, 3).map((l) => `• "${l}"`).join('\n');
+    texto += `\n\n⚠️ Não entendi:\n${lista}`;
+  }
+  texto += `\n\nConfirma? _(responda *sim*, *não* ou *refazer*)_`;
+  void bolaoId; // referencia futura — guardado p log/telemetria
+  await sendText({ to: msg.waId, text: texto });
+}
+
+/**
+ * Step 3: usuario respondeu sim/nao/refazer.
+ */
+async function handleConfirmandoPalpitesInline(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const rodadaId = session.ctx?.palpiteRodadaIdEscolhida;
+  const bolaoNome = session.ctx?.palpiteBolaoNomeEscolhido ?? 'o bolão';
+  const palpites = session.ctx?.palpitesParaConfirmar ?? [];
+  if (!rodadaId || palpites.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const texto = msg.text.trim().toLowerCase();
+  // "refazer" → cancela mas mantem usuario livre pra mandar de novo
+  if (/^(refazer|refaz|de novo|tentar de novo)\b/.test(texto)) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '🔄 Beleza, esqueci esses palpites. Manda de novo no formato que preferir.',
+    });
+    return;
+  }
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '👍 Beleza, não registrei nada. Quando quiser palpitar de novo é só mandar.',
+    });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Responde *sim* pra confirmar, *não* pra cancelar, ou *refazer* pra mandar de novo.',
+    });
+    return;
+  }
+  // SIM — registra todos
   let registrados = 0;
   const erros: string[] = [];
-  const ambiguos: string[] = [];
-
   for (const p of palpites) {
-    const matches = await palpiteService.buscarBoloesComJogo(
-      usuarioId,
-      p.timeCasa,
-      p.timeVisitante,
-    );
-    if (matches.length === 0) {
-      erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: jogo não encontrado em rodada aberta`);
-      continue;
-    }
-    if (matches.length > 1) {
-      ambiguos.push(`• ${p.timeCasa} x ${p.timeVisitante} (existe em ${matches.length} bolões)`);
-      continue;
-    }
-    const m = matches[0];
     try {
       await palpiteService.registrarPalpiteEmRodada({
         usuarioId,
-        rodadaId: m.rodadaId,
-        timeCasa: m.jogoTimeCasa,
-        timeVisitante: m.jogoTimeVisitante,
+        rodadaId,
+        timeCasa: p.timeCasa,
+        timeVisitante: p.timeVisitante,
         golsCasa: p.golsCasa,
         golsVisitante: p.golsVisitante,
       });
@@ -739,89 +968,10 @@ async function handleMultiPalpiteInlineEmIdle(
       erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
     }
   }
-
-  let resposta =
-    registrados > 0
-      ? `${confirmacao()} ${registrados} palpite(s) registrado(s)!`
-      : '⚠️ Não consegui registrar nenhum palpite.';
-  if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
-  if (ambiguos.length > 0) {
-    resposta += `\n\n🤔 Estes jogos existem em múltiplos bolões seus — manda um de cada vez pra escolher:\n${ambiguos.join('\n')}`;
-  }
-  await sendText({ to: msg.waId, text: resposta });
-}
-
-async function handleEscolhendoBolaoPalpiteInline(msg: IncomingMessage, usuarioId: string, session: Session) {
-  const opcoes = session.ctx?.boloesParaEscolher ?? [];
-  const pendente = session.ctx?.palpiteInlinePendente;
-  if (opcoes.length === 0 || !pendente) {
-    await resetSession(msg.waId);
-    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
-    return;
-  }
-
-  // "todos" → registra em todos os bolaes
-  if (/^todos?\b/i.test(msg.text.trim())) {
-    await resetSession(msg.waId);
-    let okCount = 0;
-    const matches = await palpiteService.buscarBoloesComJogo(
-      usuarioId,
-      pendente.timeCasa,
-      pendente.timeVisitante,
-    );
-    for (const m of matches) {
-      try {
-        await palpiteService.registrarPalpiteEmRodada({
-          usuarioId,
-          rodadaId: m.rodadaId,
-          timeCasa: m.jogoTimeCasa,
-          timeVisitante: m.jogoTimeVisitante,
-          golsCasa: pendente.golsCasa,
-          golsVisitante: pendente.golsVisitante,
-        });
-        okCount++;
-      } catch (err) {
-        console.warn('[palpite-inline-todos] erro:', (err as Error).message);
-      }
-    }
-    await sendText({
-      to: msg.waId,
-      text: `✅ Palpite *${pendente.timeCasa} ${pendente.golsCasa}x${pendente.golsVisitante} ${pendente.timeVisitante}* registrado em ${okCount} bolão(s)! 🍀`,
-    });
-    return;
-  }
-
-  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
-  if (!escolhido) {
-    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
-    await sendText({
-      to: msg.waId,
-      text: `🤔 Não identifiquei qual bolão. Manda o nome de um destes ou *todos*:\n\n${lista}`,
-    });
-    return;
-  }
-
   await resetSession(msg.waId);
-  const matches = await palpiteService.buscarBoloesComJogo(
-    usuarioId,
-    pendente.timeCasa,
-    pendente.timeVisitante,
-  );
-  const escolhidoMatch = matches.find((m) => m.bolaoId === escolhido.id);
-  if (!escolhidoMatch) {
-    await sendText({
-      to: msg.waId,
-      text: `❌ Não consegui registrar o palpite no bolão *${escolhido.nome}*. Tenta de novo.`,
-    });
-    return;
-  }
-  await registrarPalpiteInline(
-    msg,
-    usuarioId,
-    escolhidoMatch,
-    pendente.golsCasa,
-    pendente.golsVisitante,
-  );
+  let resposta = `${confirmacao()} ${registrados} palpite(s) registrado(s) no *${bolaoNome}*!`;
+  if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
+  await sendText({ to: msg.waId, text: resposta });
 }
 
 /**
@@ -1005,7 +1155,7 @@ async function handleComoConvidar(msg: IncomingMessage, usuarioId: string) {
     state: 'ESCOLHENDO_BOLAO_CONVITE',
     ctx: { boloesParaEscolher: adminados.map((b) => ({ id: b.id, nome: b.nome })) },
   });
-  const lista = adminados.map((b) => `• *${b.nome}* (\`#${b.codigo}\`)`).join('\n');
+  const lista = formatarBoloesNumerados(adminados);
   await sendText({
     to: msg.waId,
     text: `📨 Pra qual bolão você quer o convite?\n\n${lista}`,
@@ -1021,7 +1171,7 @@ async function handleEscolhendoBolaoConvite(msg: IncomingMessage, usuarioId: str
   }
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
-    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
       text: `🤔 Não identifiquei. Manda o nome de um destes:\n\n${lista}`,
@@ -1094,7 +1244,7 @@ async function handleSairBolao(msg: IncomingMessage, usuarioId: string) {
     state: 'ESCOLHENDO_BOLAO_SAIR',
     ctx: { boloesParaEscolher: elegiveis.map((b) => ({ id: b.id, nome: b.nome })) },
   });
-  const lista = elegiveis.map((b) => `• *${b.nome}*`).join('\n');
+  const lista = formatarBoloesNumerados(elegiveis);
   await sendText({
     to: msg.waId,
     text: `De qual bolão você quer sair?\n\n${lista}`,
@@ -1110,7 +1260,7 @@ async function handleEscolhendoBolaoSair(msg: IncomingMessage, usuarioId: string
   }
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
-    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    const lista = formatarBoloesNumerados(opcoes);
     await sendText({ to: msg.waId, text: `🤔 Não identifiquei. Manda o nome de um destes:\n\n${lista}` });
     return;
   }
@@ -1177,7 +1327,7 @@ async function handleQuemParticipa(msg: IncomingMessage, usuarioId: string) {
     state: 'ESCOLHENDO_BOLAO_PARTICIPANTES',
     ctx: { boloesParaEscolher: boloes.map((b) => ({ id: b.id, nome: b.nome })) },
   });
-  const lista = boloes.map((b) => `• *${b.nome}*`).join('\n');
+  const lista = formatarBoloesNumerados(boloes);
   await sendText({
     to: msg.waId,
     text: `De qual bolão você quer ver os participantes?\n\n${lista}`,
@@ -1193,7 +1343,7 @@ async function handleEscolhendoBolaoParticipantes(msg: IncomingMessage, session:
   }
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
-    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    const lista = formatarBoloesNumerados(opcoes);
     await sendText({ to: msg.waId, text: `🤔 Não identifiquei. Manda o nome de um destes:\n\n${lista}` });
     return;
   }
@@ -1292,7 +1442,7 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
           boloesParaEscolher: boloesDoUsuario.map((b) => ({ id: b.id, nome: b.nome })),
         },
       });
-      const lista = boloesDoUsuario.map((b) => `• *${b.nome}*`).join('\n');
+      const lista = formatarBoloesNumerados(boloesDoUsuario);
       await sendText({
         to: msg.waId,
         text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}`,
@@ -1321,7 +1471,7 @@ async function handleEscolhendoBolaoRanking(msg: IncomingMessage, session: Sessi
 
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
-    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
       text: `🤔 Não identifiquei qual bolão. Diz o nome de um destes:\n\n${lista}`,
@@ -1488,6 +1638,60 @@ async function escapouFsmStaleParaAcaoAdmin(
   );
   await resetSession(msg.waId);
   return true;
+}
+
+/**
+ * Quando usuario esta num estado de "leitura/escolha" e manda uma intent
+ * forte (PROXIMOS_JOGOS, RANKING, MEU_PALPITE, etc), abandona o estado
+ * atual silenciosamente e processa a nova intent.
+ *
+ * Cobre o cenario "Quer ver palpites detalhados? (sim/não)" + usuario
+ * manda "meus palpites no bolão da jeni" — antes o bot ficava preso
+ * pedindo sim/não.
+ *
+ * Estados PROTEGIDOS (NAO interrompem):
+ *   - CRIANDO_BOLAO_*, ENTRANDO_*: fluxos criticos de criacao
+ *   - PALPITANDO: fluxo de palpite ja iniciado
+ *   - CONFIRMANDO_APROVAR_X / CONFIRMANDO_RECUSAR_X: acoes admin destrutivas
+ *   - CONFIRMANDO_PALPITES_INLINE: nova confirmacao de palpites (acao
+ *     destrutiva — registra no banco)
+ *   - ESCOLHENDO_BOLAO_PARA_PALPITAR: parte do fluxo de palpite acima
+ *
+ * Funciona puramente sincrono (so olha state + intencao). Nao toca DB.
+ */
+function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): boolean {
+  // States onde a intent forte do user vence o estado anterior
+  const ESTADOS_INTERROMPIVEIS = new Set<string>([
+    'ESCOLHENDO_BOLAO_RANKING',
+    'ESCOLHENDO_BOLAO_PALPITES',
+    'CONFIRMANDO_VER_PALPITES',
+    'ESCOLHENDO_BOLAO_CONVITE',
+    'ESCOLHENDO_BOLAO_SAIR',
+    'ESCOLHENDO_BOLAO_PARTICIPANTES',
+    'CONFIRMANDO_SAIR_BOLAO',
+  ]);
+  if (!ESTADOS_INTERROMPIVEIS.has(session.state)) return false;
+
+  // Intents fortes — a UX considera elas como "comando explicito"
+  const INTENTS_FORTES = new Set<Intencao>([
+    Intencao.PROXIMOS_JOGOS,
+    Intencao.JOGOS_HOJE,
+    Intencao.MEU_PALPITE,
+    Intencao.RANKING,
+    Intencao.MEUS_PONTOS,
+    Intencao.MEUS_BOLOES,
+    Intencao.CRIAR_BOLAO,
+    Intencao.ENTRAR_BOLAO,
+    Intencao.COMO_CONVIDAR,
+    Intencao.QUEM_PARTICIPA,
+    Intencao.SAIR_BOLAO,
+    Intencao.ABRIR_RODADA,
+    Intencao.PENDENTES,
+    Intencao.AJUDA,
+    Intencao.MENU,
+    Intencao.CANCELAR,
+  ]);
+  return INTENTS_FORTES.has(intencao);
 }
 
 async function tentarAcaoAdminEmIdle(
@@ -1862,7 +2066,7 @@ async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
       boloesParaEscolher: boloes.map((b) => ({ id: b.id, nome: b.nome })),
     },
   });
-  const lista = boloes.map((b) => `• *${b.nome}*`).join('\n');
+  const lista = formatarBoloesNumerados(boloes);
   await sendText({
     to: msg.waId,
     text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}`,
@@ -1879,7 +2083,7 @@ async function handleEscolhendoBolaoPalpites(msg: IncomingMessage, usuarioId: st
 
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
-    const lista = opcoes.map((b) => `• *${b.nome}*`).join('\n');
+    const lista = formatarBoloesNumerados(opcoes);
     await sendText({
       to: msg.waId,
       text: `🤔 Não identifiquei qual bolão. Diz o nome de um destes:\n\n${lista}`,

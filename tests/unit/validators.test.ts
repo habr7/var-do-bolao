@@ -50,6 +50,36 @@ describe('normalizeTeamName', () => {
   it('trim espaços', () => {
     expect(normalizeTeamName('  Flamengo  ')).toBe('flamengo');
   });
+
+  // Bug real: usuario manda "na África" e bot precisa bater
+  // "África do Sul" — preposicao prefixada quebrava o includes().
+  describe('strip de preposicoes prefixadas', () => {
+    it('"na África" → "africa"', () => {
+      expect(normalizeTeamName('na África')).toBe('africa');
+    });
+    it('"do Brasil" → "brasil"', () => {
+      expect(normalizeTeamName('do Brasil')).toBe('brasil');
+    });
+    it('"pra Espanha" → "espanha"', () => {
+      expect(normalizeTeamName('pra Espanha')).toBe('espanha');
+    });
+    it('"contra Argentina" → "argentina"', () => {
+      expect(normalizeTeamName('contra Argentina')).toBe('argentina');
+    });
+    it('strip iterativo "pra na Africa" → "africa"', () => {
+      expect(normalizeTeamName('pra na Africa')).toBe('africa');
+    });
+    it('NAO strip palavra que sobreviveria como time isolado', () => {
+      // "Estados" não está nas stopwords (é palavra valida)
+      expect(normalizeTeamName('Estados Unidos')).toBe('estados unidos');
+    });
+    it('verifica matching pos-strip', () => {
+      const naAfrica = normalizeTeamName('na África');
+      const africaDoSul = normalizeTeamName('África do Sul');
+      // "africa" deve estar contido em "africa do sul" — caso de uso real
+      expect(africaDoSul.includes(naAfrica)).toBe(true);
+    });
+  });
 });
 
 describe('parseScore', () => {

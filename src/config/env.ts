@@ -61,14 +61,29 @@ const baseSchema = z.object({
   // se vazio, a mensagem usa "do VAR do Bolão" como fallback.
   WHATSAPP_BUSINESS_NUMBER: z.string().default(''),
 
-  // LLM (Ollama Cloud) — opcional, melhora compreensao de linguagem natural
-  // quando o parser regex falha. Se LLM_ENABLED=false, sistema continua
-  // funcional usando so regex/keywords.
+  // LLM — opcional, melhora compreensao de linguagem natural quando o
+  // parser regex falha. Se LLM_ENABLED=false, sistema continua funcional
+  // usando so regex/keywords.
+  //
+  // PROVIDER: "gemini" (Google Gemini, default se GEMINI_API_KEY setada)
+  //           "ollama" (Ollama Cloud, legado)
+  // Se LLM_PROVIDER nao setado: auto-detecta (gemini se key, senao ollama).
+  // O router em src/llm/llm.client.ts tenta gemini primeiro e cai pra
+  // ollama em caso de falha.
   LLM_ENABLED: z.preprocess(coerceBool, z.boolean()).default(true),
+  LLM_PROVIDER: z.enum(['gemini', 'ollama', 'auto']).default('auto'),
+  LLM_TIMEOUT_MS: z.coerce.number().default(8000),
+
+  // Gemini (Google AI Studio) — gratuito ate 1500 req/dia no flash.
+  // Pega chave em https://aistudio.google.com/apikey
+  GEMINI_API_KEY: z.string().default(''),
+  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+
+  // Ollama Cloud (legado) — usado como fallback quando Gemini falha,
+  // ou principal se LLM_PROVIDER=ollama.
   LLM_URL: z.string().default('https://ollama.com'),
   LLM_API_KEY: z.string().default('dry-run-llm-key'),
   LLM_MODEL: z.string().default('gpt-oss:20b'),
-  LLM_TIMEOUT_MS: z.coerce.number().default(5000),
 });
 
 export type Env = z.infer<typeof baseSchema>;

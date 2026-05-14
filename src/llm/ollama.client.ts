@@ -42,6 +42,7 @@ export async function chat(messages: ChatMessage[], opts: ChatOptions = {}): Pro
 
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+  const t0 = Date.now();
 
   try {
     const body: Record<string, unknown> = {
@@ -73,7 +74,11 @@ export async function chat(messages: ChatMessage[], opts: ChatOptions = {}): Pro
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
-    return data.choices?.[0]?.message?.content?.trim() ?? null;
+    const out = data.choices?.[0]?.message?.content?.trim() ?? null;
+    if (out) {
+      console.log(`[llm] provider=ollama model=${env.LLM_MODEL} latency=${Date.now() - t0}ms ok`);
+    }
+    return out;
   } catch (error) {
     const err = error as { name?: string; message?: string };
     if (err.name === 'AbortError') {

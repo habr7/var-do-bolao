@@ -1,5 +1,6 @@
 import { Intencao } from '../whatsapp/message.parser.js';
-import { chat, tryParseJson } from './ollama.client.js';
+import { chat, tryParseJson } from './llm.client.js';
+import { INTENT_CLASSIFIER_PROMPT } from './system-prompts.js';
 
 /**
  * Classifica uma mensagem em linguagem natural numa das intencoes conhecidas.
@@ -35,7 +36,10 @@ const INTENCOES_VALIDAS = [
   Intencao.CANCELAR,
 ] as const;
 
-const SYSTEM_PROMPT = `Voce eh um classificador de intencoes para um bot de WhatsApp brasileiro chamado "VAR do Bolao", que gerencia boloes da Copa do Mundo FIFA 2026.
+// Prompt antigo (inline) — comentado pra rollback rapido. O ativo agora
+// vem de system-prompts.ts (INTENT_CLASSIFIER_PROMPT).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _LEGACY_INLINE_PROMPT = `Voce eh um classificador de intencoes para um bot de WhatsApp brasileiro chamado "VAR do Bolao", que gerencia boloes da Copa do Mundo FIFA 2026.
 
 O usuario escreve em portugues coloquial (girias, abreviacoes, erros de digitacao, gerundios brasileiros, "cê", "vc", "to"). Sua tarefa: identificar UMA das intencoes abaixo. Pense pelo SENTIDO da pergunta, nao palavras-chave literais.
 
@@ -80,7 +84,7 @@ interface ClassificationResult {
 export async function classificarIntencao(text: string): Promise<Intencao | null> {
   const raw = await chat(
     [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: INTENT_CLASSIFIER_PROMPT },
       { role: 'user', content: text },
     ],
     { json: true, temperature: 0.1, maxTokens: 100 },

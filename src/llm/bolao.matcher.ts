@@ -1,4 +1,6 @@
-import { chat, tryParseJson } from './ollama.client.js';
+import { chat, tryParseJson } from './llm.client.js';
+import { BOLAO_MATCHER_PROMPT, SIM_NAO_PROMPT } from './system-prompts.js';
+import { parseEscolhaBolao } from '../whatsapp/lista.helper.js';
 
 /**
  * Tenta encontrar um bolao numa lista a partir do texto livre do usuario.
@@ -35,33 +37,12 @@ export async function escolherBolaoDaLista(
   const alvo = normalize(textoUsuario);
   if (!alvo) return null;
 
-  // ------ Etapa 1: match fuzzy local ------
-  // Match exato primeiro
-  const exato = boloes.find((b) => normalize(b.nome) === alvo);
-  if (exato) return exato;
-
-  // Substring (incluso ou inclui) — escolhe o mais especifico (nome mais
-  // longo) entre os matches, pra "Bolão da Firma 2026" bater com o nome
-  // completo se o usuario disser "firma 2026" e nao confundir com "Bolão da Firma".
-  const matches = boloes.filter((b) => {
-    const norm = normalize(b.nome);
-    return norm.includes(alvo) || alvo.includes(norm);
-  });
-  if (matches.length === 1) return matches[0];
-  if (matches.length > 1) {
-    // Match mais longo ganha (heuristica de especificidade)
-    matches.sort((a, b) => b.nome.length - a.nome.length);
-    return matches[0];
-  }
+  // ------ Etapa 0: parseEscolhaBolao (indice numerico, codigo, fuzzy) ------
+  // O helper cobre 95%+ dos casos: "1", "Bolao da Jeni", "#K3MZ8P".
+  const escolhaDireta = parseEscolhaBolao(textoUsuario, boloes);
+  if (escolhaDireta) return escolhaDireta;
 
   // ------ Etapa 2: LLM ------
-  const SYSTEM_PROMPT = `Voce ajuda a identificar qual bolao o usuario quer, dada uma lista de boloes em que ele participa e uma mensagem dele em portugues coloquial.
-
-Responda APENAS com JSON valido:
-{"bolaoId": "ID_DO_BOLAO_OU_NONE", "confianca": 0.0-1.0}
-
-Use confianca > 0.7 quando estiver razoavelmente certo. Se for ambiguo ou nao reconhecer, retorne {"bolaoId": "NONE", "confianca": 0}.`;
-
   const userPrompt =
     `Boloes:\n` +
     boloes.map((b) => `- ${b.id}: "${b.nome}"`).join('\n') +
@@ -69,7 +50,7 @@ Use confianca > 0.7 quando estiver razoavelmente certo. Se for ambiguo ou nao re
 
   const raw = await chat(
     [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: BOLAO_MATCHER_PROMPT },
       { role: 'user', content: userPrompt },
     ],
     { json: true, temperature: 0.1, maxTokens: 80 },
@@ -98,11 +79,7 @@ export async function interpretarSimNao(textoUsuario: string): Promise<'SIM' | '
   // LLM fallback
   const raw = await chat(
     [
-      {
-        role: 'system',
-        content:
-          'Classifique a mensagem do usuario em portugues como "SIM", "NAO" ou "AMBIGUO". Responda APENAS com JSON: {"resposta":"SIM|NAO|AMBIGUO","confianca":0-1}.',
-      },
+      { role: 'system', content: SIM_NAO_PROMPT },
       { role: 'user', content: textoUsuario },
     ],
     { json: true, temperature: 0.1, maxTokens: 50 },

@@ -306,6 +306,22 @@ const CENARIOS: Cenario[] = [
     msg: 'Olá! Quero entrar no bolão Bolão da Firma #K3MZ8P',
     esperado: { intencao: Intencao.ENTRAR_BOLAO },
   },
+
+  // ====================================================================
+  // GRUPO 9: Bugs reportados pelo user em 13/05 — devem ser PALPITE_INLINE
+  // ====================================================================
+  {
+    grupo: '🆕 Multi-palpite natural #1',
+    desc: 'México 2 a 0 na África / Holanda 3 x 1 Japão / Brasil perde do Marrocos de 1 a 0',
+    msg: 'México 2 a 0 na África\nHolanda 3 x 1 Japão\nBrasil perde do Marrocos de 1 a 0',
+    esperado: { intencao: Intencao.PALPITE_INLINE },
+  },
+  {
+    grupo: '🆕 Palpite com preposicao "na"',
+    desc: 'México 2 a 0 na África',
+    msg: 'México 2 a 0 na África',
+    esperado: { intencao: Intencao.PALPITE_INLINE },
+  },
 ];
 
 // ============================================================
