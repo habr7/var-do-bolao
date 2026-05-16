@@ -48,10 +48,21 @@ export interface IncomingMessage {
  * baseado no estado atual da FSM + intencao detectada.
  */
 export async function handleIncomingMessage(msg: IncomingMessage): Promise<void> {
+  const t0 = Date.now();
+  let tUser = t0;
+  let tSession = t0;
+  let tParse = t0;
+  let intencaoFinal: Intencao | 'erro' = 'erro';
+  let stateFinal: string = 'unknown';
   try {
     const usuario = await bolaoService.getOrCreateUsuario(msg.waId, msg.senderName);
+    tUser = Date.now();
     const session = await getSession(msg.waId);
+    tSession = Date.now();
     const parsed = parseIntencao(msg.text);
+    tParse = Date.now();
+    intencaoFinal = parsed.intencao;
+    stateFinal = session.state;
 
     // Cancelar sempre funciona — qualquer estado volta pra IDLE
     if (parsed.intencao === Intencao.CANCELAR) {
@@ -160,6 +171,16 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       to: msg.waId,
       text: (error as Error).message || '❌ Ops, algo deu errado. Tente novamente.',
     });
+  } finally {
+    // Log de timing por etapa. Sempre roda (mesmo nos early-returns
+    // do switch de states). Procure linhas [llm] no log pra confirmar
+    // se LLM rodou — pra mensagens simples (oi/menu/regras/etc) NAO
+    // deve aparecer nenhuma chamada [llm].
+    console.log(
+      `[timing] waId=${msg.waId} intent=${intencaoFinal} state=${stateFinal}` +
+      ` user=${tUser - t0}ms session=${tSession - tUser}ms parse=${tParse - tSession}ms` +
+      ` dispatch=${Date.now() - tParse}ms total=${Date.now() - t0}ms`,
+    );
   }
 }
 
@@ -1785,15 +1806,13 @@ async function tentarAcaoAdminEmIdle(
   usuarioId: string,
   intencaoDetectada: Intencao,
 ): Promise<boolean> {
-  // Otimizacao: contar pendentes evita query pesada quando nao tem nada
-  const totalPendentes = await solicitacaoService.contarPendentesDoAdmin(usuarioId);
-  if (totalPendentes === 0) return false;
+  // ORDEM IMPORTANTE: tudo sincrono primeiro, query DB so se realmente
+  // precisar. Antes esta query rodava em TODA mensagem (inclusive "oi"),
+  // adicionando ~50ms desnecessarios.
 
-  // Se a mensagem ja foi reconhecida como intencao explicita do bot (criar
-  // bolao, ranking, etc), NAO interceptar — o admin pode querer outra coisa
-  // mesmo tendo pendentes. So intercepta TEXTO_LIVRE OU intencoes que se
-  // confundem com aprovacao (SAUDACAO/MENU geralmente nao confundem, mas
-  // SAUDACAO sim em casos tipo "tranquilo, libera").
+  // Step 1 (sync): intent explicita conhecida nao cede pra admin.
+  // Se a mensagem ja foi reconhecida como intencao do bot, NAO
+  // interceptar — admin pode querer ver ranking mesmo com pendentes.
   const intencoesQueNaoCedem = new Set<Intencao>([
     Intencao.CRIAR_BOLAO,
     Intencao.ENTRAR_BOLAO,
@@ -1806,11 +1825,28 @@ async function tentarAcaoAdminEmIdle(
     Intencao.AJUDA,
     Intencao.PENDENTES,
     Intencao.PALPITE_INLINE,
+    // Intents adicionadas depois — nenhuma se confunde com aprovacao:
+    Intencao.MENU,
+    Intencao.REGRAS,
+    Intencao.PALPITES_AMBIGUO,
+    Intencao.COMO_CONVIDAR,
+    Intencao.QUEM_PARTICIPA,
+    Intencao.SAIR_BOLAO,
+    Intencao.ABRIR_RODADA,
+    Intencao.CANCELAR,
+    Intencao.SAUDACAO, // "oi" jamais eh aprovacao. Se admin manda
+                       // "tranquilo, libera" cai em TEXTO_LIVRE.
   ]);
   if (intencoesQueNaoCedem.has(intencaoDetectada)) return false;
 
+  // Step 2 (sync): texto nao parece acao admin (aprovar/recusar/etc).
+  // detectarAcaoAdmin eh pura regex, instantanea.
   const acao = detectarAcaoAdmin(msg.text);
   if (!acao) return false;
+
+  // Step 3 (async, ~50ms): so agora valida que ha pendentes pra agir.
+  const totalPendentes = await solicitacaoService.contarPendentesDoAdmin(usuarioId);
+  if (totalPendentes === 0) return false;
 
   await despacharAcaoAdmin(msg, usuarioId, acao, totalPendentes);
   return true;
