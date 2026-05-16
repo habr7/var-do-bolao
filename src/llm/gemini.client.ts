@@ -82,16 +82,16 @@ function toGeminiPayload(messages: ChatMessage[], opts: ChatOptions): GeminiRequ
   }
   const gc: NonNullable<GeminiRequest['generationConfig']> = {
     temperature: opts.temperature ?? 0.3,
-    // gemini-2.5+ consome tokens em "thinking" antes da resposta. Pra
-    // garantir que JSON nao seja cortado, dobramos o orcamento default.
     maxOutputTokens: opts.maxTokens ?? 1024,
+    // Desabilita thinking SEMPRE (nao so em JSON). Pras tarefas do bot
+    // — classificacao, extracao, resposta curta — thinking nao agrega
+    // qualidade e adiciona ~1s de latencia + consumo de tokens. Se um
+    // dia precisarmos de raciocinio (ex: pergunta longa de futebol),
+    // criamos um opt-in explicito.
+    thinkingConfig: { thinkingBudget: 0 },
   };
   if (opts.json) {
     gc.responseMimeType = 'application/json';
-    // Pra extracao estruturada, desabilita thinking — o modelo nao precisa
-    // raciocinar abertamente, so emitir o JSON. Reduz latencia em ~50% e
-    // evita cortar a resposta quando maxOutputTokens for baixo.
-    gc.thinkingConfig = { thinkingBudget: 0 };
   }
   body.generationConfig = gc;
   return body;

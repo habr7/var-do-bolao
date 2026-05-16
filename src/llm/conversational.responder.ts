@@ -48,7 +48,7 @@ FORMATO DE OUTPUT: APENAS o texto da resposta, sem JSON, sem markdown fences, se
  * Roda o LLM com o prompt de fallback conversacional. Devolve `null`
  * quando o LLM falha (LLM_ENABLED=false, timeout, etc).
  *
- * Latencia esperada: ~500ms (gemini-2.5-flash) ou ~2s (ollama).
+ * Latencia esperada: ~300-500ms (gemini-2.5-flash-lite) ou ~2s (ollama).
  */
 export async function responderConversacional(textoUsuario: string): Promise<string | null> {
   const raw = await chat(

@@ -6,7 +6,7 @@ vi.mock('../../src/config/env.js', () => ({
     LLM_ENABLED: true,
     LLM_PROVIDER: 'gemini',
     GEMINI_API_KEY: 'test-key',
-    GEMINI_MODEL: 'gemini-2.5-flash',
+    GEMINI_MODEL: 'gemini-2.5-flash-lite',
     LLM_TIMEOUT_MS: 5000,
     LLM_URL: 'https://ollama.com',
     LLM_API_KEY: 'dry-run-llm-key',
@@ -42,7 +42,7 @@ describe('chatGemini', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
     expect(url).toContain('generativelanguage.googleapis.com');
-    expect(url).toContain('gemini-2.5-flash');
+    expect(url).toContain('gemini-2.5-flash-lite');
     expect(url).toContain('key=test-key');
 
     const body = JSON.parse((init as RequestInit).body as string);
@@ -62,6 +62,20 @@ describe('chatGemini', () => {
 
     const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
     expect(body.generationConfig.responseMimeType).toBe('application/json');
+  });
+
+  it('desabilita thinking SEMPRE (mesmo sem json)', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+    } as Response);
+
+    // Chamada SEM json: ainda deve ter thinkingBudget=0
+    await chatGemini([{ role: 'user', content: 'oi' }]);
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(body.generationConfig.responseMimeType).toBeUndefined();
   });
 
   it('retorna null quando HTTP != 2xx', async () => {
