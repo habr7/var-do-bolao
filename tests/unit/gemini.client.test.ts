@@ -6,7 +6,7 @@ vi.mock('../../src/config/env.js', () => ({
     LLM_ENABLED: true,
     LLM_PROVIDER: 'gemini',
     GEMINI_API_KEY: 'test-key',
-    GEMINI_MODEL: 'gemini-2.0-flash',
+    GEMINI_MODEL: 'gemini-2.5-flash',
     LLM_TIMEOUT_MS: 5000,
     LLM_URL: 'https://ollama.com',
     LLM_API_KEY: 'dry-run-llm-key',
@@ -42,7 +42,7 @@ describe('chatGemini', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0];
     expect(url).toContain('generativelanguage.googleapis.com');
-    expect(url).toContain('gemini-2.0-flash');
+    expect(url).toContain('gemini-2.5-flash');
     expect(url).toContain('key=test-key');
 
     const body = JSON.parse((init as RequestInit).body as string);

@@ -77,7 +77,10 @@ const baseSchema = z.object({
   // Gemini (Google AI Studio) — gratuito ate 1500 req/dia no flash.
   // Pega chave em https://aistudio.google.com/apikey
   GEMINI_API_KEY: z.string().default(''),
-  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  // Nota: 'gemini-2.0-flash' foi descontinuado para keys novas em 05/2026
+  // ("no longer available to new users"). Trocado pra 2.5-flash que tem
+  // mesma cota gratuita + JSON nativo + suporte indefinido.
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
 
   // Ollama Cloud (legado) — usado como fallback quando Gemini falha,
   // ou principal se LLM_PROVIDER=ollama.

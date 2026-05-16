@@ -15,7 +15,7 @@ import { env } from '../config/env.js';
  *   - content (string) -> parts: [{ text }]
  *
  * JSON estruturado: usa `generationConfig.responseMimeType: 'application/json'`
- * (suportado pelo gemini-1.5-flash, gemini-2.0-flash e variants).
+ * (suportado pelo gemini-2.5-flash, gemini-2.5-pro e variants).
  *
  * Retorna `string | null` (a mesma do Ollama) — null em qualquer falha
  * pra que o caller decida o fallback.
@@ -45,6 +45,10 @@ interface GeminiRequest {
     temperature?: number;
     maxOutputTokens?: number;
     responseMimeType?: string;
+    // Disponivel a partir do gemini-2.5: controla o budget de thinking.
+    // thinkingBudget=0 desabilita thinking (resposta mais rapida, menos
+    // tokens consumidos antes do JSON sair).
+    thinkingConfig?: { thinkingBudget: number };
   };
 }
 
@@ -78,10 +82,16 @@ function toGeminiPayload(messages: ChatMessage[], opts: ChatOptions): GeminiRequ
   }
   const gc: NonNullable<GeminiRequest['generationConfig']> = {
     temperature: opts.temperature ?? 0.3,
-    maxOutputTokens: opts.maxTokens ?? 512,
+    // gemini-2.5+ consome tokens em "thinking" antes da resposta. Pra
+    // garantir que JSON nao seja cortado, dobramos o orcamento default.
+    maxOutputTokens: opts.maxTokens ?? 1024,
   };
   if (opts.json) {
     gc.responseMimeType = 'application/json';
+    // Pra extracao estruturada, desabilita thinking — o modelo nao precisa
+    // raciocinar abertamente, so emitir o JSON. Reduz latencia em ~50% e
+    // evita cortar a resposta quando maxOutputTokens for baixo.
+    gc.thinkingConfig = { thinkingBudget: 0 };
   }
   body.generationConfig = gc;
   return body;
