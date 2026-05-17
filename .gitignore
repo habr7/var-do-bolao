@@ -39,5 +39,8 @@ coverage/
 tmp/
 temp/
 
-# Claude
-.claude/
+# Claude — settings locais e worktrees fora do versionamento;
+# skills (memos compartilhaveis) entram no repo via excecao abaixo.
+.claude/*
+!.claude/skills/
+!.claude/skills/**

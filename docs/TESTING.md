@@ -1,263 +1,313 @@
-# Como testar o bot SEM token da Meta
+# Como testar o VAR do Bolão
 
-Este guia mostra como exercitar 100% das funcionalidades do VAR do Bolão antes
-de ter `WHATSAPP_ACCESS_TOKEN`, `PHONE_NUMBER_ID` e afins. Quando o token real
-chegar, basta trocar as envs e o bot já está funcional.
-
-A estratégia tem **três camadas**:
+O bot pode ser exercitado em **três níveis** sem precisar de conexão real do WhatsApp:
 
 1. **Unit tests** (`npm test`) — lógica pura, sem rede nem DB
-2. **REPL de simulação** (`npm run sim`) — conversa interativa no terminal com o bot, usando banco real mas sem enviar nada pro WhatsApp
-3. **Dry-run end-to-end** — rodar o servidor apontando para um webhook fake, disparando payloads de teste
+2. **Simulação determinística** (`npx tsx scripts/simulate-conversation.ts`) — 55+ cenários reais
+3. **REPL interativo** (`npm run sim`) — conversa no terminal, banco real, sem mandar mensagem
+
+Mais um nível **com WhatsApp real**:
+
+4. **Dev no celular** — Docker Compose sobe Evolution API + você escaneia QR
 
 ---
 
-## 1. Unit tests
+## 1. Unit tests (`npm test`)
 
-```bash
+```cmd
 npm test
 ```
 
-Cobre:
-- `message.parser` — reconhecimento de intenção em pt-BR
-- `password` — hash bcrypt + validação
-- `signature` — HMAC SHA256 do webhook da Meta
-- `ranking/pontuacao.calc` — 10/7/5/3/0 pontos
-- `pix.adapter` — mock, força pagamento, auto-pay
-- `meta.client` (em dry-run) — captura de mensagens, listener
-- `validators` — scores, JID format
+**280+ tests** distribuídos em `tests/unit/`. Cobre:
 
-Rápido (~4s), não precisa de nada externo.
+| Arquivo | O que testa |
+|---------|-------------|
+| `bolao-codigo.test.ts` | Geração + extração de códigos curtos (inclui legados ISSUE-001) |
+| `convite.helper.test.ts` | Link wa.me, normalização de número, fallback sem env |
+| `lista.helper.test.ts` | `formatarBoloesNumerados`, `parseEscolhaBolao` |
+| `message.parser.test.ts` | 120+ casos de intent regex (saudação, palpite, multi-palpite, todas as 19 intents) |
+| `admin.parser.test.ts` | Aprovação/recusa em NL (todos/nomeado/genérico) |
+| `palpite.extractor.test.ts` | LLM extrator mockado |
+| `bolao.matcher.test.ts` | Escolha de bolão (índice → código → fuzzy → LLM) |
+| `intent.classifier.test.ts` | LLM classifier mockado |
+| `gemini.client.test.ts` | Cliente Gemini (conversão de payload, JSON mode, thinking off, error handling) |
+| `ollama.client.test.ts` | Cliente Ollama (fallback) |
+| `evolution.client.test.ts` | Cliente Evolution (sendText, dry-run) |
+| `password.test.ts` | bcrypt hash + compare |
+| `validators.test.ts` | placar, normalizeTeamName |
+| `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
+
+Tempo: ~5s. Não toca rede nem DB.
+
+### Watch mode
+```cmd
+npm run test:watch
+```
 
 ---
 
-## 2. REPL de simulação (o "modo dev")
+## 2. Simulação determinística (`scripts/simulate-conversation.ts`)
 
-Este é o teste mais valioso antes de ter token real. Você **conversa com o bot
-no terminal** como se fosse um usuário real. Todas as funcionalidades passam
-pelo mesmo código que vai rodar em produção — webhook handler, FSM, services,
-jobs — mas nenhuma mensagem sai da máquina.
+Roda **55+ cenários** que cobrem todos os bugs reais já vistos em conversas
+com usuários. Não toca DB/Redis nem rede — só testa o parser e o admin parser
+(que é onde mora a maioria dos bugs).
+
+```cmd
+npx tsx scripts/simulate-conversation.ts
+```
+
+Output esperado:
+```
+RESULTADO: 55 ✅  0 ❌  (total 55)
+```
+
+Cobre:
+- Saudações + intents principais
+- Multi-palpite com preposição ("México 2 a 0 na África")
+- Palpite com "perde de" / "ganha por"
+- Palpites com extenso ("dois a um")
+- Códigos legados (`#AD71F3` — ISSUE-001)
+- Variantes de "quero dar palpites" → PROXIMOS_JOGOS
+- "qual a senha" → INFO_SENHA (ISSUE-005)
+- "excluir bolão" → EXCLUIR_BOLAO (ISSUE-006)
+- Regressões dos 7 bugs originais
+
+Quando criar nova intent ou regex pattern, **adicione um cenário aqui**.
+
+---
+
+## 3. REPL interativo (`npm run sim`)
+
+Conversa com o bot no terminal **como se fosse um usuário real**. Toda a
+lógica passa pelo código de produção (parser, FSM, services, jobs), mas
+mensagens "enviadas" são capturadas em memória — nada vai pro WhatsApp.
 
 ### Pré-requisitos
 
-```bash
-# Infra local (postgres + redis)
-docker compose up -d
-
-# Migrations
+```cmd
+:: infra
+docker compose up -d postgres redis
+:: migrations
 npx prisma migrate dev
 ```
 
-Não precisa preencher `WHATSAPP_*` no `.env` — os defaults já servem para
-dry-run.
+Não precisa de Evolution rodando nem QR escaneado — `DRY_RUN_WHATSAPP=true`
+captura sendText em memória.
 
-### Iniciar o REPL
+### Iniciar
 
-```bash
+```cmd
 npm run sim
 ```
 
-Você verá algo como:
-
+Você verá:
 ```
 ⚽ VAR do Bolão — REPL local
-DRY_RUN_META=true — nenhuma mensagem real eh enviada
+DRY_RUN_WHATSAPP=true — nenhuma mensagem real é enviada
 
-╔═══ VAR do Bolão — modo simulacao ═══╗
-
-Comandos:
-  /as <nome> <waId>   troca o remetente atual
-  /users             lista usuarios ja criados na sessao
-  /pix               forca PAGO em todos os pagamentos pendentes
-  /tick-results      roda job fetch-results manualmente
-  /state             mostra sessao FSM do usuario atual
-  /clear             limpa fila de mensagens capturadas
-  /help              mostra este menu
-  /quit              sair
-
-» voce eh Humberto (5511999999999) — /as troca
+» você é Humberto (5511999999999) — /as troca
 Humberto>
 ```
 
-A cada mensagem que você envia, o bot "responde" — a resposta aparece no
-terminal formatada (com prefixo `🤖 bot →`). Você pode alternar entre vários
-"usuários simulados" usando `/as`.
+### Comandos do REPL
 
-### Roteiro completo — fluxo do admin criando bolão
+| Comando | O que faz |
+|---------|-----------|
+| `/as Nome 5511XXXXXXXXX` | Troca o usuário corrente — mensagens seguintes vêm desse waId |
+| `/users` | Lista usuários criados na sessão |
+| `/pix` | (legado, PIX desativado) Marca cobranças pendentes como pagas |
+| `/tick-results` | Roda job `fetch-results` manualmente |
+| `/state` | Mostra a FSM atual do usuário (state + ctx) |
+| `/clear` | Limpa fila de mensagens capturadas |
+| `/help` | Menu |
+| `/quit` | Sai |
+
+### Roteiro exemplo — fluxo de criação
 
 ```text
 Humberto> oi
-🤖 bot → Humberto (5511999999999)
+🤖 bot → Humberto
   │ 👋 Opa Humberto! Sou o *VAR do Bolão* ⚽
-  │ ...
-  │ *O que você quer fazer?*
-  │ • *criar bolão* — crio um novo bolão (R$ 99,90 via PIX)
-  │ • *entrar em bolão* — entro num bolão existente
   │ ...
 
 Humberto> criar bolão
-🤖 bot → Humberto (5511999999999)
-  │ ⚽ Criar novo bolão!
-  │ Como quer chamar o bolão?
+🤖 bot → Humberto
+  │ ⚽ Bora criar um bolão novo!
+  │ Como você quer chamar?
 
 Humberto> Firma FC
-🤖 bot → Humberto (5511999999999)
+🤖 bot → Humberto
   │ ✅ Nome: *Firma FC*
   │ Agora define uma *senha* (mínimo 6 caracteres).
 
 Humberto> cerveja123
-🤖 bot → Humberto (5511999999999)
-  │ 💰 *Pagamento pra criar o bolão "Firma FC"*
-  │ Valor: R$ 99,90
-  │ 📱 *PIX Copia e Cola:*
-  │ ...
-
-Humberto> /state          # confere estado atual do usuario
-» sessao de Humberto:
-  state: CRIANDO_BOLAO_AGUARDANDO_PIX
-  ctx: { ... }
-
-Humberto> /pix            # simula PIX recebido
-» 1 cobranca(s) marcada(s) como PAGO no mock
-» rodando job validate-pix...
-🤖 bot → Humberto (5511999999999)
-  │ ✅ Pagamento confirmado!
-  │ 🏆 Bolão *Firma FC* criado com sucesso!
+🤖 bot → Humberto
+  │ 🏆 Bolão *Firma FC* criado, craque!
   │ 👑 Você é o admin.
+  │ 🎟️ ID do bolão: `#K3MZ8P`
+  │ 📨 Pra convidar gente é fácil: ...
+
+🤖 bot → Humberto
+  │ Bora pro bolão *Firma FC* 🏆
+  │ Entra clicando aqui: https://wa.me/...
 ```
 
-### Roteiro completo — outro usuário pedindo pra entrar
+### Roteiro exemplo — outro usuário entra via ID
 
 ```text
 Humberto> /as Maria 5511988888888
-» agora enviando como Maria (5511988888888)
+» agora enviando como Maria
 
-Maria> entrar em bolão
-🤖 bot → Maria (...)
-  │ 🎯 Qual o nome do bolão que você quer entrar?
+Maria> oi
+🤖 bot → Maria
+  │ 👋 Opa Maria! ...
 
-Maria> Firma FC
-🤖 bot → Maria (...)
-  │ 🔒 Bolão *Firma FC* encontrado.
-  │ Qual a senha?
+Maria> Quero entrar no bolão Firma FC 🏆 ID: *#K3MZ8P*
+🤖 bot → Maria
+  │ ✅ Pedido enviado pro bolão *Firma FC* (`#K3MZ8P`).
+  │ 📤 Mandei pro admin aprovar. ...
 
-Maria> cerveja123
-🤖 bot → Maria (...)
-  │ ✅ Senha correta!
-  │ 📤 Seu pedido foi enviado ao admin do bolão.
-
-🤖 bot → Humberto (5511999999999)
+🤖 bot → Humberto
   │ 🔔 *Novo pedido de entrada!*
-  │ 👤 Maria quer entrar no bolão *Firma FC*.
-  │ Pra aprovar: *!aprovar Maria*
+  │ 👤 *Maria* quer entrar no bolão *Firma FC*.
+  │ Responde com: *aprovado* / *recusar*
 
 Maria> /as Humberto 5511999999999
-» agora enviando como Humberto (5511999999999)
 
-Humberto> !aprovar Maria
-🤖 bot → Humberto (...)
+Humberto> aprovado Maria
+🤖 bot → Humberto
   │ ✅ Maria aprovado no bolão Firma FC!
-🤖 bot → Maria (5511988888888)
-  │ 🎉 Boa notícia! Você foi aprovado no bolão *Firma FC*! ⚽
+🤖 bot → Maria
+  │ 🎉 Boa notícia! Você foi aprovado no bolão *Firma FC*! ...
 ```
-
-### Roteiro completo — simular envio diário de jogos e palpites
-
-Pra isso, o job precisa ter dados. Duas opções:
-
-**A) Criar jogos manualmente via Prisma Studio:**
-```bash
-npx prisma studio
-# abra Rodada → New record → escolha bolaoId, numero=1, status=ABERTA
-# depois Jogo → New → rodadaId, times, dataHora=hoje
-```
-
-**B) Rodar o job diretamente no REPL:**
-```text
-Humberto> /tick-results    # se tiver API futebol mockada, traz jogos
-```
-
-(a API de futebol real tem adapter em `resultado.fetcher.ts` — em dev ela
-usa dados mockados; ver `FOOTBALL_API_KEY=mock` no `.env`)
-
-Com rodada criada e jogos agendados para hoje, rode `sendDailyGamesJob()`
-manualmente (futura melhoria: adicionar `/send-daily-games` no REPL).
-
-### Comandos úteis do REPL
-
-| Comando | O que faz |
-|---------|-----------|
-| `/as NomeDoUsuario 5511XXXXXXXXX` | Troca o remetente — todas as mensagens a seguir sao como esse usuario |
-| `/users` | Lista usuários criados na sessão |
-| `/pix` | Marca todas cobranças PIX pendentes como pagas e roda o job — útil pra não esperar o auto-pay de 45s |
-| `/tick-results` | Roda o job `fetch-results` agora (útil pra testar cálculo de pontuação e ranking) |
-| `/state` | Mostra o estado atual da FSM do usuário (qual "tela" ele está) |
-| `/clear` | Limpa a fila de mensagens capturadas (cosmético) |
-| `/help` | Mostra menu completo |
-| `/quit` | Sai |
 
 ---
 
-## 3. Testando o webhook HTTP (sem Meta real)
+## 4. Testar com WhatsApp real (Evolution + QR code)
 
-Quando quiser exercitar o handler HTTP (e não só o router em memória), rode
-o servidor em dry-run e dispare payloads no webhook com curl:
+### Pré-requisitos
 
-```bash
-# terminal 1
-DRY_RUN_META=true npm run dev
+```cmd
+:: infra completa (postgres + redis + Evolution)
+docker compose up -d
 
-# terminal 2 — simula mensagem "oi" do usuario 5511999999999
-curl -X POST http://localhost:3000/webhook/whatsapp \
+:: aguarde Evolution subir (~15s no primeiro boot)
+docker logs var_do_bolao-evolution-1 --tail 30
+```
+
+### Parear instância
+
+```cmd
+:: gera QR code
+curl -H "apikey: var_do_bolao_MelhorDoMundo" http://localhost:8080/instance/connect/varbolao
+```
+
+Escaneie o QR no WhatsApp do número que vai ser o bot. Verifique que parou:
+
+```cmd
+curl -H "apikey: var_do_bolao_MelhorDoMundo" http://localhost:8080/instance/fetchInstances
+:: procure "connectionStatus":"open"
+```
+
+> Se ficar em loop "connecting", o WhatsApp Web atualizou a versão. Edita
+> `docker-compose.yml` → `CONFIG_SESSION_PHONE_VERSION` pra versão nova que
+> aparece nos logs e roda `docker compose up -d evolution`.
+
+### Subir o bot
+
+```cmd
+:: edita .env com DRY_RUN_WHATSAPP=false e LLM_ENABLED=true (+ GEMINI_API_KEY)
+npm run dev
+```
+
+Aparece:
+```
+📨 Webhook WhatsApp: http://localhost:3000/webhook/whatsapp
+🚀 Server listening on port 3000
+```
+
+### Mandar mensagem real
+
+Manda `oi` pro número pareado pelo seu celular. O bot responde no chat.
+
+### Logs filtrados
+
+```powershell
+:: PowerShell — filtra eventos do bot
+Get-Content -Wait -Tail 50 .\log.txt |
+  Select-String "\[llm\]|\[smart-fallback\]|\[fsm-escape\]|\[multi-palpite\]|\[nao-entendi\]|\[timing\]"
+```
+
+Ou só olhar a saída do `npm run dev` direto.
+
+---
+
+## 5. Smoke test do Gemini real (`scripts/test-gemini.ts`)
+
+Útil pra validar que a `GEMINI_API_KEY` no `.env` funciona e a cota não estourou:
+
+```cmd
+npx tsx scripts/test-gemini.ts
+```
+
+Roda 3 testes contra a API real:
+1. Chat simples ("oi")
+2. Intent classifier ("quero ver a tabela do bolão")
+3. Palpite extractor ("Brasil perde de 1 a 0 do Marrocos")
+
+Esperado: latência ~400-800ms cada. Se der HTTP 429 = cota grátis estourou
+(reset diário). Se der 200 = Gemini OK.
+
+---
+
+## 6. Bateria de testes manuais no WhatsApp (após deploy)
+
+| Mensagem | Esperado |
+|---|---|
+| `oi` | Saudação + menu |
+| `regras` | Texto das regras 10/7/5/3/0 |
+| `meus bolões` | Lista com 👑 admin + IDs |
+| `criar bolão` → nome → senha | Cria + ID + **link wa.me clicável** |
+| (outro telefone clica no link) | Abre WhatsApp do bot com mensagem pronta → bot cria solicitação |
+| `aprovado Fulano` (admin) | Aprova + notifica solicitante |
+| `qual a senha?` | Handler INFO_SENHA — não chama LLM |
+| `excluir bolão` (admin) | Pede `confirmar` textual |
+| `quero dar palpites` | Lista próximos jogos abertos |
+| `Brasil 2x1 Marrocos` | Confirma palpite inline |
+| (>1 bolão) `Brasil 2x1 Marrocos` | Pergunta qual bolão |
+| `meus palpites` | Mostra histórico |
+| `ranking` | Ranking do bolão (ou pergunta qual) |
+| `xpto blablabla` | Smart fallback Gemini (não "não entendi" cru) |
+| `Bolão da jeni` (com acento errado) | Busca fuzzy encontra "Bolão da Jeni" |
+
+---
+
+## Quando algo quebra
+
+1. **Confere os logs filtrados** (`[timing]` mostra onde o gargalo está)
+2. **Roda `npm test` + `npx tsx scripts/simulate-conversation.ts`** — se ambos passam, o bug é integração (DB, Evolution, Gemini)
+3. **Reproduz no REPL** (`npm run sim`) — se reproduz lá, é lógica
+4. **Adiciona o cenário em `simulate-conversation.ts`** antes de corrigir — vira regressão
+
+---
+
+## Quando o bug é da Evolution
+
+Sintomas: instância em loop `connecting`, webhook não chega, sendText
+retorna 400/500.
+
+```cmd
+:: logs da Evolution
+docker logs var_do_bolao-evolution-1 --tail 100
+
+:: status
+curl -H "apikey: var_do_bolao_MelhorDoMundo" http://localhost:8080/instance/fetchInstances
+
+:: recriar instância
+docker compose stop evolution
+docker volume rm var_do_bolao_evolution_instances
+docker compose up -d evolution
+curl -H "apikey: var_do_bolao_MelhorDoMundo" -X POST http://localhost:8080/instance/create \
   -H 'Content-Type: application/json' \
-  -d '{
-    "object": "whatsapp_business_account",
-    "entry": [{
-      "id": "WABA_ID",
-      "changes": [{
-        "field": "messages",
-        "value": {
-          "messaging_product": "whatsapp",
-          "metadata": {"display_phone_number": "+5511988887777", "phone_number_id": "1"},
-          "contacts": [{"profile": {"name": "Humberto"}, "wa_id": "5511999999999"}],
-          "messages": [{
-            "from": "5511999999999",
-            "id": "wamid.test1",
-            "timestamp": "1700000000",
-            "type": "text",
-            "text": {"body": "oi"}
-          }]
-        }
-      }]
-    }]
-  }'
+  -d '{"instanceName":"varbolao","integration":"WHATSAPP-BAILEYS"}'
 ```
-
-Em dev (`NODE_ENV=development`) a validação HMAC é pulada, então não precisa
-assinar o body. No log do servidor você vê as mensagens "enviadas" (capturadas
-pelo dry-run do meta.client). Em produção, a validação HMAC é obrigatória.
-
----
-
-## 4. Quando o token da Meta chegar
-
-1. Preenche no `.env`:
-   ```ini
-   DRY_RUN_META=false
-   WHATSAPP_ACCESS_TOKEN=EAAD...
-   WHATSAPP_PHONE_NUMBER_ID=1234567890
-   WHATSAPP_VERIFY_TOKEN=uma-string-sua
-   WHATSAPP_APP_SECRET=abc...
-   ```
-2. Expõe o webhook publicamente (ngrok em dev, domínio HTTPS em prod):
-   ```bash
-   ngrok http 3000
-   ```
-3. No Meta Developer Portal → App → WhatsApp → Configuration:
-   - Callback URL: `https://seu-host/webhook/whatsapp`
-   - Verify token: o mesmo de `WHATSAPP_VERIFY_TOKEN`
-   - Assine os eventos: `messages`
-4. `npm run dev` — pronto. O mesmo código que rodou no REPL agora responde
-   de verdade.
-
-Nenhuma linha de código muda entre dry-run e produção — só as envs.
