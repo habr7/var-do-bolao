@@ -177,7 +177,11 @@ enum StatusRodada {
 model Jogo {
   id            String     @id @default(uuid())
   rodadaId      String
-  apiJogoId     String     @unique
+  // apiJogoId NAO eh mais unique global — o adapter FIFA 2026 retorna
+  // sempre os mesmos 72 IDs (WC2026_A_1..) pra qualquer bolao, entao
+  // unique global quebrava do 2o bolao em diante com P2002. Agora a
+  // unicidade eh por rodada (que ja garante isolamento entre bolaes).
+  apiJogoId     String
   timeCasa      String
   timeVisitante String
   golsCasa      Int?
@@ -190,6 +194,7 @@ model Jogo {
   rodada       Rodada        @relation(fields: [rodadaId], references: [id])
   palpitesJogo PalpiteJogo[]
 
+  @@unique([rodadaId, apiJogoId])
   @@index([dataHora])
   @@map("jogos")
 }

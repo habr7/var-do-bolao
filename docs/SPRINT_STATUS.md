@@ -5,7 +5,18 @@
 >
 > Este arquivo é a fonte canônica do que **já foi feito** vs **o que falta**.
 
-**Última atualização:** 2026-05-17 (após Sprint 2)
+**Última atualização:** 2026-05-17 (após hotfixes pós-Sprint 2)
+
+---
+
+## 🚨 Hotfixes pós-Sprint 2 — concluídos (2026-05-17)
+
+Dois bugs urgentes detectados em produção depois do deploy do Sprint 2:
+
+| # | Bug | Conserto |
+|---|---|---|
+| HF-A | `Jogo.apiJogoId` era `@unique` global. Adapter FIFA retorna sempre os mesmos 72 IDs → 2º bolão em diante estourava P2002 silenciosamente (try/catch swallow). Bolão ficava criado com rodada vazia → "próximos jogos" respondia "não tem rodada aberta". | Migration troca pra `@@unique([rodadaId, apiJogoId])`. `criarBolao` agora é transacional (`prisma.$transaction`) e falha alto se o seed de jogos não rolar. Novo job `repair-broken-boloes` repara legado quebrado no boot + diariamente às 03:00 com notificação DM pro admin. |
+| HF-B | Após admin encerrar bolão, mensagem dizia "palpites e ranking ficam guardados", mas 17min depois "ranking"/"próximos jogos"/"meus bolões" respondiam "você não participa de nenhum bolão" — contradição direta. Causa: `listarBoloesDoUsuario` filtrava `status='ATIVO'` em TODAS as listagens, inclusive consultas históricas. | Repository split em `listarBoloesAtivosDoUsuario` (ações) vs `listarBoloesDoUsuarioComHistorico` (consultas). `handleRanking`, `handleMeusBoloes`, `handleMeusPalpites` agora incluem FINALIZADOS, marcados com 🏁. `handleProximosJogos` detecta "só tem encerrados" e dá mensagem auto-diagnóstica oferecendo `ranking`/`meus palpites`. |
 
 ---
 

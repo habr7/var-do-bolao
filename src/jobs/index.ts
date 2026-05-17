@@ -8,6 +8,7 @@ import { sendBomDiaJob } from './send-bom-dia.job.js';
 import { sendPalpiteCallJob } from './send-palpite-call.job.js';
 import { sendRemindersJob } from './send-reminders.job.js';
 import { sendRankingJob } from './send-ranking.job.js';
+import { repararBoloesQuebrados } from './repair-broken-boloes.job.js';
 
 function wrap(name: string, fn: () => Promise<void>) {
   return async () => {
@@ -46,6 +47,20 @@ export function registerJobs() {
   cron.schedule('5 * * * *', wrap('send-palpite-call', sendPalpiteCallJob), {
     timezone: env.TIMEZONE,
   });
+
+  // HOTFIX 17/05: reparo de boloes quebrados (rodada vazia ou sem rodada).
+  // Roda 1x no boot pra limpar o legado existente, depois 1x/dia as 03:00
+  // como defensivo (caso futuras falhas reintroduzam o estado).
+  repararBoloesQuebrados().catch((e) =>
+    console.error('[cron repair-broken-boloes] reparo inicial falhou:', e),
+  );
+  cron.schedule(
+    '0 3 * * *',
+    wrap('repair-broken-boloes', async () => {
+      await repararBoloesQuebrados();
+    }),
+    { timezone: env.TIMEZONE },
+  );
 
   console.log('⏰ Jobs registrados');
 }

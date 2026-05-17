@@ -1,11 +1,26 @@
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database.js';
 import * as bolaoRepo from './bolao.repository.js';
-import * as rodadaRepo from '../rodada/rodada.repository.js';
 import { buscarJogosParaRodada } from '../resultado/resultado.service.js';
 import type { CriarBolaoInput } from './bolao.types.js';
 import { gerarCodigoBolao } from '../../utils/bolao-codigo.js';
 
+/**
+ * Cria bolao + admin participando + rodada inicial + jogos da Copa, TUDO
+ * ATOMICAMENTE (transacao Prisma). Se qualquer passo falhar, nada eh
+ * persistido — adeus bolao quebrado.
+ *
+ * Bug 17/05 (que esta funcao corrige):
+ *   - `Jogo.apiJogoId` era unique global; do 2o bolao em diante a chamada
+ *     createMany de jogos estourava P2002 silenciosamente (try/catch
+ *     swallow). Bolao ficava criado com rodada vazia e admin via
+ *     "✅ bolao criado" sem perceber o estrago. "Proximos jogos" ficava
+ *     em loop dizendo "nao tem rodada aberta".
+ *   - Migration paralela troca o unique pra (rodadaId, apiJogoId).
+ *   - Aqui: jogos sao carregados ANTES da transacao (falha cedo, sem
+ *     persistir nada). E o resto eh tudo dentro do `$transaction` —
+ *     se um INSERT falha, a transacao da rollback de tudo.
+ */
 export async function criarBolao(input: CriarBolaoInput) {
   // Defensive check global (case-insensitive) contra duplicidade — alem
   // do check no router. Cobre o caso TOCTOU de outro usuario ter criado
@@ -25,36 +40,72 @@ export async function criarBolao(input: CriarBolaoInput) {
   // o retry blinda contra o caso teorico.
   const codigo = await gerarCodigoUnico();
 
-  // Admin participa automaticamente do proprio bolao
-  const bolao = await bolaoRepo.criarBolao({ ...input, codigo });
-
-  await prisma.participacao.create({
-    data: { bolaoId: bolao.id, usuarioId: input.adminId },
-  });
-
-  // Seed automatico de jogos. Hoje so temos uma "Rodada" (Fase de Grupos
-  // Copa 2026) com todos os 72 jogos dentro. Se o adapter de futebol falhar
-  // ou nao retornar jogos, o bolao fica criado mas sem jogos — admin pode
-  // rodar `npm run seed:fifa -- <bolaoId>` depois.
+  // Pre-condicao: carrega jogos ANTES da transacao. Se o adapter falhar
+  // aqui, nada foi persistido — admin recebe erro claro e pode tentar de
+  // novo. Mensagem nao tem prefixo "❌" pra nao duplicar com o handler
+  // que ja prefixa erros.
+  let jogos;
   try {
-    const jogos = await buscarJogosParaRodada(input.campeonatoId, 1);
-    if (jogos.length > 0) {
-      const primeiroJogo = jogos.reduce(
-        (min, j) => (j.dataHora < min ? j.dataHora : min),
-        jogos[0].dataHora,
-      );
-      const rodada = await rodadaRepo.criarRodada({
-        bolaoId: bolao.id,
+    jogos = await buscarJogosParaRodada(input.campeonatoId, 1);
+  } catch (error) {
+    throw new Error(
+      `Nao consegui carregar a lista de jogos do campeonato agora. ` +
+      `Tenta de novo daqui a pouco. (detalhe: ${(error as Error).message})`,
+    );
+  }
+  if (!jogos || jogos.length === 0) {
+    throw new Error(
+      `Lista de jogos do campeonato veio vazia. Nao consigo criar o bolao ` +
+      `sem jogos. Fala com o suporte que isso eh problema do nosso lado.`,
+    );
+  }
+
+  const primeiroJogo = jogos.reduce(
+    (min, j) => (j.dataHora < min ? j.dataHora : min),
+    jogos[0].dataHora,
+  );
+
+  // Tudo atomico: bolao + participacao do admin + rodada + jogos. Se
+  // qualquer passo dentro do $transaction falhar, NADA eh persistido.
+  const bolao = await prisma.$transaction(async (tx) => {
+    const novoBolao = await tx.bolao.create({
+      data: {
+        codigo,
+        nome: input.nome,
+        senhaHash: input.senhaHash,
+        adminId: input.adminId,
+        campeonatoId: input.campeonatoId,
+        campeonatoNome: input.campeonatoNome,
+        ...(input.pagamentoId ? { pagamentoId: input.pagamentoId } : {}),
+      },
+      include: { admin: true },
+    });
+
+    await tx.participacao.create({
+      data: { bolaoId: novoBolao.id, usuarioId: input.adminId },
+    });
+
+    const rodada = await tx.rodada.create({
+      data: {
+        bolaoId: novoBolao.id,
         numero: 1,
         dataAbertura: new Date(),
         dataFechamento: primeiroJogo,
-      });
-      await rodadaRepo.adicionarJogos(rodada.id, jogos);
-    }
-  } catch (error) {
-    console.error('[bolao.service] erro fazendo seed de jogos:', (error as Error).message);
-    // nao falha a criacao do bolao por causa do seed
-  }
+      },
+    });
+
+    await tx.jogo.createMany({
+      data: jogos.map((j) => ({
+        rodadaId: rodada.id,
+        apiJogoId: j.apiJogoId,
+        timeCasa: j.timeCasa,
+        timeVisitante: j.timeVisitante,
+        dataHora: j.dataHora,
+      })),
+    });
+
+    return novoBolao;
+  });
 
   return bolao;
 }

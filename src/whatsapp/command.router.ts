@@ -807,13 +807,30 @@ async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, 
   // PIX DESATIVADO nesta fase — bolao criado de graca pra ganhar tracao.
   // Quando reativar pagamento, voltar a chamar `pagamentoService.gerarCobranca`
   // e setar o estado CRIANDO_BOLAO_AGUARDANDO_PIX.
-  const bolao = await bolaoService.criarBolao({
-    nome: nomeBolao,
-    senhaHash,
-    adminId: usuarioId,
-    campeonatoId: env.DEFAULT_CAMPEONATO,
-    campeonatoNome: 'Copa do Mundo FIFA 2026 — Fase de Grupos',
-  });
+  //
+  // HOTFIX 17/05: `criarBolao` agora pode lancar (atomicidade + falha alto
+  // no seed de jogos). Antes da mudanca, a sessao ficava presa em
+  // CRIANDO_BOLAO_SENHA se o erro borbulhasse pra cima. Aqui resetamos
+  // explicitamente antes de propagar a mensagem de erro.
+  let bolao;
+  try {
+    bolao = await bolaoService.criarBolao({
+      nome: nomeBolao,
+      senhaHash,
+      adminId: usuarioId,
+      campeonatoId: env.DEFAULT_CAMPEONATO,
+      campeonatoNome: 'Copa do Mundo FIFA 2026 — Fase de Grupos',
+    });
+  } catch (error) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text:
+        `❌ ${(error as Error).message}\n\n` +
+        `Manda *criar bolão* pra tentar de novo.`,
+    });
+    return;
+  }
 
   await resetSession(msg.waId);
 

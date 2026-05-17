@@ -239,6 +239,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.1.1** (2026-05-17) — Hotfix pós-Sprint 2: (a) `Jogo.apiJogoId` unique-por-rodada + `criarBolao` atômico + job de reparo (corrige "rodada vazia" do 2º bolão em diante); (b) bolões encerrados visíveis em consultas (ranking/meus palpites/meus bolões) — honra a promessa "fica guardado" feita no encerramento
 - **v3.1** (2026-05-17) — Sprint 2 completo: ISSUES 009-023 (handlers de info, editar/apagar palpite, bolão padrão, renomear, remover participante, RESUMO_BOLOES) + 322 tests
 - **v3.0** (2026-05-17) — Sprint 1 completo: ISSUES 001-008 + wa.me link
 - **v2.8** (2026-05-15) — Gemini 2.5 Flash Lite + thinking off sempre
