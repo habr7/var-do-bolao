@@ -321,6 +321,42 @@ Esperado:
 - `[repair-broken-boloes] reparado #ABCD12 (Nome) — ...`
 - DM pro admin: "✅ Acabei de carregar os jogos da Copa pro seu bolão *X*..."
 
+#### Disparar o reparo sob demanda (sem subir o servidor)
+
+Quando a porta 3000 já está ocupada (outro `npm run dev` rodando) ou
+você só quer testar o job isolado:
+
+```cmd
+npx tsx scripts/run-repair-once.ts
+```
+
+Roda uma única vez e sai. Útil também pra forçar o reparo logo após
+aplicar uma migration nova sem ter que reiniciar o servidor.
+
+### Bloco E — Migrations Prisma (3.1.2)
+
+Sempre que o schema Prisma muda, **aplicar todas as migrations pendentes** no
+banco local antes de boot:
+
+```cmd
+npx prisma migrate deploy   :: aplica todas as migrations não aplicadas
+npx prisma migrate status    :: verifica que esta tudo em dia
+npx prisma generate          :: regenera o client com schema atual
+```
+
+Erros tipo `Unique constraint failed on ...` em jobs após `migrate deploy`
+podem indicar que um índice/constraint antigo não foi totalmente derrubado
+(`DROP CONSTRAINT IF EXISTS` é no-op se o `@unique` original foi criado
+como `CREATE UNIQUE INDEX`). Verifique com:
+
+```cmd
+docker exec var_do_bolao-postgres-1 psql -U varbolao -d varbolao \
+  -c "SELECT indexname FROM pg_indexes WHERE tablename='jogos';"
+```
+
+Se houver índice unique órfão, drope explicitamente via nova migration
+com `DROP INDEX IF EXISTS "nome_do_indice";`.
+
 ---
 
 ## Quando algo quebra
