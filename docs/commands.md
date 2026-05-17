@@ -67,6 +67,10 @@ apagar bolão
 ```
 → Bot pede confirmação **textual** (`confirmar`) — sim/yes não basta. Notifica
 todos os participantes ao excluir. Soft delete (`status = FINALIZADO`).
+> ⚠️ Bolão encerrado **continua acessível em consultas**: `ranking` mostra
+> resultado final, `meus palpites` mostra histórico, `meus bolões` lista
+> em seção separada "🏁 Bolões encerrados". As **ações** (palpitar,
+> convidar, sair, abrir rodada) somem.
 
 ---
 
@@ -175,6 +179,11 @@ quem ta na frente
 classificação
 ranking Firma FC    (com nome do bolão)
 ```
+→ Bolões **encerrados** (FINALIZADO) também aparecem aqui — o bot promete
+"palpites e ranking ficam guardados" no encerramento, então ranking final
+fica acessível pra consulta. Na lista numerada, encerrados aparecem
+marcados com `🏁`. O envio do ranking final adiciona o sufixo
+"🏁 Este bolão foi encerrado — ranking final guardado pra consulta."
 
 ### Meus pontos
 ```
@@ -192,6 +201,11 @@ o que ainda nao palpitei?
 lista de jogos
 mostra os jogos
 ```
+→ Só lista bolões **ATIVOS**. Se o usuário só tem bolões encerrados, o bot
+detecta o caso e responde com mensagem **auto-diagnóstica** ("Você tem N
+bolão(ões) encerrado(s). Manda *ranking* pra ver o resultado final ou
+*meus palpites* pra ver o histórico.") — em vez do genérico "não participa
+de nenhum bolão" que contradizia a notificação anterior do bot.
 
 ### Jogos hoje
 ```
@@ -206,6 +220,19 @@ meus bolões
 onde participo
 em qual bolão to?
 ```
+→ Mostra **duas seções**:
+- 🏆 *Seus bolões ativos:* — lista com 👑 admin + ⭐ padrão (se setado) + `#ID`
+- 🏁 *Bolões encerrados:* — bolões já finalizados (soft-delete via "excluir bolão")
+  com dica "Manda *ranking* pra ver o resultado final."
+
+Se houver `>1` ativo e nenhum padrão, dica "Pra definir um bolão como padrão..."
+aparece no fim.
+
+### Meus palpites (com histórico)
+
+Acessível via `meus palpites` (intent `MEU_PALPITE`). Aceita bolões
+**encerrados** também — palpites passados ficam guardados pra consulta.
+Na lista numerada de múltiplos bolões, encerrados aparecem com `🏁`.
 
 ### Quem participa
 ```

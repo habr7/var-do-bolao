@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.1
-**Última atualização:** 2026-05-17 (Sprint 2 completo)
+**Versão do documento:** 3.1.1
+**Última atualização:** 2026-05-17 (Sprint 2 completo + 2 hotfixes pós-deploy)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -193,8 +193,8 @@ var_do_bolao/
 │   ├── modules/                     # Lógica de negócio (Repository + Service)
 │   │   ├── bolao/
 │   │   │   ├── bolao.types.ts
-│   │   │   ├── bolao.repository.ts
-│   │   │   └── bolao.service.ts     # criar, buscarPorNomeFuzzy, excluir (soft)
+│   │   │   ├── bolao.repository.ts  # listarBoloesAtivos vs listarBoloesComHistorico (split p/ consultas)
+│   │   │   └── bolao.service.ts     # criar (atômico/transacional), buscarPorNomeFuzzy, excluir (soft), renomear, remover participante, bolão padrão
 │   │   ├── pagamento/               # PIX (desativado — schema presente, fluxo skip)
 │   │   ├── solicitacao/             # PENDENTE → APROVADA/RECUSADA
 │   │   ├── rodada/
@@ -213,6 +213,7 @@ var_do_bolao/
 │   │   ├── send-palpite-call.job.ts # 5 * * * * — chamada N horas antes do 1o jogo
 │   │   ├── send-reminders.job.ts    # */30min — cutuca quem não palpitou
 │   │   ├── send-ranking.job.ts      # 0 * * * * — ranking hourly
+│   │   ├── repair-broken-boloes.job.ts # boot + 0 3 * * * — repara bolões sem rodada/vazia
 │   │   └── validate-pix.job.ts      # (comentado — PIX desativado)
 │   │
 │   ├── image/
@@ -566,13 +567,17 @@ model Rodada {
 model Jogo {
   id            String     @id @default(uuid())
   rodadaId      String
-  apiJogoId     String     @unique
+  // Atenção: apiJogoId NÃO é unique global. Adapter FIFA 2026 retorna
+  // sempre os mesmos 72 IDs (WC2026_A_1..) — a unicidade é POR RODADA.
+  // Ver migration 20260517160000_jogo_apijogo_unique_por_rodada.
+  apiJogoId     String
   timeCasa      String
   timeVisitante String
   golsCasa      Int?
   golsVisitante Int?
   status        StatusJogo @default(AGENDADO)        // AGENDADO | AO_VIVO | FINALIZADO | ADIADO | CANCELADO
   dataHora      DateTime
+  @@unique([rodadaId, apiJogoId])
 }
 
 model Palpite {
@@ -595,6 +600,20 @@ model PalpiteJogo {
   @@unique([palpiteId, jogoId])
 }
 ```
+
+### 9.1 Operações críticas — invariantes que NÃO podem regredir
+
+Resumo das regras que vieram de bugs reais e que **toda mudança nesta
+camada precisa preservar**:
+
+| Invariante | Onde mora | Por que existe |
+|------------|-----------|----------------|
+| `criarBolao` é **atômico** (`prisma.$transaction`) | `bolao.service.ts:criarBolao` | Pré-2026-05-17 o seed de jogos vivia num try/catch silencioso. Quando o `createMany` estourava P2002 (causa: `apiJogoId` unique global), o bolão+rodada ficavam criados mas sem jogos. Admin via "✅ criado" e o bot dizia depois "não tem rodada aberta". **Nunca** isolar passos de criação fora da transação. |
+| `Jogo.apiJogoId` é unique **por rodada**, não global | `prisma/schema.prisma` + migration `20260517160000_jogo_apijogo_unique_por_rodada` | Adapter FIFA retorna os mesmos 72 IDs (`WC2026_A_1`..) pra qualquer bolão. Unique global quebrava do 2º bolão em diante. |
+| Listagens de bolão distinguem **ação** vs **consulta histórica** | `bolao.repository.ts` (2 funções) + `bolao.service.ts` (2 wrappers) | Bolão FINALIZADO (soft delete) deve seguir visível em consultas — bot promete "palpites e ranking ficam guardados" ao encerrar. Convenção: <br>• `listarBoloesAtivosDoUsuario` → ações: palpitar, convidar, sair, abrir rodada. <br>• `listarBoloesDoUsuarioComHistorico` → consultas: ranking, meus palpites, meus bolões. <br>A função antiga `listarBoloesDoUsuario` é alias depreciado pra ativos. |
+| Bolões encerrados marcados com 🏁 em listas numeradas | `handleRanking`, `handleMeusBoloes`, `handleMeusPalpites` | UI clara — usuário sabe que aquele bolão já terminou antes de escolher. |
+| `enviarRankingDoBolao` adiciona sufixo "🏁 ranking final guardado" se status=FINALIZADO | `command.router.ts:enviarRankingDoBolao` | Coerência com a promessa do encerramento. |
+| `handleProximosJogos` detecta "usuário só tem encerrados" e dá mensagem **auto-diagnóstica** | `command.router.ts:handleProximosJogos` | Mensagem genérica "não participa de nenhum bolão" contradizia o próprio bot que tinha notificado o encerramento minutos antes. |
 
 ---
 
@@ -666,10 +685,12 @@ ID do bolão: #K3MZ8P
 | `send-ranking` | `0 * * * *` | Ranking hourly (cards em imagem via sharp/SVG) |
 | `send-bom-dia` | `0 * * * *` | Saudação nos dias com jogo (decide horário internamente) |
 | `send-palpite-call` | `5 * * * *` | Chamada de palpites `PALPITE_CALL_HORAS_ANTES` (6h) antes do 1o jogo do dia |
+| `repair-broken-boloes` | boot + `0 3 * * *` | Detecta bolões ATIVOS sem rodada ou com rodada vazia, carrega jogos via adapter, notifica admin via DM. Roda 1x no boot (limpa legado) + 1x/dia às 03:00 (defensivo). Idempotente. |
 | `validate-pix` | *desativado* | (mantido comentado, volta quando reativar PIX) |
 
 Idempotência via flags em Redis (`bom_dia_sent:YYYY-MM-DD:waId`,
-`palpite_call_sent:YYYY-MM-DD:waId`).
+`palpite_call_sent:YYYY-MM-DD:waId`). O `repair-broken-boloes` é
+idempotente naturalmente (só age em bolões sem rodada ou rodada vazia).
 
 ---
 
@@ -871,6 +892,12 @@ Ver `BUGS_E_CENARIOS_VAR_DO_BOLAO.md` (raiz, gerado em 2026-05-16).
 **Sprint 1 (FEITO em 2026-05-17):** ISSUE-001 a ISSUE-008 + link wa.me (ISSUE-040
 antecipado).
 
+**Hotfixes pós-Sprint 2 (FEITO em 2026-05-17, ver `docs/SPRINT_STATUS.md`):**
+- HF-A: `Jogo.apiJogoId` unique-por-rodada + `criarBolao` atômico + job `repair-broken-boloes`
+  (fixa "rodada vazia" do 2º bolão em diante)
+- HF-B: bolões encerrados (FINALIZADO) visíveis em consultas, marcados com 🏁;
+  `handleProximosJogos` auto-diagnóstico quando usuário só tem encerrados
+
 **Sprint 2 (FEITO em 2026-05-17):** ISSUE-009 a ISSUE-023.
 - 009 handler "o que é o bot" → INFO_PRODUTO ✅
 - 010 handler "quanto custa" → INFO_PRECO ✅
@@ -937,4 +964,5 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 2.7 | 2026-05-14 | Multi-palpite com confirmação + Gemini default + FSM escape geral |
 | 2.8 | 2026-05-15 | Gemini Flash Lite + thinking off |
 | 3.0 | 2026-05-17 | ISSUES 001-008 + link wa.me + 19 intents + métricas Redis + 280+ tests |
-| **3.1** | **2026-05-17** | **Sprint 2 completo (ISSUES 009-023): +10 intents, +14 FSM states, bolão padrão (schema migration), editar/apagar palpite, validar placar absurdo, multi-bolão auto-apply, renomear bolão, remover participante, RESUMO_BOLOES. 322 tests, 75 cenários.** (este documento) |
+| 3.1 | 2026-05-17 | Sprint 2 completo (ISSUES 009-023): +10 intents, +14 FSM states, bolão padrão (schema migration), editar/apagar palpite, validar placar absurdo, multi-bolão auto-apply, renomear bolão, remover participante, RESUMO_BOLOES. 322 tests, 75 cenários. |
+| **3.1.1** | **2026-05-17** | **Hotfixes pós-Sprint 2 em produção:** (a) `Jogo.apiJogoId` deixa de ser unique global → `@@unique([rodadaId, apiJogoId])` + `criarBolao` virou transação atômica + novo job `repair-broken-boloes` (boot + 03:00 diário). Corrige bolões 2º em diante ficando com rodada vazia. (b) Bolões `FINALIZADO` voltaram a aparecer em consultas (ranking/meus palpites/meus bolões), marcados com 🏁; `handleProximosJogos` ganhou mensagem auto-diagnóstica quando usuário só tem encerrados; repository split `listarBoloesAtivos*` vs `listarBoloes*ComHistorico`. **322 tests, 75 cenários — sem regressão.** (este documento) |

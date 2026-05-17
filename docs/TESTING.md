@@ -262,11 +262,12 @@ Esperado: latência ~400-800ms cada. Se der HTTP 429 = cota grátis estourou
 
 ## 6. Bateria de testes manuais no WhatsApp (após deploy)
 
+### Bloco A — Sanity geral
 | Mensagem | Esperado |
 |---|---|
 | `oi` | Saudação + menu |
 | `regras` | Texto das regras 10/7/5/3/0 |
-| `meus bolões` | Lista com 👑 admin + IDs |
+| `meus bolões` | Lista com 👑 admin + IDs (e seções 🏆 ativos / 🏁 encerrados se aplicável) |
 | `criar bolão` → nome → senha | Cria + ID + **link wa.me clicável** |
 | (outro telefone clica no link) | Abre WhatsApp do bot com mensagem pronta → bot cria solicitação |
 | `aprovado Fulano` (admin) | Aprova + notifica solicitante |
@@ -279,6 +280,46 @@ Esperado: latência ~400-800ms cada. Se der HTTP 429 = cota grátis estourou
 | `ranking` | Ranking do bolão (ou pergunta qual) |
 | `xpto blablabla` | Smart fallback Gemini (não "não entendi" cru) |
 | `Bolão da jeni` (com acento errado) | Busca fuzzy encontra "Bolão da Jeni" |
+
+### Bloco B — Hotfix `apiJogoId` unique-por-rodada (3.1.1)
+
+Criar **dois** bolões em sequência (pelo mesmo admin, nomes diferentes)
+e verificar que ambos recebem os 72 jogos da Copa.
+
+| Mensagem | Esperado |
+|---|---|
+| `criar bolão` → `Teste A` → `senha123456` | ✅ Bolão criado + ID. |
+| `próximos jogos` | Lista os jogos da Copa do Teste A. |
+| `criar bolão` → `Teste B` → `senha123456` | ✅ Bolão criado + ID (antes do hotfix, daqui em diante o segundo ficava com rodada vazia). |
+| `próximos jogos` | Pergunta qual bolão; escolher Teste B → mostra os 72 jogos. |
+| (no banco) `SELECT b.codigo, COUNT(j.id) FROM boloes b LEFT JOIN rodadas r ON r."bolaoId"=b.id LEFT JOIN jogos j ON j."rodadaId"=r.id WHERE b.status='ATIVO' GROUP BY b.codigo;` | Cada bolão deve ter 72 jogos. |
+
+### Bloco C — Hotfix bolões encerrados (3.1.1)
+
+| Mensagem | Esperado |
+|---|---|
+| (no admin de um bolão) `excluir bolão` → `confirmar` | Notifica participantes "O admin encerrou..." |
+| (no participante encerrado, sem outros bolões) `ranking` | Mostra ranking final + sufixo "🏁 Este bolão foi encerrado — ranking final guardado pra consulta." |
+| (mesmo) `próximos jogos` | Mensagem auto-diagnóstica: "Você tem 1 bolão(ões) encerrado(s). Manda *ranking* pra ver o resultado final..." (não o genérico "você não participa") |
+| (mesmo) `meus bolões` | Seção "🏁 Bolões encerrados:" com o bolão + dica de ranking |
+| (mesmo) `meus palpites` | Funciona normalmente — pede confirmação pra ver detalhe |
+| (usuário com 1 ativo + 1 encerrado) `ranking` | Bot pergunta qual; encerrado marcado com 🏁 + legenda explicativa |
+
+### Bloco D — Job de reparo (3.1.1)
+
+Se houver bolões legados quebrados (rodada vazia ou sem rodada), o
+`repair-broken-boloes` roda no boot do servidor:
+
+```cmd
+:: depois do npm run dev (ou primeiro deploy), procurar nos logs:
+Get-Content -Wait -Tail 50 log.txt | Select-String "\[repair-broken-boloes\]"
+```
+
+Esperado:
+- `[repair-broken-boloes] iniciando varredura`
+- `[repair-broken-boloes] encontrados: N sem rodada, M com rodada vazia`
+- `[repair-broken-boloes] reparado #ABCD12 (Nome) — ...`
+- DM pro admin: "✅ Acabei de carregar os jogos da Copa pro seu bolão *X*..."
 
 ---
 
