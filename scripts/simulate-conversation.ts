@@ -384,6 +384,54 @@ const CENARIOS: Cenario[] = [
     msg: 'bora dar uns palpites',
     esperado: { intencao: Intencao.PROXIMOS_JOGOS },
   },
+  // ====================================================================
+  // ISSUE-005: Pergunta sobre senha → INFO_SENHA (sem custo de LLM)
+  // ====================================================================
+  {
+    grupo: '🔓 ISSUE-005 — info senha',
+    desc: '"qual a senha?" → INFO_SENHA',
+    msg: 'qual a senha?',
+    esperado: { intencao: Intencao.INFO_SENHA },
+  },
+  {
+    grupo: '🔓 ISSUE-005 — info senha',
+    desc: '"esqueci a senha" → INFO_SENHA',
+    msg: 'esqueci a senha',
+    esperado: { intencao: Intencao.INFO_SENHA },
+  },
+  {
+    grupo: '🔓 ISSUE-005 — info senha',
+    desc: '"como pego a senha do bolao" → INFO_SENHA',
+    msg: 'como pego a senha do bolao',
+    esperado: { intencao: Intencao.INFO_SENHA },
+  },
+  // ====================================================================
+  // ISSUE-006: Admin querendo excluir bolao
+  // ====================================================================
+  {
+    grupo: '🗑️ ISSUE-006 — excluir bolao',
+    desc: '"excluir bolão" → EXCLUIR_BOLAO',
+    msg: 'excluir bolão',
+    esperado: { intencao: Intencao.EXCLUIR_BOLAO },
+  },
+  {
+    grupo: '🗑️ ISSUE-006 — excluir bolao',
+    desc: '"quero excluir o bolao" → EXCLUIR_BOLAO',
+    msg: 'quero excluir o bolao',
+    esperado: { intencao: Intencao.EXCLUIR_BOLAO },
+  },
+  {
+    grupo: '🗑️ ISSUE-006 — excluir bolao',
+    desc: '"encerrar meu bolao" → EXCLUIR_BOLAO',
+    msg: 'encerrar meu bolao',
+    esperado: { intencao: Intencao.EXCLUIR_BOLAO },
+  },
+  {
+    grupo: '🗑️ ISSUE-006 — regressao',
+    desc: '"sair do bolão" continua SAIR_BOLAO (nao confundir)',
+    msg: 'sair do bolão',
+    esperado: { intencao: Intencao.SAIR_BOLAO },
+  },
 ];
 
 // ============================================================

@@ -95,6 +95,90 @@ export async function buscarBolaoAtivoPorCodigo(codigo: string) {
 }
 
 /**
+ * Normaliza nome pra match fuzzy: remove acentos, lowercase, trim.
+ * "Bolão da Jeni" → "bolao da jeni" → casa "bolao da jeni" sem til.
+ */
+function normalizarNome(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Busca fuzzy de boloes ativos por nome. Tolerante a acentos, case e
+ * variacao de espacamento. Retorna lista ordenada por relevancia:
+ *   1. Match exato normalizado (primeiro)
+ *   2. Substring direta (alvo contido no nome)
+ *   3. Substring reversa (nome contido no alvo)
+ *
+ * Bug feedback 16/05 (Jeni): "Bolao da jeni" nao achava "Bolão da Jeni"
+ * porque Prisma `mode: 'insensitive'` so cobre case, nao acento. Aqui
+ * fazemos a normalizacao em JS.
+ *
+ * Retorna [] quando nada bate; 1 item = match unico; >1 = caller deve
+ * mostrar lista numerada pro user escolher.
+ */
+export async function buscarBoloesAtivosPorNomeFuzzy(termo: string) {
+  const alvo = normalizarNome(termo);
+  if (!alvo || alvo.length < 2) return [];
+
+  const todos = await bolaoRepo.listarBoloesAtivosTodos();
+  const matches = todos
+    .map((b) => ({ bolao: b, norm: normalizarNome(b.nome) }))
+    .filter(({ norm }) => norm === alvo || norm.includes(alvo) || alvo.includes(norm));
+
+  // Ordena: match exato normalizado primeiro, depois por proximidade
+  // de tamanho do nome (heuristica simples — nome mais proximo do alvo
+  // costuma ser o certo).
+  matches.sort((a, b) => {
+    if (a.norm === alvo && b.norm !== alvo) return -1;
+    if (b.norm === alvo && a.norm !== alvo) return 1;
+    return Math.abs(a.norm.length - alvo.length) - Math.abs(b.norm.length - alvo.length);
+  });
+
+  return matches.map((m) => m.bolao);
+}
+
+/**
+ * Tipo unificado pro resultado da busca por nome (ou codigo) — usado pelo
+ * handler de "entrar em bolao" pra decidir o que fazer:
+ *   - `unico`   → segue fluxo normal (pede senha ou cria solicitacao direto)
+ *   - `multiplos` → mostra lista numerada pro user escolher
+ *   - `nenhum`  → pede pra repetir (com contador de tentativas no caller)
+ */
+export type ResultadoBuscaBolao =
+  | { tipo: 'unico'; bolao: Awaited<ReturnType<typeof bolaoRepo.buscarBolaoAtivoPorCodigo>> }
+  | { tipo: 'multiplos'; boloes: Array<{ id: string; nome: string; codigo: string }> }
+  | { tipo: 'nenhum' };
+
+/**
+ * Caminho unificado de busca: tenta codigo primeiro (mais especifico),
+ * depois fuzzy por nome. Retorna estrutura discriminada pra caller agir.
+ */
+export async function buscarBolaoPorTextoLivre(
+  texto: string,
+): Promise<ResultadoBuscaBolao> {
+  // Caller geralmente ja extraiu o codigo antes, mas tentar denovo aqui
+  // nao machuca e cobre o caso de chamadores que so passam o texto cru.
+  const { extrairCodigoBolao } = await import('../../utils/bolao-codigo.js');
+  const codigo = extrairCodigoBolao(texto);
+  if (codigo) {
+    const porCodigo = await bolaoRepo.buscarBolaoAtivoPorCodigo(codigo);
+    if (porCodigo) return { tipo: 'unico', bolao: porCodigo };
+  }
+
+  const matches = await buscarBoloesAtivosPorNomeFuzzy(texto);
+  if (matches.length === 0) return { tipo: 'nenhum' };
+  if (matches.length === 1) return { tipo: 'unico', bolao: matches[0] };
+  return {
+    tipo: 'multiplos',
+    boloes: matches.slice(0, 8).map((b) => ({ id: b.id, nome: b.nome, codigo: b.codigo })),
+  };
+}
+
+/**
  * Gera codigo curto unico (nao colidente com nenhum bolao existente).
  * Tenta ate 8x com codigo de 6 chars; se ainda colidir, sobe pra 7 chars.
  */
@@ -125,4 +209,45 @@ export async function ehAdmin(usuarioId: string, bolaoId: string): Promise<boole
 export async function ehParticipante(usuarioId: string, bolaoId: string): Promise<boolean> {
   const p = await bolaoRepo.buscarParticipacao(bolaoId, usuarioId);
   return !!p;
+}
+
+/**
+ * Soft delete: marca status como FINALIZADO. Mantem palpites, ranking,
+ * historico de jogos pra auditoria — mas o bolao some das listagens
+ * normais (listarBoloesDoUsuario / buscarBolaoAtivoPorNome filtram por
+ * status ATIVO).
+ *
+ * Apenas o admin do bolao pode excluir. (Verifica caller.)
+ *
+ * Retorna a lista de participantes (excluindo o admin) pra caller
+ * notificar via DM que o bolao foi encerrado.
+ */
+export async function excluirBolao(bolaoId: string, adminId: string) {
+  const bolao = await prisma.bolao.findUnique({
+    where: { id: bolaoId },
+    include: { participacoes: { include: { usuario: true } } },
+  });
+  if (!bolao) throw new Error('Bolao nao encontrado.');
+  if (bolao.adminId !== adminId) throw new Error('Apenas o admin pode excluir o bolao.');
+  if (bolao.status !== 'ATIVO') throw new Error('Bolao ja esta encerrado.');
+
+  await bolaoRepo.atualizarStatus(bolaoId, 'FINALIZADO');
+
+  // Lista pra notificacao: participantes excluindo o proprio admin
+  const participantesPraNotificar = bolao.participacoes
+    .filter((p) => p.usuarioId !== adminId)
+    .map((p) => ({ whatsappId: p.usuario.whatsappId, nome: p.usuario.nome }));
+
+  return { bolao, participantesPraNotificar };
+}
+
+/**
+ * Lista boloes em que o usuario eh admin (com codigo, pra exibir).
+ */
+export async function listarBoloesQueAdministra(adminId: string) {
+  return prisma.bolao.findMany({
+    where: { adminId, status: 'ATIVO' },
+    select: { id: true, nome: true, codigo: true },
+    orderBy: { criadoEm: 'desc' },
+  });
 }

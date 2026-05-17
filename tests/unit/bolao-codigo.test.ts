@@ -48,14 +48,41 @@ describe('extrairCodigoBolao', () => {
   });
 
   it('nao acha "palavra normal" como codigo', () => {
-    // BOLAO tem O (excluido) — falha em codigoBate;
-    // ENTRAR tem so letras validas mas eh natural — falha por falta de digito
+    // ENTRAR/BOLAO sao palavras sem digito — falham na exigencia de
+    // ter ao menos um digito (regra de palavra isolada sem #)
     expect(extrairCodigoBolao('quero entrar no bolao agora')).toBeNull();
   });
 
-  it('rejeita codigo com vogais ambiguas (O/I/L)', () => {
-    // OPSILO tem O e I — nao deve ser aceito
-    expect(extrairCodigoBolao('#OPSILO')).toBeNull();
+  // ISSUE-001: ACEITA codigos legados que contem 0/1/I/L/O. A migration
+  // que gerou codigos antigos via UPPER(MD5(...)) usa alfabeto hex (0-9A-F)
+  // — esses codigos precisam continuar funcionando. A geracao nova (alfabeto
+  // restritivo) garante que codigos novos sao sem ambiguidade visual.
+  it('ISSUE-001: aceita codigo legado com 1 (#AD71F3)', () => {
+    expect(extrairCodigoBolao('#AD71F3')).toBe('AD71F3');
+  });
+
+  it('ISSUE-001: aceita codigo legado dentro de mensagem-convite', () => {
+    expect(
+      extrairCodigoBolao('Olá! Quero entrar no bolão *Bolao da jeni* 🏆 ID: *#AD71F3*'),
+    ).toBe('AD71F3');
+  });
+
+  it('ISSUE-001: aceita codigo legado com 0 (#100ABC)', () => {
+    expect(extrairCodigoBolao('#100ABC')).toBe('100ABC');
+  });
+
+  it('ISSUE-001: aceita codigo legado com I/L/O junto de digito (#OL2345)', () => {
+    expect(extrairCodigoBolao('#OL2345')).toBe('OL2345');
+  });
+
+  it('ISSUE-001: palavra de letras puras (sem digito, sem #) continua null', () => {
+    // OPSILO em texto livre: ainda eh palavra natural; sem digito → null
+    expect(extrairCodigoBolao('opsilo era um deus grego')).toBeNull();
+  });
+
+  it('ISSUE-001: com #, aceita codigo so letras (admin manda explicito)', () => {
+    // Com # o usuario foi explicito ao indicar codigo. Aceita.
+    expect(extrairCodigoBolao('#OPSILO')).toBe('OPSILO');
   });
 
   it('aceita codigo com # de 4 a 10 chars', () => {

@@ -52,6 +52,8 @@ INTENCOES:
 - QUEM_PARTICIPA: listar quem esta no bolao. Ex: "quem participa", "quem ta no bolão".
 - REGRAS: regras de pontuacao e funcionamento. Ex: "regras", "como pontua", "quantos pontos por placar exato", "criterio de pontuacao".
 - PALPITES_AMBIGUO: usuario digitou so "palpites" (sem dizer "meus" ou "novos") — bot vai perguntar entre ver/fazer/regras.
+- INFO_SENHA: usuario perguntando sobre senha do bolao. Ex: "qual a senha?", "esqueci a senha", "como pego a senha". (Bolao agora usa ID, nao senha — handler explica isso.)
+- EXCLUIR_BOLAO: admin quer excluir/encerrar/apagar o proprio bolao. Ex: "excluir bolao", "deletar bolao", "quero encerrar meu bolao".
 - PENDENTES: admin perguntando solicitacoes pendentes. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.

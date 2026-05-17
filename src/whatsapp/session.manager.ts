@@ -44,7 +44,12 @@ export type ConversaState =
   | 'ESCOLHENDO_BOLAO_PARA_PALPITAR'
   | 'CONFIRMANDO_PALPITES_INLINE'
   // Usuario digitou so "palpites" — bot pergunta entre opcoes numeradas
-  | 'ESCOLHENDO_INTENCAO_PALPITES';
+  | 'ESCOLHENDO_INTENCAO_PALPITES'
+  // Busca por nome retornou multiplos boloes — usuario escolhe qual
+  | 'ESCOLHENDO_BOLAO_PARA_ENTRAR'
+  // Admin querendo excluir bolao: escolhe qual (>1) e confirma
+  | 'ESCOLHENDO_BOLAO_EXCLUIR'
+  | 'CONFIRMANDO_EXCLUSAO_BOLAO';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -90,6 +95,9 @@ export interface ConversaContext {
     jogoId: string;
   }>;
   palpitesNaoEntendidos?: string[];
+  // Contador de tentativas (usado em ENTRANDO_NOME pra dar 3 chances
+  // antes de resetar e voltar ao menu). ISSUE-002.
+  tentativas?: number;
 }
 
 export interface Session {

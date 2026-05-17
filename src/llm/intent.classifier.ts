@@ -34,6 +34,8 @@ const INTENCOES_VALIDAS = [
   Intencao.QUEM_PARTICIPA,
   Intencao.REGRAS,
   Intencao.PALPITES_AMBIGUO,
+  Intencao.INFO_SENHA,
+  Intencao.EXCLUIR_BOLAO,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
 ] as const;

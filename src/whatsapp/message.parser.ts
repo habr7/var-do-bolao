@@ -31,6 +31,8 @@ export enum Intencao {
   QUEM_PARTICIPA = 'QUEM_PARTICIPA', // listar participantes
   REGRAS = 'REGRAS',                 // ver regras de pontuacao/funcionamento
   PALPITES_AMBIGUO = 'PALPITES_AMBIGUO', // user digitou so "palpites" — bot pergunta o que ele quis
+  INFO_SENHA = 'INFO_SENHA',         // user perguntou sobre senha do bolao (ISSUE-005)
+  EXCLUIR_BOLAO = 'EXCLUIR_BOLAO',   // admin quer excluir bolao (ISSUE-006)
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
@@ -273,6 +275,29 @@ const REGRAS_PATTERNS: RegExp[] = [
   /\bvalor (?:dos )?palpites?\b/,
 ];
 
+// "Senha do bolao / qual a senha" — ISSUE-005. Bolao agora usa ID, nao
+// senha (decisao de produto). Handler explica isso sem custo de LLM.
+const INFO_SENHA_PATTERNS: RegExp[] = [
+  /\bqual (?:a |e a )?senha\b/,
+  /\bsenha (?:do |de )?bol(?:a|o)o\b/,
+  /\besqueci (?:a )?senha\b/,
+  /\bnao (?:sei|lembro) (?:a )?senha\b/,
+  /\bme (?:passa|fala|manda|envia) (?:a )?senha\b/,
+  /\bpreciso (?:da |de uma )?senha\b/,
+  /\bcomo (?:eu )?(?:pego|consigo|descubro) (?:a )?senha\b/,
+];
+
+// "Excluir/deletar/apagar bolao" (admin) — ISSUE-006
+const EXCLUIR_BOLAO_PATTERNS: RegExp[] = [
+  /\bexcluir (?:o |um |meu |esse )?bol(?:a|o)o\b/,
+  /\bdeletar (?:o |um |meu |esse )?bol(?:a|o)o\b/,
+  /\bencerrar (?:o |um |meu |esse )?bol(?:a|o)o\b/,
+  /\bfinalizar (?:o |meu |esse )?bol(?:a|o)o\b/,
+  /\bapagar (?:o |um |meu |esse )?bol(?:a|o)o\b/,
+  /\bquero (?:excluir|deletar|encerrar|apagar|fechar)(?: o)? bol(?:a|o)o\b/,
+  /\b(?:fechar|terminar) (?:o |meu )?bol(?:a|o)o\b/,
+];
+
 // "palpites" sozinho — ambiguo entre "meus palpites" e "fazer palpites".
 // Tambem cobre "palpite" sem contexto adicional.
 // Pre-filtro pra evitar capturar quando vem "meus palpites", "palpites do
@@ -298,6 +323,12 @@ const INTENT_RULES: IntentRules[] = [
   // Ordem: mais especificos antes. REGRAS antes de AJUDA pq "como funciona
   // pontuacao" vs "como funciona" sao bem proximos.
   { intencao: Intencao.REGRAS, padroes: REGRAS_PATTERNS },
+  // INFO_SENHA antes de ENTRAR_BOLAO porque "qual a senha do bolao" tem
+  // "bolao" e poderia bater ENTRAR_BOLAO. INFO_SENHA tambem antes de
+  // EXCLUIR_BOLAO porque ambos contem "bolao". (ISSUE-005)
+  { intencao: Intencao.INFO_SENHA, padroes: INFO_SENHA_PATTERNS },
+  // EXCLUIR_BOLAO antes de SAIR_BOLAO/CRIAR_BOLAO (todos tem "bolao"). (ISSUE-006)
+  { intencao: Intencao.EXCLUIR_BOLAO, padroes: EXCLUIR_BOLAO_PATTERNS },
   { intencao: Intencao.PENDENTES, padroes: PENDENTES_PATTERNS },
   { intencao: Intencao.COMO_CONVIDAR, padroes: COMO_CONVIDAR_PATTERNS },
   { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },

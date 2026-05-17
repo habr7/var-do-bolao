@@ -404,6 +404,48 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('INFO_SENHA (ISSUE-005)', () => {
+    it('"qual a senha?" → INFO_SENHA', () => {
+      expect(parseIntencao('qual a senha?').intencao).toBe(Intencao.INFO_SENHA);
+    });
+    it('"qual senha do bolao" → INFO_SENHA', () => {
+      expect(parseIntencao('qual senha do bolao').intencao).toBe(Intencao.INFO_SENHA);
+    });
+    it('"esqueci a senha" → INFO_SENHA', () => {
+      expect(parseIntencao('esqueci a senha').intencao).toBe(Intencao.INFO_SENHA);
+    });
+    it('"não lembro a senha" → INFO_SENHA', () => {
+      expect(parseIntencao('não lembro a senha').intencao).toBe(Intencao.INFO_SENHA);
+    });
+    it('"me passa a senha" → INFO_SENHA', () => {
+      expect(parseIntencao('me passa a senha').intencao).toBe(Intencao.INFO_SENHA);
+    });
+    it('"como pego a senha" → INFO_SENHA', () => {
+      expect(parseIntencao('como pego a senha').intencao).toBe(Intencao.INFO_SENHA);
+    });
+  });
+
+  describe('EXCLUIR_BOLAO (ISSUE-006)', () => {
+    it('"excluir bolão" → EXCLUIR_BOLAO', () => {
+      expect(parseIntencao('excluir bolão').intencao).toBe(Intencao.EXCLUIR_BOLAO);
+    });
+    it('"deletar meu bolao" → EXCLUIR_BOLAO', () => {
+      expect(parseIntencao('deletar meu bolao').intencao).toBe(Intencao.EXCLUIR_BOLAO);
+    });
+    it('"quero excluir o bolão" → EXCLUIR_BOLAO', () => {
+      expect(parseIntencao('quero excluir o bolão').intencao).toBe(Intencao.EXCLUIR_BOLAO);
+    });
+    it('"encerrar bolão" → EXCLUIR_BOLAO', () => {
+      expect(parseIntencao('encerrar bolão').intencao).toBe(Intencao.EXCLUIR_BOLAO);
+    });
+    it('"apagar bolao" → EXCLUIR_BOLAO', () => {
+      expect(parseIntencao('apagar bolao').intencao).toBe(Intencao.EXCLUIR_BOLAO);
+    });
+    it('"sair do bolão" continua SAIR_BOLAO (nao excluir)', () => {
+      expect(parseIntencao('sair do bolão').intencao).toBe(Intencao.SAIR_BOLAO);
+    });
+  });
+
   describe('Palpite inline — variantes de placar (Bug 5a, P1, P2, P3)', () => {
     it('"Brasil 2x1 Marrocos" (canonico)', () => {
       const r = parseIntencao('Brasil 2x1 Marrocos');

@@ -35,6 +35,8 @@ import { formatAjuda, formatRanking } from '../utils/formatting.js';
 import { confirmacao, naoEntendi, resultadoEmoji } from '../utils/football.terms.js';
 import { extrairCodigoBolao } from '../utils/bolao-codigo.js';
 import { detectarAcaoAdmin, type AdminAcao } from './admin.parser.js';
+import { renderizarConvite } from './convite.helper.js';
+import { incContador, registrarMsgNaoEntendida } from '../utils/metrics.js';
 
 export interface IncomingMessage {
   waId: string; // so digitos
@@ -55,6 +57,9 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   let intencaoFinal: Intencao | 'erro' = 'erro';
   let stateFinal: string = 'unknown';
   try {
+    // ISSUE-008: contador total de mensagens (denominador da taxa de fallback).
+    void incContador('msg.total');
+
     const usuario = await bolaoService.getOrCreateUsuario(msg.waId, msg.senderName);
     tUser = Date.now();
     const session = await getSession(msg.waId);
@@ -63,6 +68,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     tParse = Date.now();
     intencaoFinal = parsed.intencao;
     stateFinal = session.state;
+    // ISSUE-008: por-intent counter. TEXTO_LIVRE = ainda nao classificada.
+    void incContador(`intent.${parsed.intencao}`);
 
     // Cancelar sempre funciona — qualquer estado volta pra IDLE
     if (parsed.intencao === Intencao.CANCELAR) {
@@ -72,12 +79,27 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     }
 
     // FAST-PATH: usuario colou a mensagem-convite ("quero entrar no bolão #K3MZ8P ...").
-    // Detecta o codigo independente do estado atual (so quando NAO esta no
-    // meio do fluxo de criar/palpitar — pra nao confundir senha com codigo).
+    // ISSUE-007: ao inves de WHITELIST de estados (IDLE/ENTRANDO_NOME),
+    // usa BLACKLIST de estados destrutivos onde o codigo poderia ser
+    // confundido com outro input (senha, palpite, confirmacao). Em todos
+    // os outros estados (ranking, leitura, escolha), o user pode escapar
+    // colando a mensagem-convite — bem-vinda como interrupcao.
     const codigoNaMsg = extrairCodigoBolao(msg.text);
-    const podeAceitarCodigoAqui =
-      session.state === 'IDLE' ||
-      session.state === 'ENTRANDO_NOME';
+    const ESTADOS_PROIBIDOS_CODIGO = new Set<string>([
+      'CRIANDO_BOLAO_NOME',
+      'CRIANDO_BOLAO_SENHA',
+      'CRIANDO_BOLAO_AGUARDANDO_PIX',
+      'ENTRANDO_SENHA', // senha podem parecer codigo
+      'PALPITANDO',
+      'CONFIRMANDO_PALPITES_INLINE',
+      'CONFIRMANDO_APROVAR_TODOS',
+      'CONFIRMANDO_RECUSAR_TODOS',
+      'CONFIRMANDO_RECUSAR_NOMEADO',
+      'CONFIRMANDO_SAIR_BOLAO',
+      'CONFIRMANDO_EXCLUSAO_BOLAO',
+      'ESCOLHENDO_BOLAO_PARA_PALPITAR',
+    ]);
+    const podeAceitarCodigoAqui = !ESTADOS_PROIBIDOS_CODIGO.has(session.state);
     if (codigoNaMsg && podeAceitarCodigoAqui) {
       const handledByCodigo = await tentarEntrarPorCodigo(msg, usuario.id, codigoNaMsg);
       if (handledByCodigo) return;
@@ -154,6 +176,12 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleConfirmandoSairBolao(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_PARTICIPANTES':
         return await handleEscolhendoBolaoParticipantes(msg, session);
+      case 'ESCOLHENDO_BOLAO_PARA_ENTRAR':
+        return await handleEscolhendoBolaoParaEntrar(msg, usuario.id, session);
+      case 'ESCOLHENDO_BOLAO_EXCLUIR':
+        return await handleEscolhendoBolaoExcluir(msg, usuario.id, session);
+      case 'CONFIRMANDO_EXCLUSAO_BOLAO':
+        return await handleConfirmandoExclusaoBolao(msg, usuario.id, session);
     }
 
     // IDLE — verifica primeiro se admin tem pendentes e a mensagem
@@ -213,8 +241,11 @@ async function handleIdle(
   // antes de cair no "nao entendi". Se LLM retornar algo conhecido, despacha.
   const intencaoLLM = await classificarIntencao(msg.text);
   if (intencaoLLM && intencaoLLM !== Intencao.TEXTO_LIVRE) {
+    void incContador('llm.intent.classifier.hit');
     const handledLLM = await dispatchIntencao(msg, usuarioId, intencaoLLM, raw);
     if (handledLLM) return;
+  } else {
+    void incContador('llm.intent.classifier.miss');
   }
 
   // Smart fallback: em vez de devolver "nao entendi" direto, tenta uma
@@ -223,15 +254,20 @@ async function handleIdle(
   // "nao entendi" textual + menu.
   const respostaLLM = await responderConversacional(msg.text);
   if (respostaLLM) {
+    void incContador('llm.conversational.hit');
+    void registrarMsgNaoEntendida(msg.text, 'IDLE', 'llm_fail');
     console.log(
       `[smart-fallback] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} respondido_via_llm`,
     );
     await sendText({ to: msg.waId, text: respostaLLM });
     return;
   }
+  void incContador('llm.conversational.miss');
 
   // Ultimo recurso: resposta amigavel admitindo que nao entendeu.
   // Loga em formato facil de grep ([nao-entendi]) pra revisar depois.
+  void incContador('msg.nao_entendi');
+  void registrarMsgNaoEntendida(msg.text, 'IDLE', 'final_fallback');
   console.log(
     `[nao-entendi] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} text=${JSON.stringify(msg.text.slice(0, 200))}`,
   );
@@ -270,12 +306,12 @@ async function dispatchIntencao(
       return true;
 
     case Intencao.ENTRAR_BOLAO:
-      await setSession(msg.waId, { state: 'ENTRANDO_NOME', ctx: {} });
+      await setSession(msg.waId, { state: 'ENTRANDO_NOME', ctx: { tentativas: 0 } });
       await sendText({
         to: msg.waId,
         text:
           '🎯 Pra entrar, manda o *ID do bolão* (aquele tipo `#K3MZ8P` que o admin compartilhou).\n\n' +
-          '_Se não tiver o ID, pode mandar o nome — mas com ID é mais rápido e sem risco de errar de bolão._',
+          '_Se não tiver o ID, pode mandar o nome — mas com ID é mais rápido e sem risco de errar de bolão. Depois o admin aprova sua entrada._',
       });
       return true;
 
@@ -333,6 +369,14 @@ async function dispatchIntencao(
       await handlePalpitesAmbiguo(msg);
       return true;
 
+    case Intencao.INFO_SENHA:
+      await handleInfoSenha(msg);
+      return true;
+
+    case Intencao.EXCLUIR_BOLAO:
+      await handleExcluirBolao(msg, usuarioId);
+      return true;
+
     case Intencao.PALPITE_INLINE:
       await handlePalpiteInlineEmIdle(msg, usuarioId);
       return true;
@@ -340,6 +384,154 @@ async function dispatchIntencao(
     default:
       return false;
   }
+}
+
+/**
+ * Handler ISSUE-006: admin quer excluir bolao.
+ *   - 0 boloes que ele administra → mensagem amigavel
+ *   - 1 bolao admin → vai direto pra confirmacao
+ *   - >1 boloes admin → lista numerada pra ele escolher qual
+ *
+ * Apos escolha (ou auto-selecao), entra em CONFIRMANDO_EXCLUSAO_BOLAO
+ * que exige "confirmar" (texto literal) pra evitar acidente.
+ */
+async function handleExcluirBolao(msg: IncomingMessage, usuarioId: string) {
+  const adminados = await bolaoService.listarBoloesQueAdministra(usuarioId);
+  if (adminados.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤷 Só o admin pode excluir um bolão. Você ainda não criou nenhum.\n\n` +
+        `Pra sair de um bolão em que participa, manda *sair do bolão*.`,
+    });
+    return;
+  }
+
+  if (adminados.length === 1) {
+    await pedirConfirmacaoExclusaoBolao(msg, adminados[0]);
+    return;
+  }
+
+  await setSession(msg.waId, {
+    state: 'ESCOLHENDO_BOLAO_EXCLUIR',
+    ctx: { boloesParaEscolher: adminados.map((b) => ({ id: b.id, nome: b.nome })) },
+  });
+  const lista = formatarBoloesNumerados(adminados);
+  await sendText({
+    to: msg.waId,
+    text: `⚠️ Qual bolão você quer *excluir*?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function handleEscolhendoBolaoExcluir(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *excluir bolão* de novo.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o número ou o nome:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+  // Re-confirma que ele eh admin do escolhido
+  const bolao = await prisma.bolao.findUnique({
+    where: { id: escolhido.id },
+    select: { id: true, nome: true, adminId: true },
+  });
+  if (!bolao || bolao.adminId !== usuarioId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '❌ Você não é admin desse bolão.' });
+    return;
+  }
+  await pedirConfirmacaoExclusaoBolao(msg, bolao);
+}
+
+async function pedirConfirmacaoExclusaoBolao(
+  msg: IncomingMessage,
+  bolao: { id: string; nome: string },
+) {
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_EXCLUSAO_BOLAO',
+    ctx: { bolaoId: bolao.id, nomeBolao: bolao.nome },
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚠️ *Excluir o bolão "${bolao.nome}"?*\n\n` +
+      `Todos os participantes vão receber um aviso de que o bolão foi encerrado, e ele some das listagens. ` +
+      `Os palpites e ranking ficam guardados pra histórico, mas ninguém mais palpita.\n\n` +
+      `_Pra confirmar manda *confirmar*. Pra desistir manda *cancelar* (ou qualquer outra coisa)._`,
+  });
+}
+
+async function handleConfirmandoExclusaoBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const bolaoId = session.ctx?.bolaoId;
+  const nomeBolao = session.ctx?.nomeBolao ?? 'esse bolão';
+  if (!bolaoId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *excluir bolão* de novo.' });
+    return;
+  }
+  const texto = msg.text.trim().toLowerCase();
+  // Exige texto explicito "confirmar" — sim/yes/ok nao basta (acao destrutiva)
+  const confirmou = /^(?:confirmar|confirmo|excluir agora|sim, excluir|tenho certeza)\b/.test(texto);
+  if (!confirmou) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `👍 Beleza, mantive o bolão *${nomeBolao}* ativo. (Pra excluir, era preciso mandar *confirmar* explicitamente.)`,
+    });
+    return;
+  }
+
+  try {
+    const { participantesPraNotificar } = await bolaoService.excluirBolao(bolaoId, usuarioId);
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `🗑️ Bolão *${nomeBolao}* encerrado. Avisei os ${participantesPraNotificar.length} participante(s).`,
+    });
+    // Notifica participantes em paralelo (best-effort)
+    await Promise.all(
+      participantesPraNotificar.map((p) =>
+        sendText({
+          to: p.whatsappId,
+          text: `📢 O admin encerrou o bolão *${nomeBolao}*. Os palpites e ranking ficam guardados, mas não tem mais jogos pra palpitar nele.`,
+        }).catch(() => undefined),
+      ),
+    );
+  } catch (err) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: `❌ ${(err as Error).message}` });
+  }
+}
+
+/**
+ * Handler ISSUE-005: pergunta sobre senha. Bolao agora usa ID curto
+ * (#ABCD12) + aprovacao manual do admin. Sem custo de LLM.
+ */
+async function handleInfoSenha(msg: IncomingMessage) {
+  await sendText({
+    to: msg.waId,
+    text:
+      `🔓 Bolões no *VAR do Bolão* não usam senha — a entrada é pelo *ID do bolão* (formato \`#ABCD12\`).\n\n` +
+      `O admin do bolão te manda o ID (ou um link de convite). Você me envia, e eu peço aprovação pra ele.\n\n` +
+      `Quer entrar em algum bolão agora? Manda *entrar em bolão*.`,
+  });
 }
 
 // ============================================================
@@ -398,26 +590,27 @@ async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, 
 
   await resetSession(msg.waId);
 
-  // Mensagem 1: confirmacao + explicacao do "convite encaminhavel".
+  const convite = renderizarConvite({
+    nomeBolao: bolao.nome,
+    codigoBolao: bolao.codigo,
+    numeroBot: env.WHATSAPP_BUSINESS_NUMBER,
+  });
+
+  // Mensagem 1: confirmacao da criacao + ID
   await sendText({
     to: msg.waId,
     text:
       `🏆 Bolão *${bolao.nome}* criado, craque!\n` +
       `👑 Você é o admin.\n\n` +
-      `🎟️ *ID do bolão:* \`#${bolao.codigo}\`\n` +
-      `🔒 *Senha:* (a que você acabou de definir)\n\n` +
-      `📨 Pra convidar gente, encaminha a mensagem abaixo. Quem mandar ela pro meu número entra direto no bolão certo, sem confusão de nome parecido. Depois você passa a senha pra cada um (em particular). 🤙`,
+      `🎟️ *ID do bolão:* \`#${bolao.codigo}\`\n\n` +
+      (convite.linkWaMe
+        ? `📨 Pra convidar gente é fácil: encaminha a mensagem abaixo pra galera. Quem clicar no link entra direto no bolão certo — sem precisar digitar nada. 🤙`
+        : `📨 Pra convidar gente, encaminha a mensagem abaixo. Quem mandar ela pro meu número entra direto no bolão certo. 🤙`),
   });
 
   // Mensagem 2: convite pronto pra encaminhar (uma mensagem separada
   // facilita "manter pressionado → encaminhar").
-  await sendText({
-    to: msg.waId,
-    text:
-      `Olá! Quero entrar no bolão *${bolao.nome}* 🏆\n` +
-      `ID: *#${bolao.codigo}*\n\n` +
-      `Manda esse texto pro número *${env.WHATSAPP_BUSINESS_NUMBER || 'do VAR do Bolão'}* — eu mesmo te coloco no bolão certo! ⚽`,
-  });
+  await sendText({ to: msg.waId, text: convite.textoEncaminhavel });
 }
 
 // PIX desativado — handler abaixo nao eh mais chamado, mas fica como referencia
@@ -484,54 +677,139 @@ async function tentarEntrarPorCodigo(
     return true;
   }
 
-  // Pula direto pra senha — ja achou o bolao certo pelo codigo.
-  await setSession(msg.waId, {
-    state: 'ENTRANDO_SENHA',
-    ctx: { bolaoId: bolao.id, nomeBolao: bolao.nome },
-  });
+  // ISSUE-004: entrada via CODIGO pula a senha — o ID curto ja eh
+  // suficientemente "privado" (admin escolhe pra quem mandar) e a
+  // aprovacao manual do admin garante controle. UX: 1 turno do user +
+  // 1 do admin (antes eram 3-4 turnos pedindo senha).
+  await resetSession(msg.waId);
+  const solicitacao = await solicitacaoService.criarSolicitacao(usuarioId, bolao.id);
   await sendText({
     to: msg.waId,
     text:
-      `🎯 Achei o bolão *${bolao.nome}* (\`#${bolao.codigo}\`).\n\n` +
-      `Manda a *senha* que o admin te passou pra eu confirmar sua entrada:`,
+      `✅ Pedido enviado pro bolão *${bolao.nome}* (\`#${bolao.codigo}\`).\n\n` +
+      `📤 Mandei pro admin aprovar. Assim que ele liberar, te aviso aqui e você já começa a palpitar! 🏆`,
   });
+
+  // Notifica o admin
+  const totalPendentes = await solicitacaoService.contarPendentesDoAdmin(bolao.adminId);
+  let textoAdmin =
+    `🔔 *Novo pedido de entrada!*\n\n` +
+    `👤 *${solicitacao.usuario.nome}* quer entrar no bolão *${bolao.nome}*.\n\n` +
+    `Responde com:\n` +
+    `• *aprovado* — pra liberar a entrada\n` +
+    `• *recusar* — pra rejeitar`;
+  if (totalPendentes >= 3) {
+    textoAdmin +=
+      `\n\n💡 _Você tem ${totalPendentes} pedidos pendentes acumulados. Pode mandar *aprovar todos* pra liberar todo mundo de uma vez._`;
+  } else if (totalPendentes > 1) {
+    textoAdmin += `\n\n_(Você tem ${totalPendentes} pedidos pendentes no total. Manda *!pendentes* pra ver a lista.)_`;
+  }
+  await sendText({ to: bolao.admin.whatsappId, text: textoAdmin });
   return true;
 }
 
 // ============================================================
 // Fluxo: ENTRAR EM BOLAO
 // ============================================================
+/**
+ * Recebe texto livre em ENTRANDO_NOME (pode ser ID `#ABCD12` ou nome
+ * livre tipo "Bolão da Jeni").
+ *
+ * Mudancas vs versao antiga:
+ *   - ISSUE-001: extrator de codigo aceita codigos legados (alfabeto amplo)
+ *   - ISSUE-002: NAO reseta sessao na 1a falha. Da 3 chances antes de voltar
+ *     ao menu. Tentativas vivem em session.ctx.tentativas.
+ *   - ISSUE-003: busca fuzzy por nome (tolerante a acento + substring). Se
+ *     retornar multiplos boloes, mostra lista numerada (state ESCOLHENDO_BOLAO_PARA_ENTRAR).
+ *   - ISSUE-004: quando achar bolao (via codigo ou nome unico), cria
+ *     solicitacao direto SEM pedir senha. Admin aprova manualmente.
+ */
 async function handleEntrandoNome(msg: IncomingMessage, usuarioId: string) {
   const texto = msg.text.trim();
+  const session = await getSession(msg.waId);
+  const tentativas = (session.ctx?.tentativas ?? 0) + 1;
 
-  // Tenta achar codigo primeiro (caminho preferido, sem ambiguidade).
-  // Se nada bater, cai pra busca por nome.
+  // 1) Tenta codigo primeiro (mais especifico, sem ambiguidade)
   const codigo = extrairCodigoBolao(texto);
-  let bolao = codigo ? await bolaoService.buscarBolaoAtivoPorCodigo(codigo) : null;
-
-  if (!bolao) {
-    bolao = await bolaoService.buscarBolaoAtivoPorNome(texto);
+  if (codigo) {
+    const porCodigo = await bolaoService.buscarBolaoAtivoPorCodigo(codigo);
+    if (porCodigo) {
+      await processarEntradaEmBolao(msg, usuarioId, porCodigo);
+      return;
+    }
   }
 
-  if (!bolao) {
-    await resetSession(msg.waId);
+  // 2) Busca fuzzy por nome (tolerante a acento, case, substring)
+  const matches = await bolaoService.buscarBoloesAtivosPorNomeFuzzy(texto);
+
+  if (matches.length === 1) {
+    await processarEntradaEmBolao(msg, usuarioId, matches[0]);
+    return;
+  }
+
+  if (matches.length > 1) {
+    // Multiplos boloes batem — mostra lista pro user escolher
+    const top = matches.slice(0, 8);
+    await setSession(msg.waId, {
+      state: 'ESCOLHENDO_BOLAO_PARA_ENTRAR',
+      ctx: {
+        boloesParaEscolher: top.map((b) => ({ id: b.id, nome: b.nome })),
+      },
+    });
+    const lista = formatarBoloesNumerados(
+      top.map((b) => ({ id: b.id, nome: b.nome, codigo: b.codigo })),
+    );
     await sendText({
       to: msg.waId,
       text:
-        `❌ Não achei nenhum bolão com isso.\n\n` +
-        `Confere com o admin se o *ID* (formato \`#K3MZ8P\`) ou o nome estão certinhos e tenta de novo.\n\n${menuTexto()}`,
+        `🤔 Achei *${matches.length}* bolões com esse nome. Qual é o seu?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
     });
     return;
   }
 
-  // Curto-circuita se o usuario ja faz parte (admin OU participante OU
-  // ja tem solicitacao pendente) — evita pedir senha desnecessariamente
-  // e o erro feio "Voce ja esta neste bolao." que vinha depois.
+  // 3) Nada encontrado — ISSUE-002: nao resetar, contar tentativas
+  if (tentativas >= 3) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text:
+        `❌ Ainda não achei nenhum bolão com isso. Vou te voltar pro menu.\n\n` +
+        `Pede pro admin te mandar o *ID* exato (formato \`#K3MZ8P\`) ou o link de convite.\n\n${menuTexto()}`,
+    });
+    return;
+  }
+
+  // Mantem estado, dica mais especifica a cada tentativa
+  await updateSession(msg.waId, { state: 'ENTRANDO_NOME', ctxPatch: { tentativas } });
+  const dica =
+    tentativas === 1
+      ? `Confere com o admin se o *ID* (formato \`#K3MZ8P\`) ou o *nome completo* estão certinhos.`
+      : `O ideal é o *ID* mesmo (formato \`#K3MZ8P\`) — sem ele, preciso do *nome exato* do bolão.`;
+  await sendText({
+    to: msg.waId,
+    text:
+      `❌ Não achei "${texto}".\n\n${dica}\n\n` +
+      `_Tentativa ${tentativas} de 3. Manda *cancelar* pra voltar ao menu._`,
+  });
+}
+
+/**
+ * Caminho comum apos achar UM bolao (via codigo unico ou nome unico):
+ *   - se ja faz parte → mensagem amigavel + reset
+ *   - se nao → cria solicitacao pendente (ISSUE-004: sem pedir senha)
+ *
+ * Usado por handleEntrandoNome E por handleEscolhendoBolaoParaEntrar.
+ */
+async function processarEntradaEmBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  bolao: { id: string; nome: string; codigo: string; adminId: string; admin?: { whatsappId: string } },
+) {
   if (bolao.adminId === usuarioId) {
     await resetSession(msg.waId);
     await sendText({
       to: msg.waId,
-      text: `👑 Você é o admin do bolão *${bolao.nome}* — ja faz parte!\n\n${menuTexto()}`,
+      text: `👑 Você é o admin do bolão *${bolao.nome}* — já faz parte!\n\n${menuTexto()}`,
     });
     return;
   }
@@ -558,11 +836,73 @@ async function handleEntrandoNome(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
-  await updateSession(msg.waId, { state: 'ENTRANDO_SENHA', ctxPatch: { bolaoId: bolao.id, nomeBolao: bolao.nome } });
+  // ISSUE-004: nao pede mais senha — cria solicitacao direto
+  await resetSession(msg.waId);
+  const solicitacao = await solicitacaoService.criarSolicitacao(usuarioId, bolao.id);
   await sendText({
     to: msg.waId,
-    text: `🔒 Bolão *${bolao.nome}* encontrado.\nQual a senha?`,
+    text:
+      `✅ Pedido enviado pro bolão *${bolao.nome}* (\`#${bolao.codigo}\`).\n\n` +
+      `📤 Mandei pro admin aprovar. Assim que ele liberar, te aviso aqui! 🏆`,
   });
+
+  // Notifica admin
+  const adminWhatsappId =
+    bolao.admin?.whatsappId ??
+    (await prisma.usuario.findUnique({ where: { id: bolao.adminId }, select: { whatsappId: true } }))?.whatsappId;
+  if (!adminWhatsappId) return;
+
+  const totalPendentes = await solicitacaoService.contarPendentesDoAdmin(bolao.adminId);
+  let textoAdmin =
+    `🔔 *Novo pedido de entrada!*\n\n` +
+    `👤 *${solicitacao.usuario.nome}* quer entrar no bolão *${bolao.nome}*.\n\n` +
+    `Responde com:\n` +
+    `• *aprovado* — pra liberar a entrada\n` +
+    `• *recusar* — pra rejeitar`;
+  if (totalPendentes >= 3) {
+    textoAdmin +=
+      `\n\n💡 _Você tem ${totalPendentes} pedidos pendentes. Pode mandar *aprovar todos* pra liberar todo mundo de uma vez._`;
+  } else if (totalPendentes > 1) {
+    textoAdmin += `\n\n_(Você tem ${totalPendentes} pedidos pendentes. Manda *!pendentes* pra ver a lista.)_`;
+  }
+  await sendText({ to: adminWhatsappId, text: textoAdmin });
+}
+
+/**
+ * Handler do state ESCOLHENDO_BOLAO_PARA_ENTRAR (ISSUE-003). Usuario
+ * escolheu entre multiplos boloes que bateram com o nome dado.
+ */
+async function handleEscolhendoBolaoParaEntrar(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *entrar em bolão* de novo.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o *número* ou o nome de um destes bolões:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+  // Re-busca pra ter admin + codigo completos
+  const bolao = await prisma.bolao.findUnique({
+    where: { id: escolhido.id },
+    include: { admin: true },
+  });
+  if (!bolao) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '❌ Não achei esse bolão. Manda *entrar em bolão* de novo.' });
+    return;
+  }
+  await processarEntradaEmBolao(msg, usuarioId, bolao);
 }
 
 async function handleEntrandoSenha(msg: IncomingMessage, usuarioId: string, session: Session) {
@@ -1242,20 +1582,20 @@ async function enviarConvitePraBolao(
   msg: IncomingMessage,
   bolao: { nome: string; codigo: string },
 ) {
+  const convite = renderizarConvite({
+    nomeBolao: bolao.nome,
+    codigoBolao: bolao.codigo,
+    numeroBot: env.WHATSAPP_BUSINESS_NUMBER,
+  });
+  // Mensagem 1: explicacao curta pro admin entender como funciona
   await sendText({
     to: msg.waId,
-    text:
-      `📨 *Pra convidar gente pro bolão "${bolao.nome}"*:\n\n` +
-      `Encaminha a mensagem abaixo pra galera, pedindo pra mandar ela no meu número *${env.WHATSAPP_BUSINESS_NUMBER || 'do VAR do Bolão'}*. Quem mandar entra direto no bolão certo (sem confusão de nome parecido). Depois você passa a senha pra cada um em particular.`,
+    text: convite.linkWaMe
+      ? `📨 *Convite pronto pro bolão "${bolao.nome}"*\n\nEncaminha a mensagem abaixo pra galera (grupo ou DM). Quem clicar no link entra direto no bolão certo — sem precisar copiar nada. 🤙`
+      : convite.textoPrincipal,
   });
-  // Mensagem 2 (separada pra facilitar encaminhar)
-  await sendText({
-    to: msg.waId,
-    text:
-      `Olá! Quero entrar no bolão *${bolao.nome}* 🏆\n` +
-      `ID: *#${bolao.codigo}*\n\n` +
-      `Manda esse texto pro número *${env.WHATSAPP_BUSINESS_NUMBER || 'do VAR do Bolão'}* — eu mesmo te coloco no bolão certo! ⚽`,
-  });
+  // Mensagem 2 (separada pra facilitar "manter pressionado → encaminhar")
+  await sendText({ to: msg.waId, text: convite.textoEncaminhavel });
 }
 
 // ============================================================
@@ -1272,7 +1612,7 @@ async function handleSairBolao(msg: IncomingMessage, usuarioId: string) {
       await sendText({
         to: msg.waId,
         text:
-          '🤷 Você só é admin dos seus bolões — admin não sai assim. Pra encerrar o bolão, fale com o suporte (em breve teremos *!excluir bolão*).',
+          '🤷 Você só é admin dos seus bolões — admin não sai assim.\n\nSe quiser encerrar o bolão de vez, manda *excluir bolão*.',
       });
     } else {
       await sendText({ to: msg.waId, text: '📭 Você não participa de nenhum bolão pra sair.' });
@@ -1776,6 +2116,8 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     'ESCOLHENDO_BOLAO_PARTICIPANTES',
     'CONFIRMANDO_SAIR_BOLAO',
     'ESCOLHENDO_INTENCAO_PALPITES',
+    'ESCOLHENDO_BOLAO_PARA_ENTRAR',
+    'ESCOLHENDO_BOLAO_EXCLUIR',
   ]);
   if (!ESTADOS_INTERROMPIVEIS.has(session.state)) return false;
 
@@ -1796,6 +2138,9 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     Intencao.PENDENTES,
     Intencao.AJUDA,
     Intencao.MENU,
+    Intencao.REGRAS,
+    Intencao.INFO_SENHA,
+    Intencao.EXCLUIR_BOLAO,
     Intencao.CANCELAR,
   ]);
   return INTENTS_FORTES.has(intencao);
@@ -1829,6 +2174,8 @@ async function tentarAcaoAdminEmIdle(
     Intencao.MENU,
     Intencao.REGRAS,
     Intencao.PALPITES_AMBIGUO,
+    Intencao.INFO_SENHA,
+    Intencao.EXCLUIR_BOLAO,
     Intencao.COMO_CONVIDAR,
     Intencao.QUEM_PARTICIPA,
     Intencao.SAIR_BOLAO,

@@ -46,6 +46,10 @@ export async function buscarBolaoPorId(id: string) {
 /**
  * Busca bolao ativo pelo nome (nao ha unicidade global, mas por admin ha unique).
  * Aceita nome exato ou case-insensitive.
+ *
+ * Nota: o Prisma `mode: 'insensitive'` cobre case mas NAO cobre acentos —
+ * "Bolão da Jeni" nao casa "Bolao da jeni" sem til. Pra match tolerante a
+ * acentos, use `buscarBoloesAtivosPorNomeFuzzy` no service.
  */
 export async function buscarBolaoAtivoPorNome(nome: string) {
   return prisma.bolao.findFirst({
@@ -53,6 +57,20 @@ export async function buscarBolaoAtivoPorNome(nome: string) {
       nome: { equals: nome, mode: 'insensitive' },
       status: 'ATIVO',
     },
+    include: { admin: true },
+  });
+}
+
+/**
+ * Busca TODOS os boloes ativos (cru, sem filtrar). Usado pelo service pra
+ * fazer match fuzzy em JS (normalizacao Unicode + substring).
+ *
+ * Pra escala >5k boloes ativos isso vira gargalo — migrar pra coluna
+ * `nomeNormalizado` indexada quando chegar la.
+ */
+export async function listarBoloesAtivosTodos() {
+  return prisma.bolao.findMany({
+    where: { status: 'ATIVO' },
     include: { admin: true },
   });
 }
