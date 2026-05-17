@@ -2186,39 +2186,60 @@ async function handleEscolhendoIntencaoPalpites(
 // Comandos IDLE auxiliares
 // ============================================================
 async function handleMeusBoloes(msg: IncomingMessage, usuarioId: string) {
-  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
-  if (boloes.length === 0) {
+  // HOTFIX 17/05: incluir FINALIZADOS — "meus bolões" eh consulta e a
+  // promessa do bot ao encerrar foi "fica guardado". Senao a gente
+  // contradiz a propria notificacao 17min depois.
+  const todos = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
+  if (todos.length === 0) {
     await sendText({
       to: msg.waId,
-      text: '📭 Você não participa de nenhum bolão ativo ainda.\n\nPara entrar: *entrar em bolão*\nPara criar: *criar bolão*',
+      text: '📭 Você não participa de nenhum bolão ainda.\n\nPara entrar: *entrar em bolão*\nPara criar: *criar bolão*',
     });
     return;
   }
 
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  const ativos = todos.filter((b) => b.status === 'ATIVO');
+  const encerrados = todos.filter((b) => b.status === 'FINALIZADO');
+
   // ISSUE-019: mostrar ID sempre (admin e participante). Util pra
   // participante reenviar o link de convite, e pra admin nao precisar
   // procurar em outro lugar.
-  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
-  const lista = boloes
-    .map((b) => {
-      const ehAdmin = b.adminId === usuarioId;
-      const adminLabel = ehAdmin ? ' 👑 _admin_' : '';
-      const padraoLabel = b.id === padraoId ? ' ⭐ _padrão_' : '';
-      return `• *${b.nome}* (${b.campeonatoNome})${adminLabel}${padraoLabel}\n   _ID:_ \`#${b.codigo}\``;
-    })
-    .join('\n');
+  const formatar = (b: typeof todos[number]) => {
+    const ehAdmin = b.adminId === usuarioId;
+    const adminLabel = ehAdmin ? ' 👑 _admin_' : '';
+    const padraoLabel = b.id === padraoId ? ' ⭐ _padrão_' : '';
+    return `• *${b.nome}* (${b.campeonatoNome})${adminLabel}${padraoLabel}\n   _ID:_ \`#${b.codigo}\``;
+  };
 
-  const dica = padraoId
-    ? ''
-    : '\n\n_Pra definir um bolão como padrão (e pular a pergunta "qual bolão?"), manda *bolão padrão*._';
+  const partes: string[] = [];
+  if (ativos.length > 0) {
+    partes.push(`🏆 *Seus bolões ativos:*\n\n${ativos.map(formatar).join('\n')}`);
+  }
+  if (encerrados.length > 0) {
+    partes.push(
+      `🏁 *Bolões encerrados:*\n\n${encerrados.map(formatar).join('\n')}\n\n` +
+      `_Manda *ranking* (ou o nome dele) pra ver o resultado final._`,
+    );
+  }
 
-  await sendText({ to: msg.waId, text: `🏆 *Seus bolões:*\n\n${lista}${dica}` });
+  // Dica de bolao padrao so faz sentido se tem >1 ATIVO e nao tem padrao
+  if (ativos.length > 1 && !padraoId) {
+    partes.push(
+      '_Pra definir um bolão como padrão (e pular a pergunta "qual bolão?"), manda *bolão padrão*._',
+    );
+  }
+
+  await sendText({ to: msg.waId, text: partes.join('\n\n') });
 }
 
 async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: string) {
   // raw comeca com "ranking ..." — extrai nome
   const nomeBolao = raw.replace(/^ranking\s*/i, '').trim();
-  const boloesDoUsuario = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  // HOTFIX 17/05: ranking eh consulta historica. Inclui FINALIZADOS pra
+  // honrar a promessa "palpites e ranking ficam guardados" feita pelo bot
+  // na hora do encerramento.
+  const boloesDoUsuario = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
 
   let bolaoId: string | null = null;
 
@@ -2232,6 +2253,8 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
     if (dosBoloes) {
       bolaoId = dosBoloes.id;
     } else {
+      // Fallback global ainda restrito a ATIVOS — pra impedir bisbilhotar
+      // ranking de bolao alheio finalizado so chutando o nome.
       const b = await bolaoService.buscarBolaoAtivoPorNome(nomeBolao);
       if (b) bolaoId = b.id;
     }
@@ -2241,7 +2264,12 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
     }
   } else {
     if (boloesDoUsuario.length === 0) {
-      await sendText({ to: msg.waId, text: '📭 Você não participa de nenhum bolão ativo.' });
+      await sendText({
+        to: msg.waId,
+        text:
+          '📭 Você ainda não participa de nenhum bolão.\n\n' +
+          'Para entrar: *entrar em bolão*\nPara criar: *criar bolão*',
+      });
       return;
     }
     if (boloesDoUsuario.length > 1) {
@@ -2251,17 +2279,29 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
       if (padraoMatch) {
         bolaoId = padraoMatch.id;
       } else {
-        // Setai estado pro proximo turno entender que o texto eh a escolha
+        // Setai estado pro proximo turno entender que o texto eh a escolha.
+        // Marca os FINALIZADOS com 🏁 pra o usuario saber que ja terminaram.
+        const temEncerrados = boloesDoUsuario.some((b) => b.status === 'FINALIZADO');
+        const opcoes = boloesDoUsuario.map((b) => ({
+          id: b.id,
+          nome: b.status === 'FINALIZADO' ? `${b.nome} 🏁` : b.nome,
+          codigo: b.codigo,
+        }));
         await setSession(msg.waId, {
           state: 'ESCOLHENDO_BOLAO_RANKING',
           ctx: {
-            boloesParaEscolher: boloesDoUsuario.map((b) => ({ id: b.id, nome: b.nome })),
+            boloesParaEscolher: opcoes.map((o) => ({ id: o.id, nome: o.nome })),
           },
         });
-        const lista = formatarBoloesNumerados(boloesDoUsuario);
+        const lista = formatarBoloesNumerados(opcoes);
+        const legenda = temEncerrados
+          ? '\n\n_🏁 = bolão encerrado (ranking final guardado)_'
+          : '';
         await sendText({
           to: msg.waId,
-          text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}\n\n_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
+          text:
+            `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}${legenda}\n\n${DICA_RESPOSTA_NUMERICA}\n\n` +
+            `_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
         });
         return;
       }
@@ -2276,7 +2316,12 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
 async function enviarRankingDoBolao(waId: string, bolaoId: string) {
   const dados = await rankingService.getRankingPorBolao(bolaoId);
   const texto = formatRanking(dados.bolao.nome, dados.rodadaAtual, dados.bolao.campeonatoNome, dados.ranking);
-  await sendText({ to: waId, text: texto });
+  // HOTFIX 17/05: deixa claro que e historico, nao status atual.
+  const sufixo =
+    dados.bolao.status === 'FINALIZADO'
+      ? '\n\n🏁 _Este bolão foi encerrado — ranking final guardado pra consulta._'
+      : '';
+  await sendText({ to: waId, text: texto + sufixo });
 }
 
 async function handleEscolhendoBolaoRanking(msg: IncomingMessage, session: Session) {
@@ -2837,8 +2882,25 @@ async function handleConfirmandoRecusarNomeado(
  * em lugar nenhum, explica que nao tem jogo aberto pra palpite agora.
  */
 async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
-  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  const boloes = await bolaoService.listarBoloesAtivosDoUsuario(usuarioId);
   if (boloes.length === 0) {
+    // HOTFIX 17/05: detecta caso "so tem encerrados" pra nao contradizer
+    // a mensagem de encerramento ("seus palpites e ranking ficam guardados").
+    const todos = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
+    if (todos.length > 0) {
+      const encerrados = todos.filter((b) => b.status === 'FINALIZADO');
+      await sendText({
+        to: msg.waId,
+        text:
+          `📭 Você não tem bolões ativos no momento.\n\n` +
+          (encerrados.length > 0
+            ? `🏁 Você tem ${encerrados.length} bolão(ões) *encerrado(s)*. ` +
+              `Manda *ranking* pra ver o resultado final ou *meus palpites* pra ver o histórico.\n\n`
+            : '') +
+          `Pra entrar em outro bolão: *entrar em bolão*\nPra criar um: *criar bolão*`,
+      });
+      return;
+    }
     await sendText({
       to: msg.waId,
       text: '📭 Você não participa de nenhum bolão ainda.\n\nPara entrar: *entrar em bolão*',
@@ -2915,7 +2977,9 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
 // Fluxo: MEUS PALPITES / MEUS PONTOS
 // ============================================================
 async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
-  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  // HOTFIX 17/05: palpites passados sao consulta historica — inclui
+  // FINALIZADOS pro usuario poder ver o que palpitou em bolao encerrado.
+  const boloes = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
   if (boloes.length === 0) {
     await sendText({
       to: msg.waId,
@@ -2937,17 +3001,26 @@ async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
-  // Mais de 1 bolao — pergunta qual
+  // Mais de 1 bolao — pergunta qual. Marca encerrados com 🏁.
+  const temEncerrados = boloes.some((b) => b.status === 'FINALIZADO');
+  const opcoesMarcadas = boloes.map((b) => ({
+    id: b.id,
+    nome: b.status === 'FINALIZADO' ? `${b.nome} 🏁` : b.nome,
+    codigo: b.codigo,
+  }));
   await setSession(msg.waId, {
     state: 'ESCOLHENDO_BOLAO_PALPITES',
     ctx: {
-      boloesParaEscolher: boloes.map((b) => ({ id: b.id, nome: b.nome })),
+      boloesParaEscolher: opcoesMarcadas.map((o) => ({ id: o.id, nome: o.nome })),
     },
   });
-  const lista = formatarBoloesNumerados(boloes);
+  const lista = formatarBoloesNumerados(opcoesMarcadas);
+  const legenda = temEncerrados
+    ? '\n\n_🏁 = bolão encerrado (palpites guardados no histórico)_'
+    : '';
   await sendText({
     to: msg.waId,
-    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}\n\n_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
+    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}${legenda}\n\n${DICA_RESPOSTA_NUMERICA}\n\n_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
   });
 }
 

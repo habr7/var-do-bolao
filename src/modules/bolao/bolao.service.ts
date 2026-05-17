@@ -197,8 +197,29 @@ async function gerarCodigoUnico(): Promise<string> {
   throw new Error('nao consegui gerar codigo unico — tente novamente');
 }
 
+/**
+ * Default pra fluxos de ACAO (palpitar, convidar, sair). Mantida como alias
+ * de `listarBoloesAtivosDoUsuario` pra nao quebrar callers que ja conheciam
+ * o nome — mas codigo novo deve preferir uma das duas funcoes explicitas.
+ */
 export async function listarBoloesDoUsuario(usuarioId: string) {
-  return bolaoRepo.listarBoloesDoUsuario(usuarioId);
+  return bolaoRepo.listarBoloesAtivosDoUsuario(usuarioId);
+}
+
+/**
+ * Idem ao acima, com nome explicito do contrato. Use em codigo novo.
+ */
+export async function listarBoloesAtivosDoUsuario(usuarioId: string) {
+  return bolaoRepo.listarBoloesAtivosDoUsuario(usuarioId);
+}
+
+/**
+ * Pra fluxos de CONSULTA: ranking, meus palpites, meus boloes — onde bolao
+ * encerrado (FINALIZADO) deve seguir visivel pra historia ficar honesta com
+ * a promessa que o bot faz ao encerrar.
+ */
+export async function listarBoloesDoUsuarioComHistorico(usuarioId: string) {
+  return bolaoRepo.listarBoloesDoUsuarioComHistorico(usuarioId);
 }
 
 export async function ehAdmin(usuarioId: string, bolaoId: string): Promise<boolean> {

@@ -75,7 +75,15 @@ export async function listarBoloesAtivosTodos() {
   });
 }
 
-export async function listarBoloesDoUsuario(usuarioId: string) {
+/**
+ * Lista boloes ATIVOS do usuario (admin ou participante). Default pra
+ * fluxos de ACAO: palpitar, ver proximos jogos, convidar, sair, abrir
+ * rodada — onde bolao FINALIZADO nao faz sentido.
+ *
+ * Se voce quer mostrar tambem boloes encerrados (pra consulta historica
+ * tipo "ranking" e "meus palpites"), use `listarBoloesDoUsuarioComHistorico`.
+ */
+export async function listarBoloesAtivosDoUsuario(usuarioId: string) {
   return prisma.bolao.findMany({
     where: {
       OR: [
@@ -91,6 +99,46 @@ export async function listarBoloesDoUsuario(usuarioId: string) {
     },
     orderBy: { criadoEm: 'desc' },
   });
+}
+
+/**
+ * Lista TODOS os boloes do usuario, ATIVOS + PAUSADOS + FINALIZADOS.
+ * Pra fluxos de CONSULTA HISTORICA (ranking final, meus palpites, meus
+ * boloes) — onde o usuario merece ver tambem o que ja terminou.
+ *
+ * Bug 17/05: depois que admin encerrava o bolao, a mensagem dizia
+ * "palpites e ranking ficam guardados", mas `listarBoloesDoUsuario`
+ * filtrava por ATIVO e o bot contradizia a propria notificacao 17min
+ * depois. Esta funcao corrige a contradicao.
+ */
+export async function listarBoloesDoUsuarioComHistorico(usuarioId: string) {
+  return prisma.bolao.findMany({
+    where: {
+      OR: [
+        { adminId: usuarioId },
+        { participacoes: { some: { usuarioId } } },
+      ],
+      // sem filtro de status — pega tudo
+    },
+    include: {
+      participacoes: {
+        where: { usuarioId },
+      },
+    },
+    orderBy: [
+      { status: 'asc' }, // ATIVO antes de FINALIZADO alfabeticamente
+      { criadoEm: 'desc' },
+    ],
+  });
+}
+
+/**
+ * @deprecated — use `listarBoloesAtivosDoUsuario` (fluxos de acao) ou
+ * `listarBoloesDoUsuarioComHistorico` (consultas historicas). Mantida
+ * temporariamente como alias pra ativos pra compatibilidade.
+ */
+export async function listarBoloesDoUsuario(usuarioId: string) {
+  return listarBoloesAtivosDoUsuario(usuarioId);
 }
 
 export async function buscarParticipacao(bolaoId: string, usuarioId: string) {
