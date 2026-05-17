@@ -15,6 +15,10 @@ model Usuario {
   whatsappId   String   @unique // wa_id da Meta (so digitos, ex: 5511999999999)
   nome         String // pushName do WhatsApp Business
   telefone     String   @unique // igual ao whatsappId em geral (mantido pra clareza)
+  // Bolao padrao do usuario (ISSUE-016). Quando setado, comandos como
+  // "ranking", "meus pontos", "quando comeca" pulam a etapa de escolha
+  // entre N boloes — usam direto este. Nullable: opt-in do usuario.
+  bolaoPadraoId String?
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
@@ -23,6 +27,7 @@ model Usuario {
   pagamentos           Pagamento[]
   boloesAdministrados  Bolao[]             @relation("BolaoAdmin")
   solicitacoesFeitas   SolicitacaoEntrada[]
+  bolaoPadrao          Bolao?              @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
 
   @@map("usuarios")
 }
@@ -53,6 +58,8 @@ model Bolao {
   participacoes Participacao[]
   rodadas       Rodada[]
   solicitacoes  SolicitacaoEntrada[]
+  // Usuarios que setaram este bolao como padrao (ISSUE-016)
+  usuariosComoPadrao Usuario[]       @relation("BolaoPadrao")
 
   @@unique([adminId, nome])
   @@map("boloes")

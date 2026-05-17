@@ -69,3 +69,48 @@ export function parseScore(text: string): { golsCasa: number; golsVisitante: num
 
   return { golsCasa, golsVisitante };
 }
+
+/**
+ * ISSUE-013: avalia se o placar eh "absurdo" e pede confirmacao.
+ *
+ * Regras:
+ *   - >15 gols em qualquer lado: absurdo (futebol pro de verdade nunca passou
+ *     de 9 em decadas — 15 cobre folga pra goleadas em copas pequenas)
+ *   - total >20: absurdo (mesmo se cada lado <=15)
+ *   - <0 ou nao inteiro: invalido (ja coberto por isValidScore, mas reportado
+ *     aqui pra unificacao)
+ *
+ * Retorno { ok: false, motivo, sugerirConfirmacao } — caller pode mostrar
+ * "tem certeza que eh 18x0?" antes de registrar.
+ */
+export type ResultadoValidacaoPlacar =
+  | { ok: true }
+  | { ok: false; motivo: 'invalido' | 'absurdo'; sugerirConfirmacao: boolean; descricao: string };
+
+export function validarPlacar(golsCasa: number, golsVisitante: number): ResultadoValidacaoPlacar {
+  if (!isValidScore(golsCasa) || !isValidScore(golsVisitante)) {
+    return {
+      ok: false,
+      motivo: 'invalido',
+      sugerirConfirmacao: false,
+      descricao: 'Placar invalido — gols devem ser numeros inteiros entre 0 e 99.',
+    };
+  }
+  if (golsCasa > 15 || golsVisitante > 15) {
+    return {
+      ok: false,
+      motivo: 'absurdo',
+      sugerirConfirmacao: true,
+      descricao: `Placar incomum (${golsCasa}x${golsVisitante}). Tem certeza?`,
+    };
+  }
+  if (golsCasa + golsVisitante > 20) {
+    return {
+      ok: false,
+      motivo: 'absurdo',
+      sugerirConfirmacao: true,
+      descricao: `Total de gols alto (${golsCasa + golsVisitante}). Tem certeza?`,
+    };
+  }
+  return { ok: true };
+}

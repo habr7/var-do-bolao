@@ -49,7 +49,26 @@ export type ConversaState =
   | 'ESCOLHENDO_BOLAO_PARA_ENTRAR'
   // Admin querendo excluir bolao: escolhe qual (>1) e confirma
   | 'ESCOLHENDO_BOLAO_EXCLUIR'
-  | 'CONFIRMANDO_EXCLUSAO_BOLAO';
+  | 'CONFIRMANDO_EXCLUSAO_BOLAO'
+  // Sprint 2 — bolao padrao (ISSUE-016): usuario escolhe qual setar como padrao
+  | 'ESCOLHENDO_BOLAO_PADRAO'
+  // Sprint 2 — renomear bolao (ISSUE-020)
+  | 'RENOMEANDO_BOLAO_ESCOLHA'         // admin tem >1 bolao, escolhe qual renomear
+  | 'RENOMEANDO_BOLAO_NOME'            // admin manda o nome novo
+  | 'CONFIRMANDO_RENOMEACAO_BOLAO'     // confirma com sim/nao
+  // Sprint 2 — remover participante (ISSUE-021)
+  | 'REMOVENDO_PARTICIPANTE_ESCOLHA_BOLAO'    // admin tem >1 bolao
+  | 'REMOVENDO_PARTICIPANTE_ESCOLHA_NOME'     // pede o nome do participante
+  | 'CONFIRMANDO_REMOCAO_PARTICIPANTE'        // confirma com sim/nao
+  // Sprint 2 — palpite com placar absurdo (ISSUE-013) precisa confirmacao
+  | 'CONFIRMANDO_PALPITE_PLACAR_ABSURDO'
+  // Sprint 2 — editar palpite (ISSUE-011)
+  | 'EDITANDO_PALPITE_ESCOLHA_BOLAO'   // user em >1 bolao, escolhe qual
+  | 'EDITANDO_PALPITE_NOVO_PLACAR'     // pede placar novo
+  // Sprint 2 — apagar palpite (ISSUE-012)
+  | 'APAGANDO_PALPITE_ESCOLHA_BOLAO'   // user em >1 bolao, escolhe qual
+  | 'APAGANDO_PALPITE_ESCOLHA_JOGO'    // mostra palpites e pede qual apagar
+  | 'CONFIRMANDO_APAGAR_PALPITE';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -98,6 +117,21 @@ export interface ConversaContext {
   // Contador de tentativas (usado em ENTRANDO_NOME pra dar 3 chances
   // antes de resetar e voltar ao menu). ISSUE-002.
   tentativas?: number;
+  // Sprint 2 — renomear bolao (ISSUE-020)
+  nomeNovoBolao?: string;
+  // Sprint 2 — remover participante (ISSUE-021)
+  participacaoIdParaRemover?: string;
+  participanteNomeParaRemover?: string;
+  // Sprint 2 — apagar palpite (ISSUE-012)
+  palpiteJogoIdParaApagar?: string;
+  palpiteJogoLabelParaApagar?: string;
+  // Sprint 2 — placar absurdo (ISSUE-013) — guarda contexto pra retomar fluxo
+  palpiteAbsurdoContexto?: {
+    timeCasa: string;
+    timeVisitante: string;
+    golsCasa: number;
+    golsVisitante: number;
+  };
 }
 
 export interface Session {

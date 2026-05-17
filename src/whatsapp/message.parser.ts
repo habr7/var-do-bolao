@@ -33,6 +33,27 @@ export enum Intencao {
   PALPITES_AMBIGUO = 'PALPITES_AMBIGUO', // user digitou so "palpites" — bot pergunta o que ele quis
   INFO_SENHA = 'INFO_SENHA',         // user perguntou sobre senha do bolao (ISSUE-005)
   EXCLUIR_BOLAO = 'EXCLUIR_BOLAO',   // admin quer excluir bolao (ISSUE-006)
+
+  // Sprint 2 — handlers de pergunta frequente (ISSUE-009, 010, 017, 018)
+  INFO_PRODUTO = 'INFO_PRODUTO',     // "o que e isso", "pra que serve", "como funciona o bot"
+  INFO_PRECO = 'INFO_PRECO',         // "quanto custa", "eh gratis", "tem que pagar"
+  COMO_PALPITAR = 'COMO_PALPITAR',   // "como dou palpite", "como palpitar", "como faco palpite"
+  QUANDO_COMECA = 'QUANDO_COMECA',   // "quando comeca", "quando termina", "quando abre rodada"
+
+  // Sprint 2 — fluxo de palpite (ISSUE-011, 012)
+  EDITAR_PALPITE = 'EDITAR_PALPITE', // "corrigir Brasil 3x1", "mudar palpite", "alterar palpite"
+  APAGAR_PALPITE = 'APAGAR_PALPITE', // "apagar meu palpite", "desfazer palpite", "remover palpite"
+
+  // Sprint 2 — bolao padrao (ISSUE-016)
+  DEFINIR_BOLAO_PADRAO = 'DEFINIR_BOLAO_PADRAO', // "definir bolao padrao", "meu bolao principal"
+
+  // Sprint 2 — admin actions (ISSUE-020, 021)
+  RENOMEAR_BOLAO = 'RENOMEAR_BOLAO',           // "renomear bolao", "mudar nome do bolao"
+  REMOVER_PARTICIPANTE = 'REMOVER_PARTICIPANTE', // "remover Fulano", "tirar Fulano do bolao"
+
+  // Sprint 2 — pontuacao cruzada (ISSUE-023)
+  RESUMO_BOLOES = 'RESUMO_BOLOES',   // "como to indo nos boloes", "meu desempenho geral"
+
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
@@ -298,6 +319,110 @@ const EXCLUIR_BOLAO_PATTERNS: RegExp[] = [
   /\b(?:fechar|terminar) (?:o |meu )?bol(?:a|o)o\b/,
 ];
 
+// Sprint 2 — handlers de pergunta frequente
+
+// ISSUE-009: "o que e isso", "pra que serve", "como funciona o bot"
+// Especifico: NAO bater quando frase eh "como funciona a pontuacao" (REGRAS) ou
+// "como dou palpite" (COMO_PALPITAR — vem depois).
+const INFO_PRODUTO_PATTERNS: RegExp[] = [
+  /\bo que (?:e|eh) (?:esse |o |essa )?(?:bot|var|app|sistema|servic[oa]|aplicativo|var do bol)/,
+  /\bpra (?:que |q )serve\b/,
+  /\bpara (?:que |q )serve\b/,
+  /\bcomo (?:isso |esse bot |o bot )?funciona\??$/,
+  /\bque(?: que)? (?:e|eh) (?:isso|esse bot|o var)/,
+  /\bsobre (?:o |esse )?(?:bot|var)/,
+];
+
+// ISSUE-010: "quanto custa", "eh gratis", "tem que pagar"
+const INFO_PRECO_PATTERNS: RegExp[] = [
+  /\bquanto custa\b/,
+  /\bcobra (?:algum )?(?:valor|dinheiro)\b/,
+  /\b(?:eh|e) (?:de )?(?:gratis|gratuito|free|de gra[cç]a)\b/,
+  /\b(?:tem|paga|pago) (?:que )?pagar\b/,
+  /\bvalor (?:do bol(?:a|o)o|pra (?:criar|entrar))\b/,
+  /\bpre[cç]o (?:do bol(?:a|o)o|pra (?:criar|entrar))\b/,
+  /\bcusta (?:quanto|algum)/,
+  /\bcobra (?:alguma )?taxa\b/,
+];
+
+// ISSUE-017: "como dou palpite", "como palpitar", "como faco palpite"
+// Distinto de PROXIMOS_JOGOS ("quero palpitar"): aqui o user quer SABER COMO,
+// nao iniciar o ato. PROXIMOS_JOGOS usa verbo de acao + obj; este usa "como" + verbo.
+const COMO_PALPITAR_PATTERNS: RegExp[] = [
+  /\bcomo (?:eu )?(?:dou|faco|mando|registro|fa[cç]o|envio) (?:um |o |meu |novo |os )?palpites?\b/,
+  /\bcomo (?:se )?(?:palpita|palpitar|da palpite)\b/,
+  /\bcomo (?:eu )?da(?:r|ria) (?:um )?palpites?\b/,
+  /\bcomo (?:funciona|eh) (?:dar |de dar )?palpite\b/,
+  /\bjeito (?:de |pra )?palpitar\b/,
+  /\bformato (?:do |de )?palpite\b/,
+  /\bnao sei (?:como )?palpitar\b/,
+];
+
+// ISSUE-018: "quando comeca", "quando termina", "quando abre rodada"
+const QUANDO_COMECA_PATTERNS: RegExp[] = [
+  /\bquando (?:comeca|come[cç]a|inicia)\b/,
+  /\bquando (?:termina|acaba|encerra|finaliza)\b/,
+  /\bquando (?:abre|fecha) (?:a )?(?:rodada|partida|jogo)\b/,
+  /\b(?:qual|que) (?:dia|data|hora) (?:comeca|come[cç]a|inicia|termina|fecha|abre)\b/,
+  /\bquando (?:eh|e) (?:a |o )?(?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
+  /\bdata (?:da|do) (?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
+];
+
+// ISSUE-011: EDITAR_PALPITE — "corrigir", "mudar", "alterar" palpite
+// Pode vir com placar: "corrigir Brasil 3x1". Capturamos o resto da frase em args.
+const EDITAR_PALPITE_PATTERNS: RegExp[] = [
+  /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu )?palpite/,
+  /\b(?:quero|preciso|vou) (?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu |o |um )?palpite/,
+  /\bcorrigir (?:o )?placar\b/,
+  /^errei (?:o |meu )?palpite/,
+  /\bpalpite errado\b/,
+];
+
+// ISSUE-012: APAGAR_PALPITE — "apagar", "remover", "desfazer" palpite
+const APAGAR_PALPITE_PATTERNS: RegExp[] = [
+  /^(?:apagar|deletar|remover|desfazer|cancelar|excluir) (?:meu |o |um |esse )?palpite/,
+  /\b(?:quero|preciso|vou) (?:apagar|deletar|remover|desfazer|cancelar|excluir) (?:meu |o |um )?palpite/,
+  /^desfaz (?:meu |o )?palpite/,
+];
+
+// ISSUE-016: DEFINIR_BOLAO_PADRAO
+const DEFINIR_BOLAO_PADRAO_PATTERNS: RegExp[] = [
+  /\bdefinir (?:meu |o )?bol(?:a|o)o (?:padr[aã]o|principal|default)\b/,
+  /\b(?:meu |o )?bol(?:a|o)o (?:padr[aã]o|principal|default)\b/,
+  /\b(?:setar|colocar|escolher) (?:meu )?bol(?:a|o)o (?:padr[aã]o|principal)\b/,
+  /\bbol(?:a|o)o (?:padr[aã]o|principal|default)\b/,
+];
+
+// ISSUE-020: RENOMEAR_BOLAO (admin)
+const RENOMEAR_BOLAO_PATTERNS: RegExp[] = [
+  /\brenomear (?:o |meu |esse )?bol(?:a|o)o\b/,
+  /\bmudar (?:o )?nome (?:do |de |desse )?bol(?:a|o)o\b/,
+  /\btrocar (?:o )?nome (?:do |de )?bol(?:a|o)o\b/,
+  /\balterar (?:o )?nome (?:do |de )?bol(?:a|o)o\b/,
+];
+
+// ISSUE-021: REMOVER_PARTICIPANTE (admin)
+const REMOVER_PARTICIPANTE_PATTERNS: RegExp[] = [
+  /^remover (?:o |a |um |uma )?(?:fulano|participante|membro|pessoa)\b/,
+  /^tirar (?:o |a |um |uma )?(?:fulano|participante|membro|pessoa)\b/,
+  /^expulsar (?:o |a |um |uma )?(?:fulano|participante|membro|pessoa)\b/,
+  /\bremover (?:do |o |a) bol(?:a|o)o (?:o |a )?\w+\b/,
+  /\btirar (\w+) do bol(?:a|o)o\b/,
+  /\b(?:quero |preciso )?remover participante\b/,
+  /\bexpulsar (?:do )?bol(?:a|o)o\b/,
+];
+
+// ISSUE-023: RESUMO_BOLOES — "como to indo nos boloes", "meu desempenho geral"
+const RESUMO_BOLOES_PATTERNS: RegExp[] = [
+  /\bcomo (?:to|estou|ando) (?:indo )?(?:em |nos |em todos os )?(?:meus )?bol(?:o|a)es\b/,
+  /\bem quantos bol(?:o|a)es (?:eu )?(?:to|estou) (?:em )?(?:primeiro|liderando|ganhando)\b/,
+  /\bresumo (?:dos |de |em )?(?:meus )?bol(?:o|a)es\b/,
+  /\bmeu desempenho (?:geral|em (?:todos|cada))\b/,
+  /\b(?:qual|que) (?:eh |e )?(?:o )?meu desempenho\b/,
+  /\bcomparar (?:meus )?bol(?:o|a)es\b/,
+  /\bquanto (?:eu )?(?:to|estou|fa[cç]o) em cada bol(?:a|o)o\b/,
+];
+
 // "palpites" sozinho — ambiguo entre "meus palpites" e "fazer palpites".
 // Tambem cobre "palpite" sem contexto adicional.
 // Pre-filtro pra evitar capturar quando vem "meus palpites", "palpites do
@@ -329,6 +454,26 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.INFO_SENHA, padroes: INFO_SENHA_PATTERNS },
   // EXCLUIR_BOLAO antes de SAIR_BOLAO/CRIAR_BOLAO (todos tem "bolao"). (ISSUE-006)
   { intencao: Intencao.EXCLUIR_BOLAO, padroes: EXCLUIR_BOLAO_PATTERNS },
+  // Sprint 2: RENOMEAR_BOLAO antes de CRIAR_BOLAO ("mudar nome do bolao") — ISSUE-020
+  { intencao: Intencao.RENOMEAR_BOLAO, padroes: RENOMEAR_BOLAO_PATTERNS },
+  // Sprint 2: DEFINIR_BOLAO_PADRAO antes de CRIAR/ENTRAR ("meu bolao padrao") — ISSUE-016
+  { intencao: Intencao.DEFINIR_BOLAO_PADRAO, padroes: DEFINIR_BOLAO_PADRAO_PATTERNS },
+  // Sprint 2: REMOVER_PARTICIPANTE antes de RECUSAR/CANCELAR — ISSUE-021
+  { intencao: Intencao.REMOVER_PARTICIPANTE, padroes: REMOVER_PARTICIPANTE_PATTERNS },
+  // Sprint 2: APAGAR_PALPITE antes de EDITAR_PALPITE (mais especifico) — ISSUE-012
+  { intencao: Intencao.APAGAR_PALPITE, padroes: APAGAR_PALPITE_PATTERNS },
+  // Sprint 2: EDITAR_PALPITE antes de MEU_PALPITE/PALPITE_INLINE — ISSUE-011
+  { intencao: Intencao.EDITAR_PALPITE, padroes: EDITAR_PALPITE_PATTERNS },
+  // Sprint 2: COMO_PALPITAR antes de MEU_PALPITE/PROXIMOS_JOGOS — ISSUE-017
+  { intencao: Intencao.COMO_PALPITAR, padroes: COMO_PALPITAR_PATTERNS },
+  // Sprint 2: INFO_PRODUTO antes de AJUDA (fallback) — ISSUE-009
+  { intencao: Intencao.INFO_PRODUTO, padroes: INFO_PRODUTO_PATTERNS },
+  // Sprint 2: INFO_PRECO — ISSUE-010
+  { intencao: Intencao.INFO_PRECO, padroes: INFO_PRECO_PATTERNS },
+  // Sprint 2: QUANDO_COMECA antes de ABRIR_RODADA — ISSUE-018
+  { intencao: Intencao.QUANDO_COMECA, padroes: QUANDO_COMECA_PATTERNS },
+  // Sprint 2: RESUMO_BOLOES antes de MEUS_BOLOES/MEUS_PONTOS — ISSUE-023
+  { intencao: Intencao.RESUMO_BOLOES, padroes: RESUMO_BOLOES_PATTERNS },
   { intencao: Intencao.PENDENTES, padroes: PENDENTES_PATTERNS },
   { intencao: Intencao.COMO_CONVIDAR, padroes: COMO_CONVIDAR_PATTERNS },
   { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },

@@ -18,14 +18,14 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**280+ tests** distribuídos em `tests/unit/`. Cobre:
+**322+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
 | `bolao-codigo.test.ts` | Geração + extração de códigos curtos (inclui legados ISSUE-001) |
 | `convite.helper.test.ts` | Link wa.me, normalização de número, fallback sem env |
 | `lista.helper.test.ts` | `formatarBoloesNumerados`, `parseEscolhaBolao` |
-| `message.parser.test.ts` | 120+ casos de intent regex (saudação, palpite, multi-palpite, todas as 19 intents) |
+| `message.parser.test.ts` | 155+ casos de intent regex (saudação, palpite, multi-palpite, todas as 29 intents incl. Sprint 2) |
 | `admin.parser.test.ts` | Aprovação/recusa em NL (todos/nomeado/genérico) |
 | `palpite.extractor.test.ts` | LLM extrator mockado |
 | `bolao.matcher.test.ts` | Escolha de bolão (índice → código → fuzzy → LLM) |
@@ -34,7 +34,7 @@ npm test
 | `ollama.client.test.ts` | Cliente Ollama (fallback) |
 | `evolution.client.test.ts` | Cliente Evolution (sendText, dry-run) |
 | `password.test.ts` | bcrypt hash + compare |
-| `validators.test.ts` | placar, normalizeTeamName |
+| `validators.test.ts` | placar, normalizeTeamName, **validarPlacar absurdo (ISSUE-013)** |
 | `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
 
 Tempo: ~5s. Não toca rede nem DB.
@@ -48,7 +48,7 @@ npm run test:watch
 
 ## 2. Simulação determinística (`scripts/simulate-conversation.ts`)
 
-Roda **55+ cenários** que cobrem todos os bugs reais já vistos em conversas
+Roda **75+ cenários** que cobrem todos os bugs reais já vistos em conversas
 com usuários. Não toca DB/Redis nem rede — só testa o parser e o admin parser
 (que é onde mora a maioria dos bugs).
 

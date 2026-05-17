@@ -156,3 +156,84 @@ function buildItem(
     jogoTimeVisitante: jogo.timeVisitante,
   };
 }
+
+// ============================================================
+// ISSUE-012: apagar palpite individual
+// ============================================================
+
+/**
+ * Apaga um palpite especifico (PalpiteJogo) pelo id. Valida:
+ *   - palpite pertence ao usuarioId (seguranca)
+ *   - jogo ainda nao iniciou (status AGENDADO)
+ *
+ * Se o palpite-mae (Palpite) ficar vazio depois da delecao, tambem
+ * remove ele.
+ */
+export async function apagarPalpiteJogo(palpiteJogoId: string, usuarioId: string) {
+  const pj = await prisma.palpiteJogo.findUnique({
+    where: { id: palpiteJogoId },
+    include: { palpite: true, jogo: true },
+  });
+  if (!pj) throw new Error('Palpite nao encontrado.');
+  if (pj.palpite.usuarioId !== usuarioId) {
+    throw new Error('Esse palpite nao eh seu.');
+  }
+  if (pj.jogo.status !== 'AGENDADO') {
+    throw new Error('Esse jogo ja comecou — nao da pra apagar mais.');
+  }
+
+  await prisma.palpiteJogo.delete({ where: { id: palpiteJogoId } });
+
+  // Se o palpite-mae ficou vazio, remove ele tambem (limpa registro orfao)
+  const restantes = await prisma.palpiteJogo.count({ where: { palpiteId: pj.palpiteId } });
+  if (restantes === 0) {
+    await prisma.palpite.delete({ where: { id: pj.palpiteId } });
+  }
+  return { ok: true };
+}
+
+// ============================================================
+// ISSUE-015: registrar palpite em TODOS os boloes com mesmo jogo aberto
+// ============================================================
+
+/**
+ * Variante do registrarPalpiteEmRodada que, dado timeCasa+timeVisitante,
+ * encontra TODAS as rodadas abertas em todos os boloes do usuario que
+ * tenham esse jogo e registra em todas (uma transacao por bolao —
+ * best-effort).
+ *
+ * Retorna lista de boloes onde registrou + lista de erros (se algum
+ * bolao falhou). Caller decide como reportar.
+ */
+export async function registrarPalpiteEmTodosBoloes(input: {
+  usuarioId: string;
+  timeCasa: string;
+  timeVisitante: string;
+  golsCasa: number;
+  golsVisitante: number;
+}): Promise<{
+  registrados: Array<{ bolaoNome: string }>;
+  erros: Array<{ bolaoNome: string; motivo: string }>;
+}> {
+  const matches = await buscarBoloesComJogo(input.usuarioId, input.timeCasa, input.timeVisitante);
+  const registrados: Array<{ bolaoNome: string }> = [];
+  const erros: Array<{ bolaoNome: string; motivo: string }> = [];
+
+  for (const m of matches) {
+    try {
+      await registrarPalpiteEmRodada({
+        usuarioId: input.usuarioId,
+        rodadaId: m.rodadaId,
+        timeCasa: input.timeCasa,
+        timeVisitante: input.timeVisitante,
+        golsCasa: input.golsCasa,
+        golsVisitante: input.golsVisitante,
+      });
+      registrados.push({ bolaoNome: m.bolaoNome });
+    } catch (err) {
+      erros.push({ bolaoNome: m.bolaoNome, motivo: (err as Error).message });
+    }
+  }
+
+  return { registrados, erros };
+}

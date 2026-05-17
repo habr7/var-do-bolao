@@ -54,6 +54,16 @@ INTENCOES:
 - PALPITES_AMBIGUO: usuario digitou so "palpites" (sem dizer "meus" ou "novos") — bot vai perguntar entre ver/fazer/regras.
 - INFO_SENHA: usuario perguntando sobre senha do bolao. Ex: "qual a senha?", "esqueci a senha", "como pego a senha". (Bolao agora usa ID, nao senha — handler explica isso.)
 - EXCLUIR_BOLAO: admin quer excluir/encerrar/apagar o proprio bolao. Ex: "excluir bolao", "deletar bolao", "quero encerrar meu bolao".
+- INFO_PRODUTO: usuario novo perguntando o que e isso. Ex: "o que e esse bot?", "pra que serve?", "como funciona o bot?", "sobre o var".
+- INFO_PRECO: pergunta sobre custo. Ex: "quanto custa?", "eh gratis?", "tem que pagar?", "preco do bolao".
+- COMO_PALPITAR: pergunta sobre COMO dar palpite (consulta, nao acao). Ex: "como dou palpite?", "como palpitar?", "formato do palpite?", "nao sei palpitar". (Distinto de PROXIMOS_JOGOS, onde user QUER palpitar agora.)
+- QUANDO_COMECA: pergunta sobre data/hora de jogo ou rodada. Ex: "quando comeca?", "quando termina?", "qual dia abre rodada?".
+- EDITAR_PALPITE: usuario quer mudar palpite ja dado. Ex: "corrigir Brasil 3x1", "mudar palpite", "errei o palpite".
+- APAGAR_PALPITE: usuario quer remover/desfazer palpite. Ex: "apagar meu palpite", "desfazer palpite", "remover palpite Brasil".
+- DEFINIR_BOLAO_PADRAO: usuario quer setar bolao padrao pra pular escolha. Ex: "definir bolao padrao", "meu bolao principal".
+- RENOMEAR_BOLAO: admin quer renomear o bolao. Ex: "renomear bolao", "mudar nome do bolao".
+- REMOVER_PARTICIPANTE: admin quer tirar alguem do bolao. Ex: "remover Fulano", "tirar Fulano do bolao", "expulsar".
+- RESUMO_BOLOES: usuario quer ver desempenho em todos os bolaes em que participa. Ex: "como to indo nos boloes?", "meu desempenho geral", "em quantos bolaes to em primeiro?".
 - PENDENTES: admin perguntando solicitacoes pendentes. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.

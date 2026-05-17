@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.0
-**Última atualização:** 2026-05-17
+**Versão do documento:** 3.1
+**Última atualização:** 2026-05-17 (Sprint 2 completo)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -409,6 +409,16 @@ top 500, TTL 30 dias).
 | `PALPITES_AMBIGUO` | "palpites" (sozinho) | pergunta entre 3 opções (ver/fazer/regras) |
 | `INFO_SENHA` | "qual a senha", "esqueci a senha" | explica que bolão usa ID, não senha (ISSUE-005) |
 | `EXCLUIR_BOLAO` | "excluir bolão", "encerrar bolão", "deletar" (admin) | fluxo de exclusão com confirmação textual (ISSUE-006) |
+| `INFO_PRODUTO` | "o que é esse bot", "pra que serve", "sobre o var" | pitch curto sem LLM (ISSUE-009) |
+| `INFO_PRECO` | "quanto custa", "é grátis", "tem que pagar" | "🆓 É grátis" (ISSUE-010) |
+| `COMO_PALPITAR` | "como dou palpite", "formato do palpite" | exemplos + dica próximos jogos (ISSUE-017) |
+| `QUANDO_COMECA` | "quando começa", "quando termina", "que dia abre rodada" | data próxima rodada (usa bolão padrão) (ISSUE-018) |
+| `EDITAR_PALPITE` | "corrigir palpite", "errei palpite", "mudar palpite" | fluxo edita palpite se rodada aberta (ISSUE-011) |
+| `APAGAR_PALPITE` | "apagar palpite", "desfazer palpite", "remover palpite" | fluxo deleta PalpiteJogo (ISSUE-012) |
+| `DEFINIR_BOLAO_PADRAO` | "bolão padrão", "meu bolão principal" | seta `Usuario.bolaoPadraoId` (ISSUE-016) |
+| `RENOMEAR_BOLAO` | "renomear bolão", "mudar nome do bolão" | admin renomeia + notifica participantes (ISSUE-020) |
+| `REMOVER_PARTICIPANTE` | "remover Fulano", "tirar Fulano do bolão", "expulsar" | admin remove participante com confirmação (ISSUE-021) |
+| `RESUMO_BOLOES` | "como to indo nos boloes", "meu desempenho geral" | resumo posição + pontos em cada bolão (ISSUE-023) |
 | `APROVAR` / `RECUSAR` | `!aprovar Nome` / `!recusar Nome` | ações admin explícitas |
 | `PENDENTES` | "pendentes", "tem pedido pra aprovar" | lista pedidos pendentes |
 | `CANCELAR` | "cancelar", "sair", "esquece" | reset FSM + menu |
@@ -450,6 +460,19 @@ Armazenados em Redis (`session:{waId}`), TTL **30min**.
 | `ESCOLHENDO_BOLAO_PARTICIPANTES` | "quem participa" + >1 | `handleEscolhendoBolaoParticipantes` | `IDLE` |
 | `ESCOLHENDO_BOLAO_EXCLUIR` | "excluir bolão" + >1 admin | `handleEscolhendoBolaoExcluir` | `CONFIRMANDO_EXCLUSAO_BOLAO` |
 | `CONFIRMANDO_EXCLUSAO_BOLAO` | escolheu bolão pra excluir | `handleConfirmandoExclusaoBolao` (exige texto "confirmar") | `IDLE` |
+| `ESCOLHENDO_BOLAO_PADRAO` | "bolão padrão" + >1 bolão | `handleEscolhendoBolaoPadrao` (ISSUE-016) | `IDLE` |
+| `RENOMEANDO_BOLAO_ESCOLHA` | "renomear bolão" + >1 admin | `handleEscolhendoBolaoRenomear` (ISSUE-020) | `RENOMEANDO_BOLAO_NOME` |
+| `RENOMEANDO_BOLAO_NOME` | admin escolheu/único | `handleRenomeandoBolaoNome` (recebe nome) | `CONFIRMANDO_RENOMEACAO_BOLAO` |
+| `CONFIRMANDO_RENOMEACAO_BOLAO` | nome recebido | `handleConfirmandoRenomeacaoBolao` (sim/não) | `IDLE` |
+| `REMOVENDO_PARTICIPANTE_ESCOLHA_BOLAO` | "remover" + >1 admin | `handleEscolhendoBolaoRemover` (ISSUE-021) | `REMOVENDO_PARTICIPANTE_ESCOLHA_NOME` ou direto |
+| `REMOVENDO_PARTICIPANTE_ESCOLHA_NOME` | bolão escolhido + sem nome no texto | `handleRemovendoParticipanteNome` | `CONFIRMANDO_REMOCAO_PARTICIPANTE` |
+| `CONFIRMANDO_REMOCAO_PARTICIPANTE` | nome encontrado | `handleConfirmandoRemocaoParticipante` | `IDLE` |
+| `CONFIRMANDO_PALPITE_PLACAR_ABSURDO` | palpite >15 gols ou total >20 | `handleConfirmandoPalpitePlacarAbsurdo` (ISSUE-013) | `IDLE` |
+| `EDITANDO_PALPITE_ESCOLHA_BOLAO` | "editar palpite" + >1 bolão aberto | `handleEscolhendoBolaoEditarPalpite` (ISSUE-011) | `EDITANDO_PALPITE_NOVO_PLACAR` |
+| `EDITANDO_PALPITE_NOVO_PLACAR` | bolão escolhido | `handleEditandoPalpiteNovoPlacar` (espera placar novo) | `IDLE` |
+| `APAGANDO_PALPITE_ESCOLHA_BOLAO` | "apagar palpite" + >1 bolão | `handleEscolhendoBolaoApagarPalpite` (ISSUE-012) | `APAGANDO_PALPITE_ESCOLHA_JOGO` |
+| `APAGANDO_PALPITE_ESCOLHA_JOGO` | bolão escolhido | `handleApagandoPalpiteEscolhaJogo` (lista palpites editáveis) | `CONFIRMANDO_APAGAR_PALPITE` |
+| `CONFIRMANDO_APAGAR_PALPITE` | jogo escolhido | `handleConfirmandoApagarPalpite` | `IDLE` |
 | `CONFIRMANDO_APROVAR_TODOS` | "aprovar todos" detectado | `handleConfirmandoAprovarTodos` | `IDLE` |
 | `CONFIRMANDO_RECUSAR_TODOS` | "recusar todos" detectado | `handleConfirmandoRecusarTodos` | `IDLE` |
 | `CONFIRMANDO_RECUSAR_NOMEADO` | "recusar Fulano" detectado | `handleConfirmandoRecusarNomeado` | `IDLE` |
@@ -479,17 +502,19 @@ e formatos que regex não pega.
 
 ```prisma
 model Usuario {
-  id           String   @id @default(uuid())
-  whatsappId   String   @unique          // só dígitos (5511999999999)
-  nome         String                    // pushName do WhatsApp Business
-  telefone     String   @unique
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  id            String   @id @default(uuid())
+  whatsappId    String   @unique          // só dígitos (5511999999999)
+  nome          String                    // pushName do WhatsApp Business
+  telefone      String   @unique
+  bolaoPadraoId String?                   // ISSUE-016: bolão padrão opt-in
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
   participacoes        Participacao[]
   palpites             Palpite[]
   pagamentos           Pagamento[]
   boloesAdministrados  Bolao[]            @relation("BolaoAdmin")
   solicitacoesFeitas   SolicitacaoEntrada[]
+  bolaoPadrao          Bolao?             @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
 }
 
 model Bolao {
@@ -846,23 +871,24 @@ Ver `BUGS_E_CENARIOS_VAR_DO_BOLAO.md` (raiz, gerado em 2026-05-16).
 **Sprint 1 (FEITO em 2026-05-17):** ISSUE-001 a ISSUE-008 + link wa.me (ISSUE-040
 antecipado).
 
-**Sprint 2 (pendente — `[P1]`):**
-- 009 "como funciona / o que é isso" handler pitch
-- 010 "quanto custa / é grátis" handler
-- 011 "mudar/corrigir meu palpite"
-- 012 "apagar meu palpite"
-- 013 validação de placar absurdo
-- 014 palpite com time errado pro jogo
-- 015 política de palpite multi-bolão (auto-apply)
-- 016 bolão padrão por usuário
-- 017 "como dou palpite" handler
-- 018 "quando começa / termina"
-- 019 listar IDs em "meus bolões"
-- 020 renomear bolão
-- 021 remover participante (admin)
-- 022 "sair do bolão" — confirmar perdas
+**Sprint 2 (FEITO em 2026-05-17):** ISSUE-009 a ISSUE-023.
+- 009 handler "o que é o bot" → INFO_PRODUTO ✅
+- 010 handler "quanto custa" → INFO_PRECO ✅
+- 011 editar palpite (fluxo escolha bolão → novo placar) ✅
+- 012 apagar palpite (fluxo escolha bolão → escolha jogo → confirma) ✅
+- 013 validação de placar absurdo (>15 ou total >20) com confirmação ✅
+- 014 palpite com time errado → feedback com jogos abertos ✅
+- 015 multi-bolão: palpite único aplica em todos automaticamente ✅
+- 016 bolão padrão: `Usuario.bolaoPadraoId` + integrado em ranking/pontos/quando-começa/palpite ✅
+- 017 handler "como dou palpite" → COMO_PALPITAR com exemplos ✅
+- 018 handler "quando começa/termina" → QUANDO_COMECA ✅
+- 019 "meus bolões" mostra ID sempre (não só admin) + flag ⭐ padrão ✅
+- 020 renomear bolão (admin) — 3 estados FSM + notifica participantes ✅
+- 021 remover participante (admin) — 3 estados FSM + soft remove ✅
+- 022 "sair do bolão" — mensagem detalha exatamente o que se perde ✅
+- 023 (P2 antecipado) RESUMO_BOLOES — posição + pontos em cada bolão ✅
 
-**Sprint 3 (`[P2]`):** ver 023-032 no arquivo de bugs.
+**Sprint 3 (`[P2]`):** ver 024-032 no arquivo de bugs.
 
 **Segurança/robustez transversais:** 033 rate limit por waId, 034 rate limit
 criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nomes,
@@ -910,4 +936,5 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 2.6 | 2026-05-13 | Aprovação admin em linguagem natural + intents (REGRAS, PALPITES_AMBIGUO) + smart fallback LLM |
 | 2.7 | 2026-05-14 | Multi-palpite com confirmação + Gemini default + FSM escape geral |
 | 2.8 | 2026-05-15 | Gemini Flash Lite + thinking off |
-| **3.0** | **2026-05-17** | **ISSUES 001-008 + link wa.me + 19 intents + métricas Redis + 280+ tests** (este documento) |
+| 3.0 | 2026-05-17 | ISSUES 001-008 + link wa.me + 19 intents + métricas Redis + 280+ tests |
+| **3.1** | **2026-05-17** | **Sprint 2 completo (ISSUES 009-023): +10 intents, +14 FSM states, bolão padrão (schema migration), editar/apagar palpite, validar placar absurdo, multi-bolão auto-apply, renomear bolão, remover participante, RESUMO_BOLOES. 322 tests, 75 cenários.** (este documento) |

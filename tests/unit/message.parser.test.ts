@@ -446,6 +446,138 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('Sprint 2 — INFO_PRODUTO (ISSUE-009)', () => {
+    it('"o que é esse bot?" → INFO_PRODUTO', () => {
+      expect(parseIntencao('o que é esse bot?').intencao).toBe(Intencao.INFO_PRODUTO);
+    });
+    it('"pra que serve" → INFO_PRODUTO', () => {
+      expect(parseIntencao('pra que serve').intencao).toBe(Intencao.INFO_PRODUTO);
+    });
+    it('"sobre o var" → INFO_PRODUTO', () => {
+      expect(parseIntencao('sobre o var').intencao).toBe(Intencao.INFO_PRODUTO);
+    });
+    it('"como funciona" → AJUDA (genérico, regressão)', () => {
+      expect(parseIntencao('como funciona').intencao).toBe(Intencao.AJUDA);
+    });
+  });
+
+  describe('Sprint 2 — INFO_PRECO (ISSUE-010)', () => {
+    it('"quanto custa" → INFO_PRECO', () => {
+      expect(parseIntencao('quanto custa').intencao).toBe(Intencao.INFO_PRECO);
+    });
+    it('"é grátis?" → INFO_PRECO', () => {
+      expect(parseIntencao('é grátis?').intencao).toBe(Intencao.INFO_PRECO);
+    });
+    it('"tem que pagar?" → INFO_PRECO', () => {
+      expect(parseIntencao('tem que pagar?').intencao).toBe(Intencao.INFO_PRECO);
+    });
+    it('"qual o preço do bolão?" → INFO_PRECO', () => {
+      expect(parseIntencao('qual o preço do bolão?').intencao).toBe(Intencao.INFO_PRECO);
+    });
+  });
+
+  describe('Sprint 2 — COMO_PALPITAR (ISSUE-017)', () => {
+    it('"como dou palpite?" → COMO_PALPITAR', () => {
+      expect(parseIntencao('como dou palpite?').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+    it('"como palpitar" → COMO_PALPITAR', () => {
+      expect(parseIntencao('como palpitar').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+    it('"qual o formato do palpite" → COMO_PALPITAR', () => {
+      expect(parseIntencao('qual o formato do palpite').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+    it('"quero palpitar" continua PROXIMOS_JOGOS (regressão)', () => {
+      expect(parseIntencao('quero palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+  });
+
+  describe('Sprint 2 — QUANDO_COMECA (ISSUE-018)', () => {
+    it('"quando começa?" → QUANDO_COMECA', () => {
+      expect(parseIntencao('quando começa?').intencao).toBe(Intencao.QUANDO_COMECA);
+    });
+    it('"quando termina" → QUANDO_COMECA', () => {
+      expect(parseIntencao('quando termina').intencao).toBe(Intencao.QUANDO_COMECA);
+    });
+    it('"que dia abre rodada" → QUANDO_COMECA', () => {
+      expect(parseIntencao('que dia abre rodada').intencao).toBe(Intencao.QUANDO_COMECA);
+    });
+  });
+
+  describe('Sprint 2 — EDITAR_PALPITE (ISSUE-011)', () => {
+    it('"corrigir palpite" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('corrigir palpite').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"mudar palpite" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('mudar palpite').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"errei o palpite" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('errei o palpite').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+  });
+
+  describe('Sprint 2 — APAGAR_PALPITE (ISSUE-012)', () => {
+    it('"apagar meu palpite" → APAGAR_PALPITE', () => {
+      expect(parseIntencao('apagar meu palpite').intencao).toBe(Intencao.APAGAR_PALPITE);
+    });
+    it('"desfazer palpite" → APAGAR_PALPITE', () => {
+      expect(parseIntencao('desfazer palpite').intencao).toBe(Intencao.APAGAR_PALPITE);
+    });
+    it('"remover palpite" → APAGAR_PALPITE', () => {
+      expect(parseIntencao('remover palpite').intencao).toBe(Intencao.APAGAR_PALPITE);
+    });
+  });
+
+  describe('Sprint 2 — DEFINIR_BOLAO_PADRAO (ISSUE-016)', () => {
+    it('"bolão padrão" → DEFINIR_BOLAO_PADRAO', () => {
+      expect(parseIntencao('bolão padrão').intencao).toBe(Intencao.DEFINIR_BOLAO_PADRAO);
+    });
+    it('"meu bolão principal" → DEFINIR_BOLAO_PADRAO', () => {
+      expect(parseIntencao('meu bolão principal').intencao).toBe(Intencao.DEFINIR_BOLAO_PADRAO);
+    });
+    it('"definir bolão padrão" → DEFINIR_BOLAO_PADRAO', () => {
+      expect(parseIntencao('definir bolão padrão').intencao).toBe(Intencao.DEFINIR_BOLAO_PADRAO);
+    });
+  });
+
+  describe('Sprint 2 — RENOMEAR_BOLAO (ISSUE-020)', () => {
+    it('"renomear bolão" → RENOMEAR_BOLAO', () => {
+      expect(parseIntencao('renomear bolão').intencao).toBe(Intencao.RENOMEAR_BOLAO);
+    });
+    it('"mudar o nome do bolão" → RENOMEAR_BOLAO', () => {
+      expect(parseIntencao('mudar o nome do bolão').intencao).toBe(Intencao.RENOMEAR_BOLAO);
+    });
+    it('"trocar nome do bolão" → RENOMEAR_BOLAO', () => {
+      expect(parseIntencao('trocar nome do bolão').intencao).toBe(Intencao.RENOMEAR_BOLAO);
+    });
+  });
+
+  describe('Sprint 2 — REMOVER_PARTICIPANTE (ISSUE-021)', () => {
+    it('"remover participante" → REMOVER_PARTICIPANTE', () => {
+      expect(parseIntencao('remover participante').intencao).toBe(Intencao.REMOVER_PARTICIPANTE);
+    });
+    it('"expulsar do bolão" → REMOVER_PARTICIPANTE', () => {
+      expect(parseIntencao('expulsar do bolão').intencao).toBe(Intencao.REMOVER_PARTICIPANTE);
+    });
+    it('"tirar Fulano do bolão" → REMOVER_PARTICIPANTE', () => {
+      expect(parseIntencao('tirar Fulano do bolão').intencao).toBe(Intencao.REMOVER_PARTICIPANTE);
+    });
+  });
+
+  describe('Sprint 2 — RESUMO_BOLOES (ISSUE-023)', () => {
+    it('"como to indo nos boloes" → RESUMO_BOLOES', () => {
+      expect(parseIntencao('como to indo nos boloes').intencao).toBe(Intencao.RESUMO_BOLOES);
+    });
+    it('"em quantos bolões to em primeiro" → RESUMO_BOLOES', () => {
+      expect(parseIntencao('em quantos bolões to em primeiro').intencao).toBe(Intencao.RESUMO_BOLOES);
+    });
+    it('"meu desempenho geral" → RESUMO_BOLOES', () => {
+      expect(parseIntencao('meu desempenho geral').intencao).toBe(Intencao.RESUMO_BOLOES);
+    });
+    it('"resumo dos meus bolões" → RESUMO_BOLOES', () => {
+      expect(parseIntencao('resumo dos meus bolões').intencao).toBe(Intencao.RESUMO_BOLOES);
+    });
+  });
+
   describe('Palpite inline — variantes de placar (Bug 5a, P1, P2, P3)', () => {
     it('"Brasil 2x1 Marrocos" (canonico)', () => {
       const r = parseIntencao('Brasil 2x1 Marrocos');

@@ -6,6 +6,7 @@ import {
   extractPhoneFromJid,
   normalizeTeamName,
   parseScore,
+  validarPlacar,
 } from '../../src/utils/validators.js';
 
 describe('isValidScore', () => {
@@ -94,5 +95,50 @@ describe('parseScore', () => {
   });
   it('retorna null para texto invalido', () => {
     expect(parseScore('abc')).toBeNull();
+  });
+});
+
+describe('validarPlacar (ISSUE-013)', () => {
+  it('aceita placar comum', () => {
+    expect(validarPlacar(2, 1).ok).toBe(true);
+    expect(validarPlacar(0, 0).ok).toBe(true);
+    expect(validarPlacar(5, 4).ok).toBe(true);
+  });
+
+  it('rejeita gols negativos como invalido', () => {
+    const r = validarPlacar(-1, 0);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.motivo).toBe('invalido');
+      expect(r.sugerirConfirmacao).toBe(false);
+    }
+  });
+
+  it('marca placar com >15 gols como absurdo', () => {
+    const r = validarPlacar(18, 0);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.motivo).toBe('absurdo');
+      expect(r.sugerirConfirmacao).toBe(true);
+    }
+  });
+
+  it('marca placar com 16x0 como absurdo (limite)', () => {
+    const r = validarPlacar(16, 0);
+    expect(r.ok).toBe(false);
+  });
+
+  it('aceita 15x0 (limite OK)', () => {
+    expect(validarPlacar(15, 0).ok).toBe(true);
+  });
+
+  it('marca total >20 como absurdo (mesmo se cada lado <=15)', () => {
+    const r = validarPlacar(12, 10);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toBe('absurdo');
+  });
+
+  it('aceita total exato 20', () => {
+    expect(validarPlacar(10, 10).ok).toBe(true);
   });
 });

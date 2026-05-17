@@ -36,6 +36,21 @@ const INTENCOES_VALIDAS = [
   Intencao.PALPITES_AMBIGUO,
   Intencao.INFO_SENHA,
   Intencao.EXCLUIR_BOLAO,
+  // Sprint 2 — handlers de info (009, 010, 017, 018)
+  Intencao.INFO_PRODUTO,
+  Intencao.INFO_PRECO,
+  Intencao.COMO_PALPITAR,
+  Intencao.QUANDO_COMECA,
+  // Sprint 2 — fluxo palpite (011, 012)
+  Intencao.EDITAR_PALPITE,
+  Intencao.APAGAR_PALPITE,
+  // Sprint 2 — bolao padrao (016)
+  Intencao.DEFINIR_BOLAO_PADRAO,
+  // Sprint 2 — admin actions (020, 021)
+  Intencao.RENOMEAR_BOLAO,
+  Intencao.REMOVER_PARTICIPANTE,
+  // Sprint 2 — pontuacao cruzada (023)
+  Intencao.RESUMO_BOLOES,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
 ] as const;

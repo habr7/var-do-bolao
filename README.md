@@ -4,7 +4,7 @@
 > direta (DM)** — sem grupo, sem app, sem fricção. Foco atual: Copa do Mundo
 > FIFA 2026.
 
-[![Tests](https://img.shields.io/badge/tests-280%2B%20passing-green)]()
+[![Tests](https://img.shields.io/badge/tests-322%20passing-green)]()
 [![Node](https://img.shields.io/badge/node-20%2B-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)]()
 [![LLM](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash%20Lite-orange)]()
@@ -207,12 +207,16 @@ Ver **[BUGS_E_CENARIOS_VAR_DO_BOLAO.md](BUGS_E_CENARIOS_VAR_DO_BOLAO.md)** —
 busca fuzzy, entrada sem senha, INFO_SENHA, EXCLUIR_BOLAO, fast-path
 expandido, métricas Redis) + link wa.me (ISSUE-040 antecipado).
 
-🟡 **Sprint 2 pendente** (P1): handlers de "como funciona", "quanto custa",
-edição/exclusão de palpite, validação de placar absurdo, bolão padrão,
-rate limits.
+✅ **Sprint 2 concluído (2026-05-17)**: ISSUES 009-023 (handlers
+INFO_PRODUTO/INFO_PRECO/COMO_PALPITAR/QUANDO_COMECA, editar/apagar
+palpite, validação de placar absurdo, palpite com time errado, palpite
+multi-bolão auto-apply, bolão padrão com migration nova, "meus bolões"
+sempre com ID, renomear bolão admin, remover participante admin, texto
+detalhado em "sair", RESUMO_BOLOES). 322 tests.
 
-🔵 **Sprint 3** (P2): comparar pontuação entre bolões, cutucar, mudar nome,
-transferir admin, resumo de desempenho.
+🟡 **Sprint 3 / restante** (P2): cutucar, mudar nome próprio, transferir
+admin, palpites passados de outros, atalhos numerados, undo, rate limits,
+sanitização (033-038, 024-032).
 
 ---
 
@@ -235,6 +239,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.1** (2026-05-17) — Sprint 2 completo: ISSUES 009-023 (handlers de info, editar/apagar palpite, bolão padrão, renomear, remover participante, RESUMO_BOLOES) + 322 tests
 - **v3.0** (2026-05-17) — Sprint 1 completo: ISSUES 001-008 + wa.me link
 - **v2.8** (2026-05-15) — Gemini 2.5 Flash Lite + thinking off sempre
 - **v2.7** (2026-05-14) — Multi-palpite com confirmação + FSM escape geral

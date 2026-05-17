@@ -305,17 +305,122 @@ Você pode responder com:
 
 ---
 
+## Perguntas frequentes — handlers dedicados (sem custo LLM)
+
+```
+o que é esse bot?
+pra que serve?
+sobre o var
+```
+→ Pitch curto do produto (ISSUE-009).
+
+```
+quanto custa?  •  é grátis?  •  tem que pagar?
+```
+→ "🆓 É grátis nesta fase" (ISSUE-010).
+
+```
+como dou palpite?  •  qual o formato?  •  não sei palpitar
+```
+→ Explica formato com exemplos (ISSUE-017).
+
+```
+quando começa?  •  quando termina?  •  quando abre rodada?
+```
+→ Data da próxima rodada (usa bolão padrão) (ISSUE-018).
+
+---
+
+## Editar e apagar palpite
+
+### Editar (substituir placar)
+```
+corrigir palpite
+mudar palpite
+errei o palpite
+```
+→ Bot pede o palpite novo. Só funciona se a rodada ainda estiver aberta.
+Usa bolão padrão se setado.
+
+### Apagar
+```
+apagar meu palpite
+desfazer palpite
+remover palpite
+```
+→ Bot lista seus palpites de jogos ainda não iniciados, você escolhe,
+confirma. Só pra rodada aberta.
+
+### Placar absurdo (>15 gols)
+Quando palpite tem placar incomum (16+ num lado ou total >20), bot pede
+confirmação explícita antes de registrar.
+
+### Time errado pro jogo
+Mandar `Brasil 2x1 França` quando o jogo é `Brasil x Marrocos` → bot
+responde com a lista de jogos abertos e pergunta se quis dizer outro.
+
+---
+
+## Bolão padrão (multi-bolão)
+
+```
+bolão padrão
+definir bolão padrão
+meu bolão principal
+```
+→ Bot lista seus bolões. Escolhido, futuros comandos como `ranking`,
+`meus pontos`, `quando começa`, `editar palpite`, etc. pulam a pergunta
+"qual bolão?".
+
+**Auto-aplicar palpite em todos os bolões:** quando o mesmo jogo está
+aberto em vários bolões em que você participa (caso típico da Copa),
+mandar `Brasil 2x1 Marrocos` registra em **todos** automaticamente. Bot
+responde com lista de bolões onde aplicou.
+
+---
+
+## Admin avançado
+
+### Renomear bolão
+```
+renomear bolão
+mudar nome do bolão
+trocar nome do bolão
+```
+→ Bot: escolha bolão → manda nome novo → confirma sim/não → notifica
+participantes.
+
+### Remover participante
+```
+remover Fulano
+tirar Fulano do bolão
+expulsar
+```
+→ Bot detecta o nome (ou pergunta), confirma, remove, avisa o removido.
+
+---
+
+## Resumo cruzado entre bolões (ISSUE-023)
+
+```
+como to indo nos bolões
+meu desempenho geral
+em quantos bolões to em primeiro?
+resumo dos meus bolões
+```
+→ Lista cada bolão com posição (🥇🥈🥉/Nº) + pontos.
+
+---
+
 ## O que NÃO existe (ainda)
 
-- ~~Editar palpite~~ (ISSUE-011 — pendente)
-- ~~Apagar palpite~~ (ISSUE-012 — pendente)
-- ~~Renomear bolão~~ (ISSUE-020 — pendente)
-- ~~Remover participante~~ (ISSUE-021 — pendente)
 - ~~Transferir admin~~ (ISSUE-027 — pendente)
 - ~~Mudar nome de exibição~~ (ISSUE-025 — pendente)
 - ~~Cutucar participantes~~ (ISSUE-024 — pendente)
-- ~~Bolão padrão por usuário~~ (ISSUE-016 — pendente)
 - ~~Notificações on/off~~ (ISSUE-029 — pendente)
+- ~~Histórico de palpites de outros pós-jogo~~ (ISSUE-026 — pendente)
+- ~~Undo do último palpite~~ (ISSUE-032 — pendente)
+- ~~Comando "onde estou / o que tava fazendo"~~ (ISSUE-031 — pendente)
 - Placar ao vivo / áudio / vídeo
 
 Ver `BUGS_E_CENARIOS_VAR_DO_BOLAO.md` (raiz) para roadmap completo.

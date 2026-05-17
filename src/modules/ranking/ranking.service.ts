@@ -77,6 +77,9 @@ export async function getRankingPorBolao(bolaoId: string) {
     bolao,
     rodadaAtual,
     ranking: participacoes.map((p, i) => ({
+      // ISSUE-023 (Sprint 2): inclui usuarioId pra caller poder achar
+      // a propria posicao em iteracoes (handleResumoBoloes).
+      usuarioId: p.usuarioId,
       nome: p.usuario.nome,
       pontuacaoTotal: p.pontuacaoTotal,
       posicao: p.posicaoAtual || i + 1,

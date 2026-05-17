@@ -6,7 +6,7 @@ import {
   parseMultiplePalpitesDetalhado,
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA } from './lista.helper.js';
-import { normalizeTeamName } from '../utils/validators.js';
+import { normalizeTeamName, validarPlacar } from '../utils/validators.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import {
   getSession,
@@ -98,6 +98,14 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       'CONFIRMANDO_SAIR_BOLAO',
       'CONFIRMANDO_EXCLUSAO_BOLAO',
       'ESCOLHENDO_BOLAO_PARA_PALPITAR',
+      // Sprint 2 — destrutivos / com input em curso
+      'RENOMEANDO_BOLAO_NOME', // nome novo pode parecer codigo
+      'CONFIRMANDO_RENOMEACAO_BOLAO',
+      'REMOVENDO_PARTICIPANTE_ESCOLHA_NOME', // nome pode parecer codigo
+      'CONFIRMANDO_REMOCAO_PARTICIPANTE',
+      'CONFIRMANDO_PALPITE_PLACAR_ABSURDO',
+      'EDITANDO_PALPITE_NOVO_PLACAR',
+      'CONFIRMANDO_APAGAR_PALPITE',
     ]);
     const podeAceitarCodigoAqui = !ESTADOS_PROIBIDOS_CODIGO.has(session.state);
     if (codigoNaMsg && podeAceitarCodigoAqui) {
@@ -182,6 +190,38 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleEscolhendoBolaoExcluir(msg, usuario.id, session);
       case 'CONFIRMANDO_EXCLUSAO_BOLAO':
         return await handleConfirmandoExclusaoBolao(msg, usuario.id, session);
+      // Sprint 2 (ISSUE-016) — bolao padrao
+      case 'ESCOLHENDO_BOLAO_PADRAO':
+        return await handleEscolhendoBolaoPadrao(msg, usuario.id, session);
+      // Sprint 2 (ISSUE-020) — renomear bolao
+      case 'RENOMEANDO_BOLAO_ESCOLHA':
+        return await handleEscolhendoBolaoRenomear(msg, usuario.id, session);
+      case 'RENOMEANDO_BOLAO_NOME':
+        return await handleRenomeandoBolaoNome(msg, usuario.id, session);
+      case 'CONFIRMANDO_RENOMEACAO_BOLAO':
+        return await handleConfirmandoRenomeacaoBolao(msg, usuario.id, session);
+      // Sprint 2 (ISSUE-021) — remover participante
+      case 'REMOVENDO_PARTICIPANTE_ESCOLHA_BOLAO':
+        return await handleEscolhendoBolaoRemover(msg, usuario.id, session);
+      case 'REMOVENDO_PARTICIPANTE_ESCOLHA_NOME':
+        return await handleRemovendoParticipanteNome(msg, usuario.id, session);
+      case 'CONFIRMANDO_REMOCAO_PARTICIPANTE':
+        return await handleConfirmandoRemocaoParticipante(msg, usuario.id, session);
+      // Sprint 2 (ISSUE-013) — placar absurdo
+      case 'CONFIRMANDO_PALPITE_PLACAR_ABSURDO':
+        return await handleConfirmandoPalpitePlacarAbsurdo(msg, usuario.id, session);
+      // Sprint 2 (ISSUE-011) — editar palpite
+      case 'EDITANDO_PALPITE_ESCOLHA_BOLAO':
+        return await handleEscolhendoBolaoEditarPalpite(msg, usuario.id, session);
+      case 'EDITANDO_PALPITE_NOVO_PLACAR':
+        return await handleEditandoPalpiteNovoPlacar(msg, usuario.id, session);
+      // Sprint 2 (ISSUE-012) — apagar palpite
+      case 'APAGANDO_PALPITE_ESCOLHA_BOLAO':
+        return await handleEscolhendoBolaoApagarPalpite(msg, usuario.id, session);
+      case 'APAGANDO_PALPITE_ESCOLHA_JOGO':
+        return await handleApagandoPalpiteEscolhaJogo(msg, usuario.id, session);
+      case 'CONFIRMANDO_APAGAR_PALPITE':
+        return await handleConfirmandoApagarPalpite(msg, usuario.id, session);
     }
 
     // IDLE — verifica primeiro se admin tem pendentes e a mensagem
@@ -377,6 +417,51 @@ async function dispatchIntencao(
       await handleExcluirBolao(msg, usuarioId);
       return true;
 
+    // Sprint 2 — handlers de info (ISSUE-009, 010, 017, 018)
+    case Intencao.INFO_PRODUTO:
+      await handleInfoProduto(msg);
+      return true;
+
+    case Intencao.INFO_PRECO:
+      await handleInfoPreco(msg);
+      return true;
+
+    case Intencao.COMO_PALPITAR:
+      await handleComoPalpitar(msg, usuarioId);
+      return true;
+
+    case Intencao.QUANDO_COMECA:
+      await handleQuandoComeca(msg, usuarioId);
+      return true;
+
+    // Sprint 2 — fluxo de palpite (ISSUE-011, 012)
+    case Intencao.EDITAR_PALPITE:
+      await handleEditarPalpite(msg, usuarioId, raw);
+      return true;
+
+    case Intencao.APAGAR_PALPITE:
+      await handleApagarPalpite(msg, usuarioId, raw);
+      return true;
+
+    // Sprint 2 — bolao padrao (ISSUE-016)
+    case Intencao.DEFINIR_BOLAO_PADRAO:
+      await handleDefinirBolaoPadrao(msg, usuarioId);
+      return true;
+
+    // Sprint 2 — admin actions (ISSUE-020, 021)
+    case Intencao.RENOMEAR_BOLAO:
+      await handleRenomearBolao(msg, usuarioId);
+      return true;
+
+    case Intencao.REMOVER_PARTICIPANTE:
+      await handleRemoverParticipante(msg, usuarioId, raw);
+      return true;
+
+    // Sprint 2 — pontuacao cruzada (ISSUE-023)
+    case Intencao.RESUMO_BOLOES:
+      await handleResumoBoloes(msg, usuarioId);
+      return true;
+
     case Intencao.PALPITE_INLINE:
       await handlePalpiteInlineEmIdle(msg, usuarioId);
       return true;
@@ -531,6 +616,148 @@ async function handleInfoSenha(msg: IncomingMessage) {
       `🔓 Bolões no *VAR do Bolão* não usam senha — a entrada é pelo *ID do bolão* (formato \`#ABCD12\`).\n\n` +
       `O admin do bolão te manda o ID (ou um link de convite). Você me envia, e eu peço aprovação pra ele.\n\n` +
       `Quer entrar em algum bolão agora? Manda *entrar em bolão*.`,
+  });
+}
+
+// ============================================================
+// Handlers de pergunta frequente — Sprint 2 (ISSUE-009, 010, 017, 018)
+// ============================================================
+
+/**
+ * ISSUE-009: pitch curto do produto pra primeira interacao. Sem LLM.
+ */
+async function handleInfoProduto(msg: IncomingMessage) {
+  await sendText({
+    to: msg.waId,
+    text:
+      `🤖 *VAR do Bolão* — sou o bot que organiza bolões de futebol direto aqui no WhatsApp, sem grupo nem app.\n\n` +
+      `*Como funciona:*\n` +
+      `• Admin cria um bolão e ganha um *ID curto* + link pra encaminhar\n` +
+      `• Convidados clicam → entram com 1 mensagem\n` +
+      `• Todo mundo manda palpites em DM (palpite privado: ninguém vê o seu)\n` +
+      `• Ranking sai automático após cada rodada\n\n` +
+      `*Bora começar?*\n` +
+      `• *criar bolão* — abre um novo\n` +
+      `• *entrar em bolão* — entra em um existente`,
+  });
+}
+
+/**
+ * ISSUE-010: resposta fixa sobre custo. PIX desativado nesta fase.
+ */
+async function handleInfoPreco(msg: IncomingMessage) {
+  await sendText({
+    to: msg.waId,
+    text:
+      `🆓 *É grátis!*\n\n` +
+      `Pra participar de bolão — sempre grátis.\n` +
+      `Pra criar bolão — também grátis nesta fase (estamos crescendo a base).\n\n` +
+      `_Mais pra frente, criar pode ter custo (R$ 99,90 via PIX, anual) — mas avisaremos com antecedência._\n\n` +
+      `Bora? *criar bolão* ou *entrar em bolão*.`,
+  });
+}
+
+/**
+ * ISSUE-017: explica como dar palpite + lista alguns jogos abertos se o
+ * usuario ja esta em bolao. Diferente de PROXIMOS_JOGOS, este eh pedagogico.
+ */
+async function handleComoPalpitar(msg: IncomingMessage, usuarioId: string) {
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+
+  let texto =
+    `📝 *Como dar palpite:*\n\n` +
+    `É só mandar o placar direto em DM. Vários formatos funcionam:\n\n` +
+    `• \`Brasil 2x1 Marrocos\`\n` +
+    `• \`Brasil 2 a 1 Marrocos\`\n` +
+    `• \`Brasil 2-1 Marrocos\`\n` +
+    `• \`Brasil dois a um Marrocos\` (extenso)\n` +
+    `• \`Brasil perde de 1 a 0 do Marrocos\` (eu entendo!)\n\n` +
+    `Pode mandar *vários palpites de uma vez*, um por linha:\n\n` +
+    `\`\`\`\nBrasil 2x1 Marrocos\nFrança 1x0 Argentina\n\`\`\`\n\n` +
+    `Eu mostro um preview e você confirma com *sim* antes de eu registrar.`;
+
+  if (boloes.length === 0) {
+    texto += `\n\nVocê ainda não está em nenhum bolão. Manda *entrar em bolão* pra começar.`;
+  } else {
+    texto += `\n\nManda *próximos jogos* pra ver os jogos abertos pra palpitar agora.`;
+  }
+
+  await sendText({ to: msg.waId, text: texto });
+}
+
+/**
+ * ISSUE-018: data da proxima rodada. Usa bolao padrao do usuario se setado,
+ * senao tenta deduzir (1 bolao → ele; >1 → pergunta).
+ */
+async function handleQuandoComeca(msg: IncomingMessage, usuarioId: string) {
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `📅 Você ainda não está em nenhum bolão — não tem rodada pra te mostrar.\n\n` +
+        `Manda *entrar em bolão* pra começar.`,
+    });
+    return;
+  }
+
+  // Bolao padrao tem preferencia
+  const bolaoPadraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  const bolaoEscolhido =
+    boloes.find((b) => b.id === bolaoPadraoId) ??
+    (boloes.length === 1 ? boloes[0] : null);
+
+  if (!bolaoEscolhido) {
+    // >1 bolao e sem padrao → mostra geral do primeiro
+    await sendText({
+      to: msg.waId,
+      text:
+        `📅 Você participa de *${boloes.length}* bolões — manda *meu bolão padrão* pra setar um padrão, ou *meus bolões* pra ver todos.`,
+    });
+    return;
+  }
+
+  const rodadaAberta = await prisma.rodada.findFirst({
+    where: { bolaoId: bolaoEscolhido.id, status: 'ABERTA' },
+    include: {
+      jogos: {
+        where: { status: { in: ['AGENDADO', 'AO_VIVO'] } },
+        orderBy: { dataHora: 'asc' },
+        take: 1,
+      },
+    },
+    orderBy: { numero: 'desc' },
+  });
+
+  if (!rodadaAberta || rodadaAberta.jogos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: `📅 O bolão *${bolaoEscolhido.nome}* não tem rodada aberta com jogos agendados agora.`,
+    });
+    return;
+  }
+
+  const proxJogo = rodadaAberta.jogos[0];
+  const dataStr = proxJogo.dataHora.toLocaleString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const fechaStr = rodadaAberta.dataFechamento.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `📅 *${bolaoEscolhido.nome}* — Rodada ${rodadaAberta.numero}\n\n` +
+      `🚀 Próximo jogo: *${proxJogo.timeCasa} x ${proxJogo.timeVisitante}*\n` +
+      `🗓️ ${dataStr}\n\n` +
+      `🔒 Palpites aceitos até: *${fechaStr}*`,
   });
 }
 
@@ -1063,6 +1290,73 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
     return;
   }
 
+  // ISSUE-016: se ha bolao padrao setado E ele esta com rodada aberta, usa direto
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  if (padraoId) {
+    const match = boloesComRodadaAberta.find((b) => b.bolaoId === padraoId);
+    if (match) {
+      await iniciarConfirmacaoPalpites(msg, usuarioId, msg.text, match.bolaoId, match.nome, match.rodadaId);
+      return;
+    }
+  }
+
+  // ISSUE-015: se o palpite eh UMA LINHA SO + parseou em UM jogo + esse jogo
+  // existe em MULTIPLOS boloes com rodada aberta, aplica em TODOS sem
+  // perguntar. UX: usuario digita "Brasil 2x1 Marrocos" uma vez e fica
+  // registrado em todos os bolaes da Copa onde ele participa.
+  const linhas = msg.text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (linhas.length === 1) {
+    const parsed = parseIntencao(linhas[0]);
+    if (parsed.intencao === Intencao.PALPITE_INLINE && parsed.palpite) {
+      const p = parsed.palpite;
+      const matches = await palpiteService.buscarBoloesComJogo(usuarioId, p.timeCasa, p.timeVisitante);
+      if (matches.length > 1) {
+        // Mesmo jogo em N boloes → registra em todos automaticamente
+        const { registrados, erros } = await palpiteService.registrarPalpiteEmTodosBoloes({
+          usuarioId,
+          timeCasa: p.timeCasa,
+          timeVisitante: p.timeVisitante,
+          golsCasa: p.golsCasa,
+          golsVisitante: p.golsVisitante,
+        });
+        const placarLabel = `${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`;
+        let textoResp = registrados.length === 1
+          ? `✅ Palpite registrado: *${placarLabel}* (no *${registrados[0].bolaoNome}*).`
+          : `✅ Palpite registrado: *${placarLabel}*\n\nAplicado em *${registrados.length}* bolões:\n${registrados.map((r) => `• ${r.bolaoNome}`).join('\n')}`;
+        if (erros.length > 0) {
+          textoResp += `\n\n⚠️ Não rolou em:\n${erros.map((e) => `• ${e.bolaoNome}: ${e.motivo}`).join('\n')}`;
+        }
+        await sendText({ to: msg.waId, text: textoResp });
+        return;
+      }
+      // ISSUE-014: parseou palpite mas nao casou jogo em nenhuma rodada aberta
+      if (matches.length === 0) {
+        // Lista jogos abertos pra ajudar o usuario
+        const sample = boloesComRodadaAberta[0];
+        const rodada = await prisma.rodada.findUnique({
+          where: { id: sample.rodadaId },
+          include: {
+            jogos: {
+              where: { status: 'AGENDADO' },
+              orderBy: { dataHora: 'asc' },
+              take: 5,
+            },
+          },
+        });
+        const lista = rodada?.jogos.map((j) => `• ${j.timeCasa} x ${j.timeVisitante}`).join('\n') ?? '';
+        await sendText({
+          to: msg.waId,
+          text:
+            `🤔 Não achei jogo *${p.timeCasa} x ${p.timeVisitante}* em nenhuma rodada aberta.\n\n` +
+            (lista
+              ? `Jogos abertos no *${sample.nome}*:\n${lista}\n\nQuis dizer um destes?`
+              : `Manda *próximos jogos* pra ver o que está aberto pra palpitar.`),
+        });
+        return;
+      }
+    }
+  }
+
   // >1 bolao com rodada aberta — guarda texto cru e pergunta qual
   await setSession(msg.waId, {
     state: 'ESCOLHENDO_BOLAO_PARA_PALPITAR',
@@ -1336,7 +1630,38 @@ async function handleConfirmandoPalpitesInline(
     });
     return;
   }
-  // SIM — registra todos
+  // ISSUE-013: antes de registrar, verifica se algum palpite tem placar absurdo
+  const absurdo = palpites.find((p) => !validarPlacar(p.golsCasa, p.golsVisitante).ok);
+  if (absurdo) {
+    await updateSession(msg.waId, {
+      state: 'CONFIRMANDO_PALPITE_PLACAR_ABSURDO',
+      ctxPatch: {
+        palpiteAbsurdoContexto: {
+          timeCasa: absurdo.timeCasa,
+          timeVisitante: absurdo.timeVisitante,
+          golsCasa: absurdo.golsCasa,
+          golsVisitante: absurdo.golsVisitante,
+        },
+      },
+    });
+    await sendText({
+      to: msg.waId,
+      text:
+        `⚠️ Placar incomum: *${absurdo.timeCasa} ${absurdo.golsCasa} × ${absurdo.golsVisitante} ${absurdo.timeVisitante}*.\n\n` +
+        `Tem certeza disso? Responde *sim* pra registrar mesmo, ou *não* pra cancelar todos os palpites.`,
+    });
+    return;
+  }
+  await registrarPalpitesConfirmados(msg, usuarioId, rodadaId, bolaoNome, palpites);
+}
+
+async function registrarPalpitesConfirmados(
+  msg: IncomingMessage,
+  usuarioId: string,
+  rodadaId: string,
+  bolaoNome: string,
+  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }>,
+) {
   let registrados = 0;
   const erros: string[] = [];
   for (const p of palpites) {
@@ -1358,6 +1683,36 @@ async function handleConfirmandoPalpitesInline(
   let resposta = `${confirmacao()} ${registrados} palpite(s) registrado(s) no *${bolaoNome}*!`;
   if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
   await sendText({ to: msg.waId, text: resposta });
+}
+
+/**
+ * Handler ISSUE-013: usuario confirma se quer mesmo registrar placar absurdo.
+ */
+async function handleConfirmandoPalpitePlacarAbsurdo(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const rodadaId = session.ctx?.palpiteRodadaIdEscolhida;
+  const bolaoNome = session.ctx?.palpiteBolaoNomeEscolhido ?? 'o bolão';
+  const palpites = session.ctx?.palpitesParaConfirmar ?? [];
+  if (!rodadaId || palpites.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '👍 Cancelei tudo. Manda os palpites de novo quando quiser.' });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({ to: msg.waId, text: '🤔 Manda *sim* ou *não*.' });
+    return;
+  }
+  // SIM — registra mesmo com placar incomum
+  await registrarPalpitesConfirmados(msg, usuarioId, rodadaId, bolaoNome, palpites);
 }
 
 /**
@@ -1659,10 +2014,16 @@ async function pedirConfirmacaoSairBolao(msg: IncomingMessage, bolao: { id: stri
     state: 'CONFIRMANDO_SAIR_BOLAO',
     ctx: { bolaoId: bolao.id, nomeBolao: bolao.nome },
   });
+  // ISSUE-022: deixar claro o que se perde
   await sendText({
     to: msg.waId,
     text:
-      `⚠️ Vai sair do bolão *${bolao.nome}* mesmo? Seus palpites ficam salvos pra histórico, mas você não recebe mais notificações de jogos.\n\n` +
+      `⚠️ Vai sair do bolão *${bolao.nome}* mesmo?\n\n` +
+      `*O que acontece:*\n` +
+      `• 🏆 Você *some do ranking* desse bolão (não vai mais aparecer na classificação)\n` +
+      `• 📋 Seus palpites passados *ficam no histórico* (mas sem somar pontos novos)\n` +
+      `• 🔕 Você *não recebe mais notificações* de jogos desse bolão\n` +
+      `• 🤝 Pra voltar depois, você precisa pedir entrada de novo (admin aprova)\n\n` +
       `_Responde *sim* pra confirmar ou *não* pra cancelar._`,
   });
 }
@@ -1834,21 +2195,24 @@ async function handleMeusBoloes(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
+  // ISSUE-019: mostrar ID sempre (admin e participante). Util pra
+  // participante reenviar o link de convite, e pra admin nao precisar
+  // procurar em outro lugar.
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
   const lista = boloes
     .map((b) => {
-      const admin = b.adminId === usuarioId ? ' 👑 _admin_' : '';
-      // Mostra o codigo so quando o usuario eh admin — pra ele poder
-      // reenviar o convite. Pra participante o codigo nao agrega muito
-      // (ele ja esta dentro).
-      const idLinha =
-        b.adminId === usuarioId
-          ? `\n   _ID:_ \`#${b.codigo}\``
-          : '';
-      return `• *${b.nome}* (${b.campeonatoNome})${admin}${idLinha}`;
+      const ehAdmin = b.adminId === usuarioId;
+      const adminLabel = ehAdmin ? ' 👑 _admin_' : '';
+      const padraoLabel = b.id === padraoId ? ' ⭐ _padrão_' : '';
+      return `• *${b.nome}* (${b.campeonatoNome})${adminLabel}${padraoLabel}\n   _ID:_ \`#${b.codigo}\``;
     })
     .join('\n');
 
-  await sendText({ to: msg.waId, text: `🏆 *Seus bolões:*\n\n${lista}` });
+  const dica = padraoId
+    ? ''
+    : '\n\n_Pra definir um bolão como padrão (e pular a pergunta "qual bolão?"), manda *bolão padrão*._';
+
+  await sendText({ to: msg.waId, text: `🏆 *Seus bolões:*\n\n${lista}${dica}` });
 }
 
 async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: string) {
@@ -1881,21 +2245,29 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
       return;
     }
     if (boloesDoUsuario.length > 1) {
-      // Setai estado pro proximo turno entender que o texto eh a escolha
-      await setSession(msg.waId, {
-        state: 'ESCOLHENDO_BOLAO_RANKING',
-        ctx: {
-          boloesParaEscolher: boloesDoUsuario.map((b) => ({ id: b.id, nome: b.nome })),
-        },
-      });
-      const lista = formatarBoloesNumerados(boloesDoUsuario);
-      await sendText({
-        to: msg.waId,
-        text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
-      });
-      return;
+      // ISSUE-016: se ha bolao padrao, usa direto
+      const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+      const padraoMatch = boloesDoUsuario.find((b) => b.id === padraoId);
+      if (padraoMatch) {
+        bolaoId = padraoMatch.id;
+      } else {
+        // Setai estado pro proximo turno entender que o texto eh a escolha
+        await setSession(msg.waId, {
+          state: 'ESCOLHENDO_BOLAO_RANKING',
+          ctx: {
+            boloesParaEscolher: boloesDoUsuario.map((b) => ({ id: b.id, nome: b.nome })),
+          },
+        });
+        const lista = formatarBoloesNumerados(boloesDoUsuario);
+        await sendText({
+          to: msg.waId,
+          text: `Você está em vários bolões. De qual deles você quer ver o ranking?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}\n\n_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
+        });
+        return;
+      }
+    } else {
+      bolaoId = boloesDoUsuario[0].id;
     }
-    bolaoId = boloesDoUsuario[0].id;
   }
 
   await enviarRankingDoBolao(msg.waId, bolaoId);
@@ -2118,6 +2490,13 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     'ESCOLHENDO_INTENCAO_PALPITES',
     'ESCOLHENDO_BOLAO_PARA_ENTRAR',
     'ESCOLHENDO_BOLAO_EXCLUIR',
+    // Sprint 2
+    'ESCOLHENDO_BOLAO_PADRAO',
+    'RENOMEANDO_BOLAO_ESCOLHA',
+    'REMOVENDO_PARTICIPANTE_ESCOLHA_BOLAO',
+    'EDITANDO_PALPITE_ESCOLHA_BOLAO',
+    'APAGANDO_PALPITE_ESCOLHA_BOLAO',
+    'APAGANDO_PALPITE_ESCOLHA_JOGO',
   ]);
   if (!ESTADOS_INTERROMPIVEIS.has(session.state)) return false;
 
@@ -2141,6 +2520,17 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     Intencao.REGRAS,
     Intencao.INFO_SENHA,
     Intencao.EXCLUIR_BOLAO,
+    // Sprint 2
+    Intencao.INFO_PRODUTO,
+    Intencao.INFO_PRECO,
+    Intencao.COMO_PALPITAR,
+    Intencao.QUANDO_COMECA,
+    Intencao.EDITAR_PALPITE,
+    Intencao.APAGAR_PALPITE,
+    Intencao.DEFINIR_BOLAO_PADRAO,
+    Intencao.RENOMEAR_BOLAO,
+    Intencao.REMOVER_PARTICIPANTE,
+    Intencao.RESUMO_BOLOES,
     Intencao.CANCELAR,
   ]);
   return INTENTS_FORTES.has(intencao);
@@ -2181,6 +2571,17 @@ async function tentarAcaoAdminEmIdle(
     Intencao.SAIR_BOLAO,
     Intencao.ABRIR_RODADA,
     Intencao.CANCELAR,
+    // Sprint 2
+    Intencao.INFO_PRODUTO,
+    Intencao.INFO_PRECO,
+    Intencao.COMO_PALPITAR,
+    Intencao.QUANDO_COMECA,
+    Intencao.EDITAR_PALPITE,
+    Intencao.APAGAR_PALPITE,
+    Intencao.DEFINIR_BOLAO_PADRAO,
+    Intencao.RENOMEAR_BOLAO,
+    Intencao.REMOVER_PARTICIPANTE,
+    Intencao.RESUMO_BOLOES,
     Intencao.SAUDACAO, // "oi" jamais eh aprovacao. Se admin manda
                        // "tranquilo, libera" cai em TEXTO_LIVRE.
   ]);
@@ -2528,6 +2929,14 @@ async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
+  // ISSUE-016: se ha bolao padrao, usa direto
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  const padraoMatch = boloes.find((b) => b.id === padraoId);
+  if (padraoMatch) {
+    await mostrarPontuacaoEPerguntarPalpites(msg, usuarioId, padraoMatch.id, padraoMatch.nome);
+    return;
+  }
+
   // Mais de 1 bolao — pergunta qual
   await setSession(msg.waId, {
     state: 'ESCOLHENDO_BOLAO_PALPITES',
@@ -2538,7 +2947,7 @@ async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
   const lista = formatarBoloesNumerados(boloes);
   await sendText({
     to: msg.waId,
-    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    text: `Você está em vários bolões. De qual você quer ver os pontos?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}\n\n_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
   });
 }
 
@@ -2663,6 +3072,770 @@ function boasVindasTexto(nome: string): string {
   );
 }
 
+// ============================================================
+// Sprint 2 — ISSUE-016: bolao padrao
+// ============================================================
+async function handleDefinirBolaoPadrao(msg: IncomingMessage, usuarioId: string) {
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🤷 Você não participa de nenhum bolão ainda — não tem o que definir como padrão.',
+    });
+    return;
+  }
+  const atualPadraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  if (boloes.length === 1) {
+    if (atualPadraoId === boloes[0].id) {
+      await sendText({
+        to: msg.waId,
+        text: `⭐ Seu bolão padrão já é *${boloes[0].nome}* (único em que você participa).`,
+      });
+      return;
+    }
+    await bolaoService.definirBolaoPadrao(usuarioId, boloes[0].id);
+    await sendText({
+      to: msg.waId,
+      text: `⭐ Bolão padrão definido: *${boloes[0].nome}*\n\nAgora comandos como *ranking*, *meus pontos* e *quando começa* usam ele direto.`,
+    });
+    return;
+  }
+  await setSession(msg.waId, {
+    state: 'ESCOLHENDO_BOLAO_PADRAO',
+    ctx: { boloesParaEscolher: boloes.map((b) => ({ id: b.id, nome: b.nome })) },
+  });
+  const lista = formatarBoloesNumerados(boloes);
+  const atualLinha = atualPadraoId
+    ? `\n\n_Padrão atual: *${boloes.find((b) => b.id === atualPadraoId)?.nome ?? '(removido)'}*_`
+    : '';
+  await sendText({
+    to: msg.waId,
+    text: `⭐ Qual bolão você quer definir como *padrão*?\n\n${lista}${atualLinha}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function handleEscolhendoBolaoPadrao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *bolão padrão* de novo.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o número ou o nome:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+  await resetSession(msg.waId);
+  try {
+    await bolaoService.definirBolaoPadrao(usuarioId, escolhido.id);
+    await sendText({
+      to: msg.waId,
+      text: `⭐ Bolão padrão definido: *${escolhido.nome}*\n\nAgora comandos como *ranking*, *meus pontos*, *quando começa* usam ele direto.`,
+    });
+  } catch (err) {
+    await sendText({ to: msg.waId, text: `❌ ${(err as Error).message}` });
+  }
+}
+
+// ============================================================
+// Sprint 2 — ISSUE-020: renomear bolao (admin)
+// ============================================================
+async function handleRenomearBolao(msg: IncomingMessage, usuarioId: string) {
+  const adminados = await bolaoService.listarBoloesQueAdministra(usuarioId);
+  if (adminados.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🤷 Só o admin pode renomear. Você ainda não criou nenhum bolão.',
+    });
+    return;
+  }
+  if (adminados.length === 1) {
+    await iniciarRenomeacaoBolao(msg, adminados[0]);
+    return;
+  }
+  await setSession(msg.waId, {
+    state: 'RENOMEANDO_BOLAO_ESCOLHA',
+    ctx: { boloesParaEscolher: adminados.map((b) => ({ id: b.id, nome: b.nome })) },
+  });
+  const lista = formatarBoloesNumerados(adminados);
+  await sendText({
+    to: msg.waId,
+    text: `✏️ Qual bolão você quer renomear?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function handleEscolhendoBolaoRenomear(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *renomear bolão* de novo.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o número ou o nome:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+  const bolao = await prisma.bolao.findUnique({
+    where: { id: escolhido.id },
+    select: { id: true, nome: true, adminId: true },
+  });
+  if (!bolao || bolao.adminId !== usuarioId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '❌ Você não é admin desse bolão.' });
+    return;
+  }
+  await iniciarRenomeacaoBolao(msg, bolao);
+}
+
+async function iniciarRenomeacaoBolao(
+  msg: IncomingMessage,
+  bolao: { id: string; nome: string },
+) {
+  await setSession(msg.waId, {
+    state: 'RENOMEANDO_BOLAO_NOME',
+    ctx: { bolaoId: bolao.id, nomeBolao: bolao.nome },
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `✏️ Como você quer renomear o bolão *${bolao.nome}*?\n\n` +
+      `_Manda o nome novo (3-60 caracteres). Ou *cancelar* pra desistir._`,
+  });
+}
+
+async function handleRenomeandoBolaoNome(
+  msg: IncomingMessage,
+  _usuarioId: string,
+  session: Session,
+) {
+  const nomeNovo = msg.text.trim();
+  if (nomeNovo.length < 3 || nomeNovo.length > 60) {
+    await sendText({
+      to: msg.waId,
+      text: '⚠️ Nome deve ter entre 3 e 60 caracteres. Tenta de novo (ou *cancelar*):',
+    });
+    return;
+  }
+  await updateSession(msg.waId, {
+    state: 'CONFIRMANDO_RENOMEACAO_BOLAO',
+    ctxPatch: { nomeNovoBolao: nomeNovo },
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `✏️ Confirma renomear *${session.ctx?.nomeBolao}* para *${nomeNovo}*?\n\n` +
+      `_Responde *sim* pra confirmar ou *não* pra cancelar._`,
+  });
+}
+
+async function handleConfirmandoRenomeacaoBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const resp = await interpretarSimNao(msg.text);
+  const bolaoId = session.ctx?.bolaoId;
+  const nomeNovo = session.ctx?.nomeNovoBolao;
+  if (!bolaoId || !nomeNovo) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *renomear bolão* de novo.' });
+    return;
+  }
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '👍 Beleza, mantive o nome atual.' });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({ to: msg.waId, text: '🤔 Manda *sim* pra confirmar ou *não* pra cancelar.' });
+    return;
+  }
+  await resetSession(msg.waId);
+  try {
+    const { bolao, nomeAntigo, participantesPraNotificar } = await bolaoService.renomearBolao(
+      bolaoId,
+      usuarioId,
+      nomeNovo,
+    );
+    await sendText({
+      to: msg.waId,
+      text: `✅ Bolão renomeado: *${nomeAntigo}* → *${bolao.nome}*. Avisei os ${participantesPraNotificar.length} participante(s).`,
+    });
+    await Promise.all(
+      participantesPraNotificar.map((p) =>
+        sendText({
+          to: p.whatsappId,
+          text: `📢 O admin renomeou o bolão *${nomeAntigo}* — agora ele se chama *${bolao.nome}*.`,
+        }).catch(() => undefined),
+      ),
+    );
+  } catch (err) {
+    await sendText({ to: msg.waId, text: `❌ ${(err as Error).message}` });
+  }
+}
+
+// ============================================================
+// Sprint 2 — ISSUE-021: remover participante (admin)
+// ============================================================
+async function handleRemoverParticipante(
+  msg: IncomingMessage,
+  usuarioId: string,
+  raw: string,
+) {
+  const adminados = await bolaoService.listarBoloesQueAdministra(usuarioId);
+  if (adminados.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🤷 Só o admin pode remover participantes. Você ainda não criou nenhum bolão.',
+    });
+    return;
+  }
+
+  // Tenta extrair nome do texto (ex: "remover Fulano do bolao")
+  const nomeMatch = raw
+    .toLowerCase()
+    .replace(/^(?:remover|tirar|expulsar)\s+(?:o\s+|a\s+)?/i, '')
+    .replace(/\s+(?:do|da|de)\s+bol[aã]?o.*$/i, '')
+    .trim();
+  const nomeProcurado = nomeMatch.length >= 2 && nomeMatch !== 'participante' ? nomeMatch : null;
+
+  if (adminados.length === 1) {
+    await processarRemocaoParticipante(msg, usuarioId, adminados[0].id, nomeProcurado);
+    return;
+  }
+
+  await setSession(msg.waId, {
+    state: 'REMOVENDO_PARTICIPANTE_ESCOLHA_BOLAO',
+    ctx: {
+      boloesParaEscolher: adminados.map((b) => ({ id: b.id, nome: b.nome })),
+      participanteNomeParaRemover: nomeProcurado ?? undefined,
+    },
+  });
+  const lista = formatarBoloesNumerados(adminados);
+  const dica = nomeProcurado
+    ? `\n\n_Quero remover *${nomeProcurado}* — de qual bolão?_`
+    : '';
+  await sendText({
+    to: msg.waId,
+    text: `🚫 De qual bolão você quer remover participante?${dica}\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function handleEscolhendoBolaoRemover(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *remover participante* de novo.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o número ou o nome:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+  const nomeJaConhecido = session.ctx?.participanteNomeParaRemover ?? null;
+  await processarRemocaoParticipante(msg, usuarioId, escolhido.id, nomeJaConhecido);
+}
+
+async function processarRemocaoParticipante(
+  msg: IncomingMessage,
+  usuarioId: string,
+  bolaoId: string,
+  nomeProcurado: string | null,
+) {
+  if (!nomeProcurado) {
+    // Pede o nome
+    const bolao = await prisma.bolao.findUnique({
+      where: { id: bolaoId },
+      select: { nome: true },
+    });
+    await setSession(msg.waId, {
+      state: 'REMOVENDO_PARTICIPANTE_ESCOLHA_NOME',
+      ctx: { bolaoId, nomeBolao: bolao?.nome ?? '' },
+    });
+    await sendText({
+      to: msg.waId,
+      text: `🚫 Quem você quer remover do bolão *${bolao?.nome}*?\n\n_Manda o nome (ou *cancelar*)._`,
+    });
+    return;
+  }
+
+  // Ja tem nome — busca direto
+  try {
+    const resultado = await bolaoService.removerParticipantePorNome(bolaoId, usuarioId, nomeProcurado);
+    if (resultado.tipo === 'nao_encontrado') {
+      const lista = resultado.candidatos
+        .map((p) => `• ${p.usuario.nome}`)
+        .join('\n');
+      await resetSession(msg.waId);
+      await sendText({
+        to: msg.waId,
+        text: `❌ Não achei *${nomeProcurado}* no bolão. Participantes desse bolão:\n\n${lista}\n\nManda *remover NOME* tentando outra grafia.`,
+      });
+      return;
+    }
+    await pedirConfirmacaoRemocaoParticipante(msg, resultado.participacao.id, resultado.participacao.usuario.nome, resultado.bolaoNome);
+  } catch (err) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: `❌ ${(err as Error).message}` });
+  }
+}
+
+async function handleRemovendoParticipanteNome(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const nome = msg.text.trim();
+  const bolaoId = session.ctx?.bolaoId;
+  if (!bolaoId || nome.length < 2) {
+    await sendText({ to: msg.waId, text: '⚠️ Manda um nome válido (mínimo 2 chars):' });
+    return;
+  }
+  await processarRemocaoParticipante(msg, usuarioId, bolaoId, nome);
+}
+
+async function pedirConfirmacaoRemocaoParticipante(
+  msg: IncomingMessage,
+  participacaoId: string,
+  nomeUsuario: string,
+  nomeBolao: string,
+) {
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_REMOCAO_PARTICIPANTE',
+    ctx: {
+      participacaoIdParaRemover: participacaoId,
+      participanteNomeParaRemover: nomeUsuario,
+      nomeBolao,
+    },
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚠️ Vai remover *${nomeUsuario}* do bolão *${nomeBolao}*?\n\n` +
+      `Os palpites passados dele(a) ficam no histórico, mas ele(a) some do ranking e não vai mais palpitar.\n\n` +
+      `_Responde *sim* pra confirmar ou *não* pra cancelar._`,
+  });
+}
+
+async function handleConfirmandoRemocaoParticipante(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const resp = await interpretarSimNao(msg.text);
+  const participacaoId = session.ctx?.participacaoIdParaRemover;
+  const nomeUsuario = session.ctx?.participanteNomeParaRemover ?? 'participante';
+  const nomeBolao = session.ctx?.nomeBolao ?? 'bolão';
+  if (!participacaoId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou.' });
+    return;
+  }
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: `👍 Beleza, mantive *${nomeUsuario}* no bolão.` });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({ to: msg.waId, text: '🤔 Manda *sim* ou *não*.' });
+    return;
+  }
+  await resetSession(msg.waId);
+  try {
+    const { usuarioNome, usuarioWhatsappId, bolaoNome } = await bolaoService.executarRemocaoParticipante(
+      participacaoId,
+      usuarioId,
+    );
+    await sendText({
+      to: msg.waId,
+      text: `🚫 *${usuarioNome}* removido do bolão *${bolaoNome}*.`,
+    });
+    // Notifica o removido
+    await sendText({
+      to: usuarioWhatsappId,
+      text: `😕 O admin te removeu do bolão *${bolaoNome}*. Seus palpites passados ficam guardados, mas você não vai receber mais notificações desse bolão.`,
+    }).catch(() => undefined);
+  } catch (err) {
+    await sendText({ to: msg.waId, text: `❌ ${(err as Error).message}` });
+  }
+  void nomeBolao;
+}
+
+// ============================================================
+// Sprint 2 — ISSUE-011: editar palpite
+// ============================================================
+async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void raw;
+  const boloesAbertos = await listarBoloesComRodadaAberta(usuarioId);
+  if (boloesAbertos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🤷 Você não tem rodada aberta em nenhum bolão pra editar palpite.',
+    });
+    return;
+  }
+  // Roteia pelo bolão padrão se setado
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  const padraoMatch = boloesAbertos.find((b) => b.bolaoId === padraoId);
+  if (padraoMatch) {
+    await iniciarEdicaoPalpite(msg, padraoMatch.bolaoId, padraoMatch.nome, padraoMatch.rodadaId);
+    return;
+  }
+  if (boloesAbertos.length === 1) {
+    const b = boloesAbertos[0];
+    await iniciarEdicaoPalpite(msg, b.bolaoId, b.nome, b.rodadaId);
+    return;
+  }
+  await setSession(msg.waId, {
+    state: 'EDITANDO_PALPITE_ESCOLHA_BOLAO',
+    ctx: {
+      boloesParaEscolher: boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome })),
+    },
+  });
+  const lista = formatarBoloesNumerados(
+    boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
+  );
+  await sendText({
+    to: msg.waId,
+    text: `✏️ De qual bolão é o palpite que você quer editar?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function iniciarEdicaoPalpite(
+  msg: IncomingMessage,
+  bolaoId: string,
+  nomeBolao: string,
+  rodadaId: string,
+) {
+  await setSession(msg.waId, {
+    state: 'EDITANDO_PALPITE_NOVO_PLACAR',
+    ctx: { bolaoId, nomeBolao, rodadaId },
+  });
+  await sendText({
+    to: msg.waId,
+    text:
+      `✏️ Manda o palpite *novo* (mesmo formato de sempre): \`Time1 NxN Time2\`\n\n` +
+      `_Vou substituir o palpite anterior pelo novo no bolão *${nomeBolao}*. Ou *cancelar*._`,
+  });
+}
+
+async function handleEscolhendoBolaoEditarPalpite(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei. Manda o número:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+  const rodada = await prisma.rodada.findFirst({
+    where: { bolaoId: escolhido.id, status: 'ABERTA' },
+    orderBy: { numero: 'desc' },
+  });
+  if (!rodada) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '❌ Esse bolão não tem rodada aberta.' });
+    return;
+  }
+  void usuarioId;
+  await iniciarEdicaoPalpite(msg, escolhido.id, escolhido.nome, rodada.id);
+}
+
+async function handleEditandoPalpiteNovoPlacar(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const rodadaId = session.ctx?.rodadaId;
+  const nomeBolao = session.ctx?.nomeBolao ?? '';
+  if (!rodadaId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou.' });
+    return;
+  }
+
+  // Tenta parsear como palpite inline
+  const parsed = parseIntencao(msg.text);
+  if (parsed.intencao !== Intencao.PALPITE_INLINE || !parsed.palpite) {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Não entendi o palpite. Formato: `Brasil 2x1 Marrocos`. Ou *cancelar*.',
+    });
+    return;
+  }
+  const p = parsed.palpite;
+  try {
+    await palpiteService.registrarPalpiteEmRodada({
+      usuarioId,
+      rodadaId,
+      timeCasa: p.timeCasa,
+      timeVisitante: p.timeVisitante,
+      golsCasa: p.golsCasa,
+      golsVisitante: p.golsVisitante,
+    });
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `✅ Palpite atualizado no *${nomeBolao}*: *${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}*`,
+    });
+  } catch (err) {
+    await sendText({
+      to: msg.waId,
+      text: `❌ ${(err as Error).message}\n\nTenta outro palpite ou *cancelar*.`,
+    });
+  }
+}
+
+// ============================================================
+// Sprint 2 — ISSUE-012: apagar palpite
+// ============================================================
+async function handleApagarPalpite(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void raw;
+  const boloesAbertos = await listarBoloesComRodadaAberta(usuarioId);
+  if (boloesAbertos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🤷 Você não tem rodada aberta em nenhum bolão pra apagar palpite.',
+    });
+    return;
+  }
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  const padraoMatch = boloesAbertos.find((b) => b.bolaoId === padraoId);
+  if (padraoMatch) {
+    await listarPalpitesPraApagar(msg, usuarioId, padraoMatch.bolaoId, padraoMatch.nome, padraoMatch.rodadaId);
+    return;
+  }
+  if (boloesAbertos.length === 1) {
+    const b = boloesAbertos[0];
+    await listarPalpitesPraApagar(msg, usuarioId, b.bolaoId, b.nome, b.rodadaId);
+    return;
+  }
+  await setSession(msg.waId, {
+    state: 'APAGANDO_PALPITE_ESCOLHA_BOLAO',
+    ctx: {
+      boloesParaEscolher: boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome })),
+    },
+  });
+  const lista = formatarBoloesNumerados(
+    boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
+  );
+  await sendText({
+    to: msg.waId,
+    text: `🗑️ De qual bolão é o palpite que você quer apagar?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function handleEscolhendoBolaoApagarPalpite(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou.' });
+    return;
+  }
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({ to: msg.waId, text: `🤔 Manda o número:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}` });
+    return;
+  }
+  const rodada = await prisma.rodada.findFirst({
+    where: { bolaoId: escolhido.id, status: 'ABERTA' },
+    orderBy: { numero: 'desc' },
+  });
+  if (!rodada) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '❌ Esse bolão não tem rodada aberta.' });
+    return;
+  }
+  await listarPalpitesPraApagar(msg, usuarioId, escolhido.id, escolhido.nome, rodada.id);
+}
+
+async function listarPalpitesPraApagar(
+  msg: IncomingMessage,
+  usuarioId: string,
+  bolaoId: string,
+  nomeBolao: string,
+  rodadaId: string,
+) {
+  const palpite = await prisma.palpite.findUnique({
+    where: { usuarioId_rodadaId: { usuarioId, rodadaId } },
+    include: { jogos: { include: { jogo: true } } },
+  });
+  if (!palpite || palpite.jogos.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `🤷 Você não tem palpite registrado no *${nomeBolao}* pra apagar.`,
+    });
+    return;
+  }
+  // Filtra só palpites de jogos ainda nao iniciados
+  const editaveis = palpite.jogos.filter((pj) => pj.jogo.status === 'AGENDADO');
+  if (editaveis.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: `🔒 Os jogos que você palpitou no *${nomeBolao}* já começaram — não dá mais pra apagar.`,
+    });
+    return;
+  }
+
+  const opcoes = editaveis.map((pj) => ({
+    id: pj.id,
+    nome: `${pj.jogo.timeCasa} ${pj.golsCasa} × ${pj.golsVisitante} ${pj.jogo.timeVisitante}`,
+  }));
+  await setSession(msg.waId, {
+    state: 'APAGANDO_PALPITE_ESCOLHA_JOGO',
+    ctx: { boloesParaEscolher: opcoes, bolaoId, nomeBolao, rodadaId },
+  });
+  const lista = opcoes.map((o, i) => `${i + 1}. ${o.nome}`).join('\n');
+  await sendText({
+    to: msg.waId,
+    text: `🗑️ Qual palpite você quer apagar no *${nomeBolao}*?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+async function handleApagandoPalpiteEscolhaJogo(
+  msg: IncomingMessage,
+  _usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou.' });
+    return;
+  }
+  // Aqui as "opcoes" são palpites (id = palpiteJogoId, nome = label)
+  // Reusa parseEscolha por índice numérico via escolherBolaoDaLista
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = opcoes.map((o, i) => `${i + 1}. ${o.nome}`).join('\n');
+    await sendText({ to: msg.waId, text: `🤔 Manda o número:\n\n${lista}` });
+    return;
+  }
+  await updateSession(msg.waId, {
+    state: 'CONFIRMANDO_APAGAR_PALPITE',
+    ctxPatch: { palpiteJogoIdParaApagar: escolhido.id, palpiteJogoLabelParaApagar: escolhido.nome },
+  });
+  await sendText({
+    to: msg.waId,
+    text: `⚠️ Apagar palpite *${escolhido.nome}* mesmo?\n\n_*sim* / *não*._`,
+  });
+}
+
+async function handleConfirmandoApagarPalpite(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const resp = await interpretarSimNao(msg.text);
+  const palpiteJogoId = session.ctx?.palpiteJogoIdParaApagar;
+  const label = session.ctx?.palpiteJogoLabelParaApagar ?? 'palpite';
+  if (!palpiteJogoId) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou.' });
+    return;
+  }
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: '👍 Beleza, mantive o palpite.' });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({ to: msg.waId, text: '🤔 Manda *sim* ou *não*.' });
+    return;
+  }
+  await resetSession(msg.waId);
+  try {
+    await palpiteService.apagarPalpiteJogo(palpiteJogoId, usuarioId);
+    await sendText({ to: msg.waId, text: `🗑️ Palpite *${label}* apagado.` });
+  } catch (err) {
+    await sendText({ to: msg.waId, text: `❌ ${(err as Error).message}` });
+  }
+}
+
+// ============================================================
+// Sprint 2 — ISSUE-023: resumo de pontuacao em todos os boloes
+// ============================================================
+async function handleResumoBoloes(msg: IncomingMessage, usuarioId: string) {
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🤷 Você não participa de nenhum bolão ainda.\n\nManda *entrar em bolão* pra começar.',
+    });
+    return;
+  }
+
+  const linhas: string[] = [];
+  let liderancas = 0;
+  for (const b of boloes) {
+    const ranking = await rankingService.getRankingPorBolao(b.id);
+    const minhaPart = ranking.ranking.find((r) => r.usuarioId === usuarioId);
+    if (!minhaPart) {
+      linhas.push(`• *${b.nome}* — sem pontos ainda`);
+      continue;
+    }
+    const totalPart = ranking.ranking.length;
+    const pos = minhaPart.posicao;
+    const pts = minhaPart.pontuacaoTotal;
+    const medalha = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : `${pos}º`;
+    if (pos === 1) liderancas++;
+    linhas.push(`• *${b.nome}* — ${medalha} de ${totalPart} (${pts} pt${pts === 1 ? '' : 's'})`);
+  }
+
+  const cabec = liderancas > 0
+    ? `🏆 Você está em *primeiro* em *${liderancas}* bolão(ões)!\n\n`
+    : '📊 Seu desempenho em cada bolão:\n\n';
+  await sendText({
+    to: msg.waId,
+    text: cabec + linhas.join('\n'),
+  });
+}
+
 function menuTexto(): string {
   return (
     '*O que você quer fazer?*\n\n' +
@@ -2674,6 +3847,7 @@ function menuTexto(): string {
     '• *como convido* — pegar a mensagem-convite (admin)\n' +
     '• *quem participa* — lista de quem está no bolão\n' +
     '• *ranking* — ranking de um bolão\n' +
+    '• *bolão padrão* — define qual usar por padrão\n' +
     '• *sair do bolão* — sair de algum bolão\n' +
     '• *ajuda* — ver todos os comandos\n\n' +
     '_Fala comigo no zap mesmo. Aceito palpite em qualquer formato: "Brasil 2x1 Marrocos", "Brasil 2 a 1 Marrocos", "2 a zero pra Brasil". E entendo perguntas tipo "quais meus palpites?", "tem jogo hoje?", "quem ta na frente?"._'

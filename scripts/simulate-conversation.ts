@@ -432,6 +432,141 @@ const CENARIOS: Cenario[] = [
     msg: 'sair do bolão',
     esperado: { intencao: Intencao.SAIR_BOLAO },
   },
+  // ====================================================================
+  // SPRINT 2 — handlers info (ISSUE-009, 010, 017, 018)
+  // ====================================================================
+  {
+    grupo: '🟢 ISSUE-009 — info produto',
+    desc: '"o que é esse bot?" → INFO_PRODUTO',
+    msg: 'o que é esse bot?',
+    esperado: { intencao: Intencao.INFO_PRODUTO },
+  },
+  {
+    grupo: '🟢 ISSUE-009 — info produto',
+    desc: '"pra que serve?" → INFO_PRODUTO',
+    msg: 'pra que serve?',
+    esperado: { intencao: Intencao.INFO_PRODUTO },
+  },
+  {
+    grupo: '🟢 ISSUE-010 — info preço',
+    desc: '"quanto custa?" → INFO_PRECO',
+    msg: 'quanto custa?',
+    esperado: { intencao: Intencao.INFO_PRECO },
+  },
+  {
+    grupo: '🟢 ISSUE-010 — info preço',
+    desc: '"é grátis?" → INFO_PRECO',
+    msg: 'é grátis?',
+    esperado: { intencao: Intencao.INFO_PRECO },
+  },
+  {
+    grupo: '🟢 ISSUE-017 — como palpitar',
+    desc: '"como dou palpite?" → COMO_PALPITAR',
+    msg: 'como dou palpite?',
+    esperado: { intencao: Intencao.COMO_PALPITAR },
+  },
+  {
+    grupo: '🟢 ISSUE-017 — regressao',
+    desc: '"quero palpitar" continua PROXIMOS_JOGOS',
+    msg: 'quero palpitar',
+    esperado: { intencao: Intencao.PROXIMOS_JOGOS },
+  },
+  {
+    grupo: '🟢 ISSUE-018 — quando começa',
+    desc: '"quando começa?" → QUANDO_COMECA',
+    msg: 'quando começa?',
+    esperado: { intencao: Intencao.QUANDO_COMECA },
+  },
+  {
+    grupo: '🟢 ISSUE-018 — quando termina',
+    desc: '"quando termina?" → QUANDO_COMECA',
+    msg: 'quando termina?',
+    esperado: { intencao: Intencao.QUANDO_COMECA },
+  },
+  // ====================================================================
+  // SPRINT 2 — fluxo palpite (ISSUE-011, 012)
+  // ====================================================================
+  {
+    grupo: '🟡 ISSUE-011 — editar palpite',
+    desc: '"corrigir palpite" → EDITAR_PALPITE',
+    msg: 'corrigir palpite',
+    esperado: { intencao: Intencao.EDITAR_PALPITE },
+  },
+  {
+    grupo: '🟡 ISSUE-011 — editar palpite',
+    desc: '"errei o palpite" → EDITAR_PALPITE',
+    msg: 'errei o palpite',
+    esperado: { intencao: Intencao.EDITAR_PALPITE },
+  },
+  {
+    grupo: '🟡 ISSUE-012 — apagar palpite',
+    desc: '"apagar meu palpite" → APAGAR_PALPITE',
+    msg: 'apagar meu palpite',
+    esperado: { intencao: Intencao.APAGAR_PALPITE },
+  },
+  {
+    grupo: '🟡 ISSUE-012 — apagar palpite',
+    desc: '"desfazer palpite" → APAGAR_PALPITE',
+    msg: 'desfazer palpite',
+    esperado: { intencao: Intencao.APAGAR_PALPITE },
+  },
+  // ====================================================================
+  // SPRINT 2 — bolao padrao (ISSUE-016)
+  // ====================================================================
+  {
+    grupo: '🔵 ISSUE-016 — bolão padrão',
+    desc: '"bolão padrão" → DEFINIR_BOLAO_PADRAO',
+    msg: 'bolão padrão',
+    esperado: { intencao: Intencao.DEFINIR_BOLAO_PADRAO },
+  },
+  {
+    grupo: '🔵 ISSUE-016 — bolão padrão',
+    desc: '"definir bolão padrão" → DEFINIR_BOLAO_PADRAO',
+    msg: 'definir bolão padrão',
+    esperado: { intencao: Intencao.DEFINIR_BOLAO_PADRAO },
+  },
+  // ====================================================================
+  // SPRINT 2 — admin actions (ISSUE-020, 021)
+  // ====================================================================
+  {
+    grupo: '🟣 ISSUE-020 — renomear bolão',
+    desc: '"renomear bolão" → RENOMEAR_BOLAO',
+    msg: 'renomear bolão',
+    esperado: { intencao: Intencao.RENOMEAR_BOLAO },
+  },
+  {
+    grupo: '🟣 ISSUE-020 — renomear bolão',
+    desc: '"mudar nome do bolão" → RENOMEAR_BOLAO',
+    msg: 'mudar nome do bolão',
+    esperado: { intencao: Intencao.RENOMEAR_BOLAO },
+  },
+  {
+    grupo: '🟣 ISSUE-021 — remover participante',
+    desc: '"remover participante" → REMOVER_PARTICIPANTE',
+    msg: 'remover participante',
+    esperado: { intencao: Intencao.REMOVER_PARTICIPANTE },
+  },
+  {
+    grupo: '🟣 ISSUE-021 — remover participante',
+    desc: '"expulsar do bolão" → REMOVER_PARTICIPANTE',
+    msg: 'expulsar do bolão',
+    esperado: { intencao: Intencao.REMOVER_PARTICIPANTE },
+  },
+  // ====================================================================
+  // SPRINT 2 — pontuacao cruzada (ISSUE-023)
+  // ====================================================================
+  {
+    grupo: '🟤 ISSUE-023 — resumo bolões',
+    desc: '"como to indo nos boloes" → RESUMO_BOLOES',
+    msg: 'como to indo nos boloes',
+    esperado: { intencao: Intencao.RESUMO_BOLOES },
+  },
+  {
+    grupo: '🟤 ISSUE-023 — resumo bolões',
+    desc: '"meu desempenho geral" → RESUMO_BOLOES',
+    msg: 'meu desempenho geral',
+    esperado: { intencao: Intencao.RESUMO_BOLOES },
+  },
 ];
 
 // ============================================================
