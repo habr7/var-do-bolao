@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* ============================================
+   Design tokens - VAR do Bolao
+   Paleta da secao 2.1 do PLANO_SITE_VAR_DO_BOLAO.md
+   ============================================ */
+@theme {
+  --color-verde-conexao: #25D366;
+  --color-verde-conexao-dark: #1FAF4F;
+  --color-verde-gramado: #1B5E20;
+  --color-verde-gramado-dark: #0F3814;
+  --color-verde-gramado-deep: #082008;
+  --color-branco-puro: #FFFFFF;
+  --color-amarelo-arbitro: #FFEA00;
+  --color-cinza-suave: #E8E8E8;
+  --color-cinza-chumbo: #1a1a1a;
+  --color-cinza-card: #18241B;
+  --color-cinza-card-hover: #1F3024;
+
+  --font-display: "Archivo Black", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --radius-card: 1rem;
+}
+
+/* ============================================
+   Base — fundo dark gramado, texto claro
+   ============================================ */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: radial-gradient(
+      ellipse at top,
+      var(--color-verde-gramado) 0%,
+      var(--color-verde-gramado-dark) 50%,
+      var(--color-verde-gramado-deep) 100%
+    )
+    no-repeat fixed;
+  color: var(--color-branco-puro);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-verde-conexao);
+  color: var(--color-verde-gramado-deep);
+}
+
+/* ============================================
+   "Linhas de campo" entre secoes
+   ============================================ */
+.field-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--color-branco-puro) 20%, transparent),
+    transparent
+  );
+}
+
+/* ============================================
+   Cantos "[ ]" tipo mira do VAR
+   ============================================ */
+.var-frame {
+  position: relative;
+}
+.var-frame::before,
+.var-frame::after {
+  content: "";
+  position: absolute;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-color: var(--color-verde-conexao);
+  border-style: solid;
+}
+.var-frame::before {
+  top: -0.25rem;
+  left: -0.25rem;
+  border-width: 2px 0 0 2px;
+}
+.var-frame::after {
+  bottom: -0.25rem;
+  right: -0.25rem;
+  border-width: 0 2px 2px 0;
+}
+
+/* ============================================
+   Bola SVG decorativa (background sutil)
+   ============================================ */
+.bg-ball {
+  background-image: url("/bola-pattern.svg");
+  background-repeat: no-repeat;
+  background-position: right -120px top -80px;
+  background-size: 460px;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fade-up 0.6s ease-out both; }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+.animate-pulse-soft { animation: pulse-soft 2.2s ease-in-out infinite; }
+
+/* ============================================
+   Focus visivel acessivel
+   ============================================ */
+:focus-visible {
+  outline: 2px solid var(--color-verde-conexao);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

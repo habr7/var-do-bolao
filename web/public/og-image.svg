@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="0%" r="100%">
+      <stop offset="0%" stop-color="#1B5E20"/>
+      <stop offset="55%" stop-color="#0F3814"/>
+      <stop offset="100%" stop-color="#082008"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#25D366" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#25D366" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="600" cy="20" r="500" fill="url(#halo)"/>
+
+  <!-- Ball decorative -->
+  <g transform="translate(960 120) scale(1.6)" opacity="0.10" fill="none" stroke="#FFFFFF" stroke-width="2">
+    <circle cx="100" cy="100" r="92"/>
+    <polygon points="100,40 70,62 82,98 118,98 130,62"/>
+    <path d="M82 98 L62 140 L100 170 L138 140 L118 98"/>
+    <path d="M30 78 L70 62"/>
+    <path d="M170 78 L130 62"/>
+    <path d="M62 140 L48 178"/>
+    <path d="M138 140 L152 178"/>
+  </g>
+
+  <!-- Logo badge -->
+  <g transform="translate(80 80)">
+    <circle cx="32" cy="32" r="32" fill="#25D366"/>
+    <g fill="none" stroke="#0F3814" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 0)">
+      <polygon points="32,12 22,20 26,32 38,32 42,20"/>
+      <path d="M26 32 L20 44 L32 52 L44 44 L38 32"/>
+      <path d="M10 24 L22 20"/>
+      <path d="M54 24 L42 20"/>
+    </g>
+    <text x="80" y="44" font-family="Archivo Black, Impact, sans-serif" font-size="34" fill="#FFFFFF">VAR <tspan fill="#25D366">do Bolão</tspan></text>
+  </g>
+
+  <!-- Tag -->
+  <g transform="translate(80 200)">
+    <rect width="280" height="36" rx="18" fill="#25D366" fill-opacity="0.15" stroke="#25D366" stroke-opacity="0.4"/>
+    <text x="20" y="24" font-family="Inter, sans-serif" font-size="14" font-weight="700" letter-spacing="2" fill="#25D366">PRONTO PRA COPA 2026</text>
+  </g>
+
+  <!-- Headline -->
+  <g transform="translate(80 290)" font-family="Archivo Black, Impact, sans-serif" fill="#FFFFFF">
+    <text font-size="80" letter-spacing="-2">A RESENHA DO GRUPO</text>
+    <text y="92" font-size="80" letter-spacing="-2" fill="#25D366">COM A PRECISÃO DOS DADOS.</text>
+  </g>
+
+  <!-- Subtitle -->
+  <text x="80" y="510" font-family="Inter, sans-serif" font-size="26" fill="#E8E8E8">
+    Bolão de Copa do Mundo 100% no WhatsApp. Sem app, sem planilha.
+  </text>
+
+  <!-- URL -->
+  <text x="80" y="580" font-family="Inter, sans-serif" font-size="20" font-weight="700" fill="#FFEA00">
+    www.vardobolao.com.br
+  </text>
+</svg>

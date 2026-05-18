@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.1.2
-**Última atualização:** 2026-05-17 (Sprint 2 completo + 2 hotfixes pós-deploy + patch da migration)
+**Versão do documento:** 3.2
+**Última atualização:** 2026-05-17 (Sprint 2 + 2 hotfixes + patch migration + lançamento do subprojeto `web/`)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -967,3 +967,178 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 3.1 | 2026-05-17 | Sprint 2 completo (ISSUES 009-023): +10 intents, +14 FSM states, bolão padrão (schema migration), editar/apagar palpite, validar placar absurdo, multi-bolão auto-apply, renomear bolão, remover participante, RESUMO_BOLOES. 322 tests, 75 cenários. |
 | 3.1.1 | 2026-05-17 | Hotfixes pós-Sprint 2 em produção: (a) `Jogo.apiJogoId` deixa de ser unique global → `@@unique([rodadaId, apiJogoId])` + `criarBolao` virou transação atômica + novo job `repair-broken-boloes` (boot + 03:00 diário). Corrige bolões 2º em diante ficando com rodada vazia. (b) Bolões `FINALIZADO` voltaram a aparecer em consultas (ranking/meus palpites/meus bolões), marcados com 🏁; `handleProximosJogos` ganhou mensagem auto-diagnóstica quando usuário só tem encerrados; repository split `listarBoloesAtivos*` vs `listarBoloes*ComHistorico`. **322 tests, 75 cenários — sem regressão.** |
 | **3.1.2** | **2026-05-17** | **Patch da migration de unique-por-rodada.** Descoberto em deploy local: o `@unique` original do init migration foi materializado como `CREATE UNIQUE INDEX "jogos_apiJogoId_key"`, não como `ALTER TABLE ADD CONSTRAINT`. Por isso o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op silencioso e o índice unique global ficava órfão, ainda bloqueando inserts cross-bolão. Novo migration `20260517170000_drop_jogos_apijogoid_unique_index` executa `DROP INDEX IF EXISTS`. Bolão `#K6VCCJ` (legacy quebrado) reparado com sucesso após apply. Novo script `scripts/run-repair-once.ts` permite disparar o reparo sob demanda sem subir o servidor (útil quando porta 3000 já está ocupada). (este documento) |
+| **3.2** | **2026-05-17** | **Subprojeto `web/` — site institucional + área logada (skeleton).** Next.js 15 + App Router + Tailwind CSS 4 + React 19, isolado do bot (próprio `package.json`, `tsconfig.json`, sem compartilhar `node_modules`). Landing one-pager dark-mode com paleta verde-gramado: Hero, Como Funciona (3 passos), Por Que (4 benefícios), Banner Copa 2026 com countdown JS, FAQ acordeon, Fale Conosco (mailto), Footer. Páginas adicionais: `/login` (form desabilitado até Fase 2), `/app` (dashboard mock), `/politica-privacidade` e `/termos` (placeholders LGPD para revisão jurídica), `/not-found` 404 com tom de voz, `robots.ts` + `sitemap.ts` para SEO. CTAs primários abrem `wa.me` do bot com mensagem pré-preenchida (zero atrito). Deploy independente, bot intocado. Roadmap detalhado em [`web/README.md`](web/README.md). Veja seção 23 abaixo. |
+
+---
+
+## 23. Subprojeto Web (`web/`) — site institucional + área logada
+
+### 23.1 Por que existe e por que é um subfolder
+
+O bolão precisa de:
+1. **Landing** indexável (`www.vardobolao.com.br`) pra captar usuários organicamente
+   e pra ter uma resposta apresentável quando alguém recebe o link wa.me e não
+   conhece o produto.
+2. **Área logada** read-only pra usuário consultar ranking/palpites/pontos sem
+   precisar ficar mandando comando no WhatsApp.
+
+A escolha foi **Next.js 15 (App Router)** num subfolder `web/` do mesmo
+repositório do bot. O plano original (`PLANO_SITE_VAR_DO_BOLAO.md`) previa repo
+separado; a consolidação num subfolder ficou mais simples por:
+
+- **CI/CD único** — uma só pipeline de deploy, dois services.
+- **Schema Prisma compartilhado** — quando a Fase 2 chegar, o Next vai importar
+  tipos de `@prisma/client` do bot direto via path. Sem publicar pacote, sem
+  duplicar schema (que é exatamente o que a seção 4.2 do plano combate).
+- **Documentação centralizada** — este arquivo + `PLANO_SITE_VAR_DO_BOLAO.md`
+  no mesmo `git log`.
+
+Isolamento técnico mantido:
+- `web/package.json` próprio, com deps separadas (Next, React, Tailwind v4).
+- `web/tsconfig.json` próprio, com `paths: { "@/*": ["./src/*"] }`.
+- Hooks Claude (`.claude/hooks/typecheck-on-ts-edit.mjs`, `validate-on-stop.mjs`)
+  só fazem `tsc --noEmit` quando o arquivo editado está em `src/` ou `tests/` do
+  bot — o root `tsconfig.json` (`include: ["src/**/*"]`) ignora `web/`.
+- Porta de dev diferente (`3001`) — o bot continua em `3000`.
+
+### 23.2 Stack
+
+| Camada | Tech | Versão |
+|--------|------|--------|
+| Framework | Next.js | 15 (App Router, Server Components, RSC) |
+| UI lib | React | 19 RC |
+| Tipos | TypeScript strict | 5.6 |
+| CSS | Tailwind CSS 4 (`@tailwindcss/postcss`, sem `tailwind.config.ts`) | 4 beta |
+| Ícones | `lucide-react` | latest |
+| Fonts | `next/font/google` — Archivo Black (display) + Inter (corpo) | — |
+| Util CSS | `clsx` + `tailwind-merge` (em `lib/cn.ts`) | — |
+
+### 23.3 Estrutura de pastas
+
+```
+web/
+├── README.md            doc própria (quick start, paleta, scripts, roadmap)
+├── package.json         deps isoladas
+├── next.config.mjs      X-Frame-Options=DENY, no powered-by, no nosniff
+├── tsconfig.json        strict, paths @/*
+├── postcss.config.mjs   Tailwind v4
+├── .env.example         vars do site + futuras vars da Fase 2
+├── public/
+│   ├── favicon.svg      ícone com a paleta verde-conexao
+│   ├── bola-pattern.svg padrão decorativo de bola (background sutil)
+│   └── og-image.svg     1200x630 para share social
+└── src/
+    ├── app/
+    │   ├── layout.tsx           metadata raiz (OG, Twitter, theme color)
+    │   ├── globals.css          tokens (@theme), animations, utilities
+    │   ├── page.tsx             landing one-pager (Hero + ... + Footer)
+    │   ├── not-found.tsx        404 ("Bola pra fora.")
+    │   ├── robots.ts            SEO — bloqueia /app e /api
+    │   ├── sitemap.ts           SEO — / + /login + legais
+    │   ├── login/page.tsx       skeleton (form desabilitado, CTAs pro bot)
+    │   ├── app/page.tsx         dashboard mock (preview, sem backend)
+    │   ├── politica-privacidade/page.tsx
+    │   └── termos/page.tsx
+    ├── components/
+    │   ├── landing/
+    │   │   ├── Header.tsx       fixo, scroll-aware, drawer mobile
+    │   │   ├── Hero.tsx         tipografia Archivo Black, badge live, stats
+    │   │   ├── ComoFunciona.tsx 3 cards (Smartphone, PlusCircle, MessageCircle)
+    │   │   ├── PorQue.tsx       4 benefícios em grid responsiva
+    │   │   ├── Copa2026.tsx     "use client" — countdown via setInterval
+    │   │   ├── FAQ.tsx          "use client" — accordion acessível
+    │   │   ├── FaleConosco.tsx  mailto: + CTA WhatsApp
+    │   │   ├── Footer.tsx
+    │   │   └── PageShell.tsx    layout simples (header + footer) para legais
+    │   └── ui/
+    │       ├── Button.tsx       variants primary/secondary/ghost
+    │       ├── Container.tsx    max-w-6xl, padding lateral
+    │       └── Logo.tsx         símbolo (SVG inline) + wordmark
+    └── lib/
+        ├── cn.ts                clsx + tailwind-merge
+        └── constants.ts         SITE_URL, BOT_WHATSAPP_NUMBER, waLink, datas
+```
+
+### 23.4 Identidade visual
+
+Tokens vivem em `globals.css` no `@theme` (Tailwind 4 nativo, sem `tailwind.config.ts`).
+
+| Token | Hex | Onde aparece |
+|-------|-----|--------------|
+| `--color-verde-conexao` | `#25D366` | CTAs primários, badges de live, links em destaque |
+| `--color-verde-gramado` | `#1B5E20` | topo do gradiente de fundo |
+| `--color-verde-gramado-dark` | `#0F3814` | base do gradiente, header com scroll |
+| `--color-verde-gramado-deep` | `#082008` | footer, fundos profundos |
+| `--color-amarelo-arbitro` | `#FFEA00` | "falta palpitar", contagem regressiva, alertas |
+| `--color-cinza-card` | `#18241B` | cards de seção |
+| `--color-branco-puro` | `#FFFFFF` | texto principal |
+
+Utilitários CSS:
+- `.var-frame` — cantos `[ ]` tipo mira do VAR ao redor de blocos.
+- `.field-divider` — linha branca 20% opacidade entre seções (linhas do campo).
+- `.bg-ball` — `bola-pattern.svg` sutil no canto.
+- `.animate-fade-up`, `.animate-pulse-soft` — animações curtas.
+
+Tom de voz alinhado com o do bot (boleiro, direto): "A resenha do grupo com
+a precisão dos dados", "Bola pra fora.", "Bora segurar.", "Tira a dúvida".
+
+### 23.5 Vínculo com o bot (CTAs `wa.me`)
+
+Cada CTA primário do site abre uma conversa no WhatsApp com mensagem
+pré-preenchida via `https://wa.me/<numero>?text=<mensagem>`. Vive em
+`web/src/lib/constants.ts`:
+
+```ts
+export const CTA_CRIAR_BOLAO = waLink("Olá! Quero criar um bolão.");
+export const CTA_ENTRAR_BOLAO = waLink("Olá! Quero entrar em um bolão.");
+export const CTA_PALPITAR     = waLink("Quero palpitar.");
+export const CTA_FALAR_BOT    = waLink("Oi!");
+```
+
+O número do bot vem de `NEXT_PUBLIC_BOT_WHATSAPP_NUMBER` (build-time public).
+
+**Convenção:** o site NUNCA tenta executar uma ação que muda estado (criar
+bolão, palpitar, aprovar pedido). Toda ação destrutiva ou de escrita é
+redirecionada pro WhatsApp via `wa.me` com mensagem pronta. Isso garante:
+- Bot continua sendo a **única fonte de verdade** das mutações.
+- Não há duplicação de regras de negócio entre canais.
+- Site pode ser estático/cacheado agressivamente.
+
+### 23.6 Páginas (Fase 1 — entregue)
+
+| Rota | Tipo | Estado |
+|------|------|--------|
+| `/` | Static | Landing one-pager completa |
+| `/login` | Static | Form desabilitado, CTAs caem no bot (até Fase 2) |
+| `/app` | Static | Dashboard mockado (preview, sem dados reais) |
+| `/politica-privacidade` | Static | Texto LGPD-template (revisão jurídica pendente) |
+| `/termos` | Static | Texto template (revisão jurídica pendente) |
+| `/robots.txt` | Generated | Bloqueia `/app` e `/api` da indexação |
+| `/sitemap.xml` | Generated | Inclui `/`, `/login`, legais |
+
+### 23.7 Fases futuras (não entregues neste subprojeto ainda)
+
+Roadmap em fases conforme `PLANO_SITE_VAR_DO_BOLAO.md`:
+
+- **Fase 2 — Backend OTP no bot** (`src/web-api/` no projeto do bot, ainda
+  não criado): rotas `/api/auth/otp/request`, `/api/auth/otp/verify`,
+  `/api/auth/first-access`, `/api/auth/login`, `/api/me/boloes`,
+  `/api/boloes/:codigo/ranking`. Schema novo: `UsuarioWeb`, `OtpToken`.
+- **Fase 3 — Login OTP real** no site: substituir form skeleton de
+  `/login` por OTP via WhatsApp + sessão `iron-session`.
+- **Fase 4 — QA + Deploy**: Lighthouse, WCAG AA, Railway com 2 services
+  (bot + web), DNS no Registro.br.
+
+### 23.8 O que NÃO foi tocado no bot
+
+Garantia explícita:
+- Nenhum arquivo em `src/` foi modificado.
+- Nenhum arquivo em `tests/` foi modificado.
+- Nenhuma migration Prisma nova foi adicionada.
+- Nenhum `env` foi alterado.
+- Hooks do Claude (`typecheck-on-ts-edit`, `validate-on-stop`) continuam
+  validando só o bot.
+
+Portanto: **subir essa versão não derruba e não modifica o comportamento
+do bot em produção**.
+

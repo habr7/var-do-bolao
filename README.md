@@ -107,12 +107,17 @@ npx tsx scripts/simulate-conversation.ts    :: 55 cenários
 ## Estrutura
 
 ```
-src/
+src/                  ← Bot WhatsApp (Fastify + LLM + FSM)
 ├── whatsapp/         FSM + parser regex + handlers (command.router.ts)
 ├── llm/              Gemini + Ollama + 4 prompts especializados
 ├── modules/          bolao, palpite, ranking, solicitacao, rodada, ...
 ├── jobs/             cron jobs (fetch-results, send-bom-dia, ranking, etc)
 └── utils/            códigos curtos, métricas Redis, validators
+
+web/                  ← Site institucional + area logada (Next.js 15)
+├── src/app/          App Router: /, /login, /app, /politica-privacidade, /termos
+├── src/components/   landing + ui (Header, Hero, Footer, Button, Logo)
+└── README.md         guia próprio + roadmap por fase
 
 scripts/
 ├── sim.ts                       REPL local
@@ -122,6 +127,10 @@ scripts/
 
 prisma/schema.prisma  Usuario, Bolao, Pagamento, Solicitacao, Rodada, Jogo, Palpite
 ```
+
+> O site (`web/`) tem `package.json`, `tsconfig.json` e `node_modules` **isolados**
+> do bot. Deploy é independente — mexer no site nunca derruba o bot.
+> Detalhes em [web/README.md](web/README.md).
 
 Ver **[VAR_DO_BOLAO_ARQUITETURA.md](VAR_DO_BOLAO_ARQUITETURA.md)** para
 detalhes completos (pipeline, intents, FSM states, jobs, métricas, deploy).
@@ -239,6 +248,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.2** (2026-05-17) — **Site institucional** em `web/` (Next.js 15 + App Router + Tailwind 4): landing one-pager dark com paleta verde-gramado, contagem regressiva pra Copa 2026, FAQ acordeon, páginas legais (privacidade/termos), skeleton de `/login` e `/app`. Bot intocado — site é um subprojeto isolado com `package.json` próprio. Roadmap em fases no [web/README.md](web/README.md).
 - **v3.1.2** (2026-05-17) — Patch da migration: `@unique` original foi criado como UNIQUE INDEX, então o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op. Nova migration `drop_jogos_apijogoid_unique_index` derruba o índice órfão; bolão `#K6VCCJ` reparado. Novo script `scripts/run-repair-once.ts` pra disparar o reparo sob demanda.
 - **v3.1.1** (2026-05-17) — Hotfix pós-Sprint 2: (a) `Jogo.apiJogoId` unique-por-rodada + `criarBolao` atômico + job de reparo (corrige "rodada vazia" do 2º bolão em diante); (b) bolões encerrados visíveis em consultas (ranking/meus palpites/meus bolões) — honra a promessa "fica guardado" feita no encerramento
 - **v3.1** (2026-05-17) — Sprint 2 completo: ISSUES 009-023 (handlers de info, editar/apagar palpite, bolão padrão, renomear, remover participante, RESUMO_BOLOES) + 322 tests

@@ -7,7 +7,9 @@ node_modules/
 dist/
 build/
 out/
+.next/
 *.tsbuildinfo
+next-env.d.ts
 
 # Logs
 *.log

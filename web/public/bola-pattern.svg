@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <g fill="none" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="100" cy="100" r="90"/>
+    <polygon points="100,40 70,62 82,98 118,98 130,62"/>
+    <path d="M82 98 L62 140 L100 170 L138 140 L118 98"/>
+    <path d="M30 78 L70 62"/>
+    <path d="M170 78 L130 62"/>
+    <path d="M62 140 L48 178"/>
+    <path d="M138 140 L152 178"/>
+    <path d="M100 40 L100 22"/>
+  </g>
+</svg>
