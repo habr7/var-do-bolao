@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.1.2
-**Última atualização:** 2026-05-17 (Sprint 2 completo + 2 hotfixes pós-deploy + patch da migration)
+**Versão do documento:** 3.1.3
+**Última atualização:** 2026-05-18 (hotfixes UX pós-feedback Jeni: RANKING natural, AGRADECIMENTO, confirmação multi-bolão)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -396,7 +396,7 @@ top 500, TTL 30 dias).
 | `CRIAR_BOLAO` | "criar bolão", "abrir bolão", "novo bolão"… | inicia FSM `CRIANDO_BOLAO_NOME` |
 | `ENTRAR_BOLAO` | "entrar em bolão", "quero participar"… | inicia FSM `ENTRANDO_NOME` |
 | `MEUS_BOLOES` | "meus bolões", "onde participo"… | lista bolões com 👑 admin |
-| `RANKING` | "ranking", "tabela", "quem ta na frente" | hourly ranking do bolão |
+| `RANKING` | "ranking", "tabela", "quem ta na frente", **"quero ver o ranking", "ver o ranking", "me mostra a tabela"** (bug Jeni 17/05) | hourly ranking do bolão. `extrairNomeBolaoDoRanking` faz strip robusto pra extrair só o nome real se o user passou algum |
 | `MEUS_PONTOS` | "meus pontos", "minha pontuação" | mostra pontos + pergunta se quer ver palpites |
 | `MEU_PALPITE` | "meus palpites", "o que palpitei" | mostra histórico (após confirmação) |
 | `JOGOS_HOJE` | "jogos hoje", "agenda" | jogos do dia |
@@ -420,15 +420,15 @@ top 500, TTL 30 dias).
 | `RENOMEAR_BOLAO` | "renomear bolão", "mudar nome do bolão" | admin renomeia + notifica participantes (ISSUE-020) |
 | `REMOVER_PARTICIPANTE` | "remover Fulano", "tirar Fulano do bolão", "expulsar" | admin remove participante com confirmação (ISSUE-021) |
 | `RESUMO_BOLOES` | "como to indo nos boloes", "meu desempenho geral" | resumo posição + pontos em cada bolão (ISSUE-023) |
+| `AGRADECIMENTO` | "obrigado/a", "valeu", "vlw", "brigado/a", "thanks", "tmj", "agradecido" | cordialidade curta randomizada — não reabre menu (bug Jeni 17/05) |
 | `APROVAR` / `RECUSAR` | `!aprovar Nome` / `!recusar Nome` | ações admin explícitas |
 | `PENDENTES` | "pendentes", "tem pedido pra aprovar" | lista pedidos pendentes |
 | `CANCELAR` | "cancelar", "sair", "esquece" | reset FSM + menu |
 | `TEXTO_LIVRE` | (fallback) | passa pra camada 2 (LLM) |
 
-**Ordem do matching em `INTENT_RULES`**: `REGRAS → INFO_SENHA → EXCLUIR_BOLAO →
-PENDENTES → COMO_CONVIDAR → ABRIR_RODADA → SAIR_BOLAO → QUEM_PARTICIPA →
-MEU_PALPITE → PALPITES_AMBIGUO → PROXIMOS_JOGOS → MEUS_PONTOS → MEUS_BOLOES →
-JOGOS_HOJE → CRIAR_BOLAO → ENTRAR_BOLAO → RANKING`.
+**Ordem do matching em `INTENT_RULES`**: `AGRADECIMENTO → REGRAS → INFO_SENHA →
+EXCLUIR_BOLAO → ... → CRIAR_BOLAO → ENTRAR_BOLAO → RANKING`. AGRADECIMENTO no
+topo pra "obrigada" não cair em SAUDACAO via fallback LLM.
 
 Específicos antes de genéricos (ex: `INFO_SENHA` antes de `ENTRAR_BOLAO` porque
 "senha do bolão" tem "bolão").
@@ -474,6 +474,7 @@ Armazenados em Redis (`session:{waId}`), TTL **30min**.
 | `APAGANDO_PALPITE_ESCOLHA_BOLAO` | "apagar palpite" + >1 bolão | `handleEscolhendoBolaoApagarPalpite` (ISSUE-012) | `APAGANDO_PALPITE_ESCOLHA_JOGO` |
 | `APAGANDO_PALPITE_ESCOLHA_JOGO` | bolão escolhido | `handleApagandoPalpiteEscolhaJogo` (lista palpites editáveis) | `CONFIRMANDO_APAGAR_PALPITE` |
 | `CONFIRMANDO_APAGAR_PALPITE` | jogo escolhido | `handleConfirmandoApagarPalpite` | `IDLE` |
+| `CONFIRMANDO_PALPITE_MULTI_BOLAO` | palpite único casou em >1 bolão (ISSUE-015) | `handleConfirmandoPalpiteMultiBolao` — preview "vai aplicar em N bolões" + sim/não/refazer (bug Jeni 17/05, antes registrava direto) | `IDLE` |
 | `CONFIRMANDO_APROVAR_TODOS` | "aprovar todos" detectado | `handleConfirmandoAprovarTodos` | `IDLE` |
 | `CONFIRMANDO_RECUSAR_TODOS` | "recusar todos" detectado | `handleConfirmandoRecusarTodos` | `IDLE` |
 | `CONFIRMANDO_RECUSAR_NOMEADO` | "recusar Fulano" detectado | `handleConfirmandoRecusarNomeado` | `IDLE` |
@@ -485,7 +486,8 @@ Quando o usuário está num estado de "leitura/escolha" e manda **intent forte**
 silenciosamente. Implementado em `escapouFsmStaleParaNovaIntent`.
 
 **Estados protegidos** (NÃO interrompem): `CRIANDO_BOLAO_*`, `PALPITANDO`,
-`CONFIRMANDO_PALPITES_INLINE`, `CONFIRMANDO_EXCLUSAO_BOLAO`, todos os
+`CONFIRMANDO_PALPITES_INLINE`, `CONFIRMANDO_PALPITE_MULTI_BOLAO`,
+`CONFIRMANDO_EXCLUSAO_BOLAO`, todos os
 `CONFIRMANDO_APROVAR_*`/`CONFIRMANDO_RECUSAR_*` (ações destrutivas/críticas).
 
 ### 8.2 Janela de palpite livre
@@ -614,6 +616,9 @@ camada precisa preservar**:
 | Bolões encerrados marcados com 🏁 em listas numeradas | `handleRanking`, `handleMeusBoloes`, `handleMeusPalpites` | UI clara — usuário sabe que aquele bolão já terminou antes de escolher. |
 | `enviarRankingDoBolao` adiciona sufixo "🏁 ranking final guardado" se status=FINALIZADO | `command.router.ts:enviarRankingDoBolao` | Coerência com a promessa do encerramento. |
 | `handleProximosJogos` detecta "usuário só tem encerrados" e dá mensagem **auto-diagnóstica** | `command.router.ts:handleProximosJogos` | Mensagem genérica "não participa de nenhum bolão" contradizia o próprio bot que tinha notificado o encerramento minutos antes. |
+| `extrairNomeBolaoDoRanking` faz strip robusto de frases naturais antes de buscar bolão | `command.router.ts` | Bug Jeni 17/05: `raw.replace(/^ranking\s*/i, '')` só removia "ranking" no início, então "Quero ver o ranking" virava o nome do bolão buscado. Agora enumera prefixos/verbos/triggers e devolve o resíduo (vazio → bot pergunta qual bolão). |
+| Multi-bolão auto-apply (ISSUE-015) **passa por confirmação** com preview dos bolões | `command.router.ts:handleConfirmandoPalpiteMultiBolao` | Antes registrava direto sem preview. Agora bot mostra "vai aplicar em N bolões" + sim/não/refazer. |
+| `AGRADECIMENTO` no topo de `INTENT_RULES` | `message.parser.ts` | Sem isso, "obrigada" caía em SAUDACAO (via LLM fallback) e bot reabria o menu — UX desconectada. |
 
 ---
 
@@ -966,4 +971,5 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 3.0 | 2026-05-17 | ISSUES 001-008 + link wa.me + 19 intents + métricas Redis + 280+ tests |
 | 3.1 | 2026-05-17 | Sprint 2 completo (ISSUES 009-023): +10 intents, +14 FSM states, bolão padrão (schema migration), editar/apagar palpite, validar placar absurdo, multi-bolão auto-apply, renomear bolão, remover participante, RESUMO_BOLOES. 322 tests, 75 cenários. |
 | 3.1.1 | 2026-05-17 | Hotfixes pós-Sprint 2 em produção: (a) `Jogo.apiJogoId` deixa de ser unique global → `@@unique([rodadaId, apiJogoId])` + `criarBolao` virou transação atômica + novo job `repair-broken-boloes` (boot + 03:00 diário). Corrige bolões 2º em diante ficando com rodada vazia. (b) Bolões `FINALIZADO` voltaram a aparecer em consultas (ranking/meus palpites/meus bolões), marcados com 🏁; `handleProximosJogos` ganhou mensagem auto-diagnóstica quando usuário só tem encerrados; repository split `listarBoloesAtivos*` vs `listarBoloes*ComHistorico`. **322 tests, 75 cenários — sem regressão.** |
-| **3.1.2** | **2026-05-17** | **Patch da migration de unique-por-rodada.** Descoberto em deploy local: o `@unique` original do init migration foi materializado como `CREATE UNIQUE INDEX "jogos_apiJogoId_key"`, não como `ALTER TABLE ADD CONSTRAINT`. Por isso o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op silencioso e o índice unique global ficava órfão, ainda bloqueando inserts cross-bolão. Novo migration `20260517170000_drop_jogos_apijogoid_unique_index` executa `DROP INDEX IF EXISTS`. Bolão `#K6VCCJ` (legacy quebrado) reparado com sucesso após apply. Novo script `scripts/run-repair-once.ts` permite disparar o reparo sob demanda sem subir o servidor (útil quando porta 3000 já está ocupada). (este documento) |
+| 3.1.2 | 2026-05-17 | Patch da migration de unique-por-rodada. Descoberto em deploy local: o `@unique` original do init migration foi materializado como `CREATE UNIQUE INDEX "jogos_apiJogoId_key"`, não como `ALTER TABLE ADD CONSTRAINT`. Por isso o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op silencioso e o índice unique global ficava órfão, ainda bloqueando inserts cross-bolão. Novo migration `20260517170000_drop_jogos_apijogoid_unique_index` executa `DROP INDEX IF EXISTS`. Bolão `#K6VCCJ` (legacy quebrado) reparado com sucesso após apply. Novo script `scripts/run-repair-once.ts` permite disparar o reparo sob demanda sem subir o servidor. |
+| **3.1.3** | **2026-05-18** | **Hotfixes UX pós-feedback Jeni:** (a) `RANKING` intent agora aceita frases naturais como "Quero ver o ranking", "Ver o ranking", "me mostra a tabela" via padrões regex novos + `extrairNomeBolaoDoRanking` que faz strip robusto pra não usar a frase inteira como nome do bolão; (b) Nova intent `AGRADECIMENTO` ("obrigada/o", "valeu", "vlw", "brigado/a", "thanks", "tmj") com handler curto e amigável randomizado — não reabre o menu como SAUDACAO fazia; (c) ISSUE-015 (auto-apply multi-bolão) agora passa por confirmação `CONFIRMANDO_PALPITE_MULTI_BOLAO` com preview dos N bolões antes de registrar. Removido dead code `registrarPalpiteInline`. **342 tests (era 322), 85 cenários (era 75).** (este documento) |

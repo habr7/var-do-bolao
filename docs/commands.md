@@ -141,6 +141,28 @@ empate em 2 entre Alemanha e Espanha
 ```
 → LLM extrator entende. Usuário sempre confirma antes de registrar.
 
+### Palpite único aplicado em vários bolões (ISSUE-015)
+
+Quando o mesmo jogo está aberto em N bolões em que você participa
+(caso típico da Copa), mandar `Brasil 2x1 Marrocos` agora abre um
+preview com a lista dos N bolões onde o palpite vai cair, e pede
+confirmação:
+
+```
+📝 Vou registrar o palpite:
+
+*Brasil 2 × 1 Marrocos*
+
+Aplicado em *3* bolões:
+• Bolão da Jeni
+• Bolão da Firma
+• Bolão da Família
+
+Confirma? _(responda *sim*, *não* ou *refazer*)_
+```
+
+Bug Jeni 17/05: antes registrava direto sem preview.
+
 ### Iniciar fluxo de palpite (quando não sabe o que falar)
 ```
 quero dar palpites
@@ -178,7 +200,16 @@ tabela
 quem ta na frente
 classificação
 ranking Firma FC    (com nome do bolão)
+quero ver o ranking
+ver o ranking
+me mostra a tabela
+qual a classificação
 ```
+→ Aceita também frases naturais ("quero ver o ranking", "ver o ranking",
+"me mostra a tabela") — o bot extrai só o nome do bolão real depois de
+remover as frases-gatilho. Se sobrar vazio (caso geral), pergunta qual
+bolão se houver >1.
+
 → Bolões **encerrados** (FINALIZADO) também aparecem aqui — o bot promete
 "palpites e ranking ficam guardados" no encerramento, então ranking final
 fica acessível pra consulta. Na lista numerada, encerrados aparecem
@@ -355,6 +386,13 @@ como dou palpite?  •  qual o formato?  •  não sei palpitar
 quando começa?  •  quando termina?  •  quando abre rodada?
 ```
 → Data da próxima rodada (usa bolão padrão) (ISSUE-018).
+
+```
+obrigada  •  obrigado  •  valeu  •  vlw  •  brigado  •  brigadão
+thanks  •  thx  •  tmj  •  tamo junto  •  agradecido
+```
+→ Cordialidade curta amigável — não reabre o menu. Texto randomizado pra
+não ficar robótico ("Magina, *Fulano*! Tamo junto. Precisando, só chamar.").
 
 ---
 

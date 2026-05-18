@@ -68,7 +68,10 @@ export type ConversaState =
   // Sprint 2 — apagar palpite (ISSUE-012)
   | 'APAGANDO_PALPITE_ESCOLHA_BOLAO'   // user em >1 bolao, escolhe qual
   | 'APAGANDO_PALPITE_ESCOLHA_JOGO'    // mostra palpites e pede qual apagar
-  | 'CONFIRMANDO_APAGAR_PALPITE';
+  | 'CONFIRMANDO_APAGAR_PALPITE'
+  // Sprint 3 (bug Jeni 17/05) — confirmacao para auto-apply em multi-bolao
+  // (ISSUE-015: mesmo jogo em N bolaes — antes registrava direto sem preview).
+  | 'CONFIRMANDO_PALPITE_MULTI_BOLAO';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -131,6 +134,15 @@ export interface ConversaContext {
     timeVisitante: string;
     golsCasa: number;
     golsVisitante: number;
+  };
+  // Sprint 3 (bug Jeni 17/05) — palpite que vai aplicar em N boloes,
+  // pendente de confirmacao. ISSUE-015 antes registrava direto sem preview.
+  palpiteMultiBolaoPendente?: {
+    timeCasa: string;
+    timeVisitante: string;
+    golsCasa: number;
+    golsVisitante: number;
+    bolaoNomes: string[]; // pra exibir no preview
   };
 }
 

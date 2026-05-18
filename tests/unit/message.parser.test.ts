@@ -578,6 +578,74 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('Sprint 3 — AGRADECIMENTO (bug Jeni 17/05)', () => {
+    it('"obrigada" → AGRADECIMENTO (nao SAUDACAO)', () => {
+      expect(parseIntencao('obrigada').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"obrigado" → AGRADECIMENTO', () => {
+      expect(parseIntencao('obrigado').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"muito obrigado" → AGRADECIMENTO', () => {
+      expect(parseIntencao('muito obrigado').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"valeu" → AGRADECIMENTO', () => {
+      expect(parseIntencao('valeu').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"vlw" → AGRADECIMENTO', () => {
+      expect(parseIntencao('vlw').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"vlwww" → AGRADECIMENTO', () => {
+      expect(parseIntencao('vlwww').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"brigado" → AGRADECIMENTO', () => {
+      expect(parseIntencao('brigado').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"brigadão" → AGRADECIMENTO', () => {
+      expect(parseIntencao('brigadão').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"thx" → AGRADECIMENTO', () => {
+      expect(parseIntencao('thx').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"thanks" → AGRADECIMENTO', () => {
+      expect(parseIntencao('thanks').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"tmj" → AGRADECIMENTO', () => {
+      expect(parseIntencao('tmj').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    it('"agradecido" → AGRADECIMENTO', () => {
+      expect(parseIntencao('agradecido').intencao).toBe(Intencao.AGRADECIMENTO);
+    });
+    // Regressao: "oi" continua SAUDACAO
+    it('"oi" continua SAUDACAO (regressao)', () => {
+      expect(parseIntencao('oi').intencao).toBe(Intencao.SAUDACAO);
+    });
+  });
+
+  describe('Sprint 3 — RANKING natural language (bug Jeni 17/05)', () => {
+    it('"Quero ver o ranking" → RANKING', () => {
+      expect(parseIntencao('Quero ver o ranking').intencao).toBe(Intencao.RANKING);
+    });
+    it('"Ver o ranking" → RANKING', () => {
+      expect(parseIntencao('Ver o ranking').intencao).toBe(Intencao.RANKING);
+    });
+    it('"me mostra a tabela" → RANKING', () => {
+      expect(parseIntencao('me mostra a tabela').intencao).toBe(Intencao.RANKING);
+    });
+    it('"qual eh a classificacao" → RANKING', () => {
+      expect(parseIntencao('qual eh a classificacao').intencao).toBe(Intencao.RANKING);
+    });
+    it('"mostra o ranking" → RANKING', () => {
+      expect(parseIntencao('mostra o ranking').intencao).toBe(Intencao.RANKING);
+    });
+    // Regressao: continua funcionando o caminho classico
+    it('"ranking" (sozinho) continua RANKING', () => {
+      expect(parseIntencao('ranking').intencao).toBe(Intencao.RANKING);
+    });
+    it('"ranking Firma FC" continua RANKING', () => {
+      expect(parseIntencao('ranking Firma FC').intencao).toBe(Intencao.RANKING);
+    });
+  });
+
   describe('Palpite inline — variantes de placar (Bug 5a, P1, P2, P3)', () => {
     it('"Brasil 2x1 Marrocos" (canonico)', () => {
       const r = parseIntencao('Brasil 2x1 Marrocos');

@@ -64,6 +64,7 @@ INTENCOES:
 - RENOMEAR_BOLAO: admin quer renomear o bolao. Ex: "renomear bolao", "mudar nome do bolao".
 - REMOVER_PARTICIPANTE: admin quer tirar alguem do bolao. Ex: "remover Fulano", "tirar Fulano do bolao", "expulsar".
 - RESUMO_BOLOES: usuario quer ver desempenho em todos os bolaes em que participa. Ex: "como to indo nos boloes?", "meu desempenho geral", "em quantos bolaes to em primeiro?".
+- AGRADECIMENTO: usuario agradeceu/se despediu com cordialidade simples. Ex: "obrigada", "valeu", "vlw", "brigado", "thanks", "tmj", "agradecido". NAO mostre menu — bot responde so com uma cordialidade curta de volta.
 - PENDENTES: admin perguntando solicitacoes pendentes. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.

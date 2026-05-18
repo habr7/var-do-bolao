@@ -51,6 +51,8 @@ const INTENCOES_VALIDAS = [
   Intencao.REMOVER_PARTICIPANTE,
   // Sprint 2 — pontuacao cruzada (023)
   Intencao.RESUMO_BOLOES,
+  // Sprint 3 — cordialidade (bug Jeni 17/05)
+  Intencao.AGRADECIMENTO,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
 ] as const;

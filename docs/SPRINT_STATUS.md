@@ -5,7 +5,21 @@
 >
 > Este arquivo é a fonte canônica do que **já foi feito** vs **o que falta**.
 
-**Última atualização:** 2026-05-17 (após hotfixes pós-Sprint 2)
+**Última atualização:** 2026-05-18 (após hotfixes UX pós-feedback Jeni)
+
+---
+
+## 🩹 Hotfixes UX pós-feedback Jeni — concluídos (2026-05-18)
+
+Três bugs reportados após teste real no WhatsApp (conversa Jeni 17/05 22:20-22:22):
+
+| # | Bug | Conserto |
+|---|---|---|
+| UX-A | "Quero ver o ranking" / "Ver o ranking" → bot respondia `❌ Bolão "Quero ver o ranking" não encontrado.` Causa: `handleRanking` fazia `raw.replace(/^ranking\s*/i, '')` e usava o resíduo como nome do bolão; quando o trigger "ranking" estava no fim, nada era removido. | Padrões regex novos no `RANKING_PATTERNS` cobrem "quero/queria/quero ver/me mostra ... ranking". Nova função `extrairNomeBolaoDoRanking` faz strip robusto de prefixos + verbos + triggers; retorna vazio se sobrar só ruído → bot pergunta qual bolão. |
+| UX-B | "Obrigada" → bot reabria o menu completo de boas-vindas. Causa: caía em SAUDACAO via LLM. | Nova intent `AGRADECIMENTO` no topo de `INTENT_RULES` com regex cobrindo obrigad[ao], valeu, vlw, brigad[ao]/brigadão, thanks/thx, tmj, agradecido. Handler `handleAgradecimento` responde curto e amigável com nome do usuário, randomizando entre 5 variantes. |
+| UX-C | Palpite único registrado sem preview de confirmação quando o mesmo jogo casava em N bolões (ISSUE-015 auto-apply). | Novo estado FSM `CONFIRMANDO_PALPITE_MULTI_BOLAO` + handler `handleConfirmandoPalpiteMultiBolao`. Bot mostra "vai aplicar em N bolões: ..." e pede sim/não/refazer antes de registrar. Bônus: removido dead code `registrarPalpiteInline`. |
+
+**Métricas:** 342 unit tests (era 322) · 85 cenários (era 75).
 
 ---
 

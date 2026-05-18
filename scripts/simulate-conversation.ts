@@ -567,6 +567,71 @@ const CENARIOS: Cenario[] = [
     msg: 'meu desempenho geral',
     esperado: { intencao: Intencao.RESUMO_BOLOES },
   },
+
+  // ====================================================================
+  // SPRINT 3 — bug Jeni 17/05
+  // ====================================================================
+  {
+    grupo: '🩹 Hotfix Jeni — AGRADECIMENTO',
+    desc: '"obrigada" → AGRADECIMENTO (nao SAUDACAO)',
+    msg: 'obrigada',
+    esperado: { intencao: Intencao.AGRADECIMENTO },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — AGRADECIMENTO',
+    desc: '"valeu" → AGRADECIMENTO',
+    msg: 'valeu',
+    esperado: { intencao: Intencao.AGRADECIMENTO },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — AGRADECIMENTO',
+    desc: '"vlw" → AGRADECIMENTO',
+    msg: 'vlw',
+    esperado: { intencao: Intencao.AGRADECIMENTO },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — AGRADECIMENTO',
+    desc: '"muito obrigado" → AGRADECIMENTO',
+    msg: 'muito obrigado',
+    esperado: { intencao: Intencao.AGRADECIMENTO },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — AGRADECIMENTO',
+    desc: '"tmj" → AGRADECIMENTO',
+    msg: 'tmj',
+    esperado: { intencao: Intencao.AGRADECIMENTO },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — RANKING natural',
+    desc: '"Quero ver o ranking" → RANKING',
+    msg: 'Quero ver o ranking',
+    esperado: { intencao: Intencao.RANKING },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — RANKING natural',
+    desc: '"Ver o ranking" → RANKING',
+    msg: 'Ver o ranking',
+    esperado: { intencao: Intencao.RANKING },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — RANKING natural',
+    desc: '"me mostra a tabela" → RANKING',
+    msg: 'me mostra a tabela',
+    esperado: { intencao: Intencao.RANKING },
+  },
+  {
+    grupo: '🩹 Hotfix Jeni — RANKING natural',
+    desc: '"qual eh a classificacao" → RANKING',
+    msg: 'qual eh a classificacao',
+    esperado: { intencao: Intencao.RANKING },
+  },
+  // Regressao: "oi" continua SAUDACAO (nao virou AGRADECIMENTO)
+  {
+    grupo: '🩹 Hotfix Jeni — regressao',
+    desc: '"oi" continua SAUDACAO (regressao)',
+    msg: 'oi',
+    esperado: { intencao: Intencao.SAUDACAO },
+  },
 ];
 
 // ============================================================

@@ -57,6 +57,9 @@ export enum Intencao {
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
+  // Sprint 3 — handler de cordialidade (bug Jeni 17/05)
+  AGRADECIMENTO = 'AGRADECIMENTO', // "obrigada", "valeu", "vlw", "brigado", "thx"
+
   // Intencoes de admin
   APROVAR = 'APROVAR',
   RECUSAR = 'RECUSAR',
@@ -238,6 +241,29 @@ const RANKING_PATTERNS: RegExp[] = [
   /\bquem (?:ta|esta) na frente\b/,
   /\bquem (?:ta|esta) ganhando\b/,
   /\btabela do bol/,
+  // Bug Jeni 17/05: "Quero ver o ranking" — trigger no fim, nao so no comeco
+  /\b(?:quero|queria|preciso|gostaria de|gostava de)(?: eu)?(?: ver| saber| consultar| conferir)? (?:o |a )?(?:ranking|tabela|classificacao)\b/,
+  /\b(?:me )?(?:mostra|mostrar|manda|passa|envia|abre|abrir|exibe|exibir)(?: o| a)?(?: bolao)? (?:ranking|tabela|classificacao)\b/,
+  /\b(?:ver|conferir|consultar|saber)(?: o| a)? (?:ranking|tabela|classificacao)\b/,
+  /\bqual (?:o |a |eh o |eh a |esta o |esta a )?(?:ranking|tabela|classificacao)\b/,
+];
+
+// "Obrigado / valeu / brigado" — cordialidade, nao saudacao
+const AGRADECIMENTO_PATTERNS: RegExp[] = [
+  /^(?:muito )?obrigad[ao]( mesmo)?\b/,
+  /^(?:muito )?brigad[ao]( mesmo)?\b/,
+  /^obrigadao\b/,
+  /^brigadao\b/,
+  /^valeu( mesmo)?\b/,
+  /^vlw+\b/,
+  /^vlww+\b/,
+  /^vlwww+\b/,
+  /^thx\b/,
+  /^thanks?\b/,
+  /^tmj\b/,
+  /^tamo junto\b/,
+  /^agradecid[ao]\b/,
+  /^agrade[cç]o\b/,
 ];
 
 // "Abrir rodada / iniciar / começar bolao"
@@ -445,6 +471,9 @@ const PENDENTES_PATTERNS: RegExp[] = [
 ];
 
 const INTENT_RULES: IntentRules[] = [
+  // AGRADECIMENTO no topo: super especifico, evita que "obrigada" caia no
+  // fallback LLM e seja classificado como SAUDACAO (bug Jeni 17/05).
+  { intencao: Intencao.AGRADECIMENTO, padroes: AGRADECIMENTO_PATTERNS },
   // Ordem: mais especificos antes. REGRAS antes de AJUDA pq "como funciona
   // pontuacao" vs "como funciona" sao bem proximos.
   { intencao: Intencao.REGRAS, padroes: REGRAS_PATTERNS },

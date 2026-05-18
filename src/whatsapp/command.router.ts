@@ -106,6 +106,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       'CONFIRMANDO_PALPITE_PLACAR_ABSURDO',
       'EDITANDO_PALPITE_NOVO_PLACAR',
       'CONFIRMANDO_APAGAR_PALPITE',
+      // Sprint 3 (bug Jeni 17/05)
+      'CONFIRMANDO_PALPITE_MULTI_BOLAO',
     ]);
     const podeAceitarCodigoAqui = !ESTADOS_PROIBIDOS_CODIGO.has(session.state);
     if (codigoNaMsg && podeAceitarCodigoAqui) {
@@ -222,6 +224,9 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleApagandoPalpiteEscolhaJogo(msg, usuario.id, session);
       case 'CONFIRMANDO_APAGAR_PALPITE':
         return await handleConfirmandoApagarPalpite(msg, usuario.id, session);
+      // Sprint 3 (bug Jeni 17/05) — confirma auto-apply multi-bolao
+      case 'CONFIRMANDO_PALPITE_MULTI_BOLAO':
+        return await handleConfirmandoPalpiteMultiBolao(msg, usuario.id, session);
     }
 
     // IDLE — verifica primeiro se admin tem pendentes e a mensagem
@@ -462,6 +467,11 @@ async function dispatchIntencao(
       await handleResumoBoloes(msg, usuarioId);
       return true;
 
+    // Sprint 3 — cordialidade (bug Jeni 17/05)
+    case Intencao.AGRADECIMENTO:
+      await handleAgradecimento(msg);
+      return true;
+
     case Intencao.PALPITE_INLINE:
       await handlePalpiteInlineEmIdle(msg, usuarioId);
       return true;
@@ -616,6 +626,35 @@ async function handleInfoSenha(msg: IncomingMessage) {
       `🔓 Bolões no *VAR do Bolão* não usam senha — a entrada é pelo *ID do bolão* (formato \`#ABCD12\`).\n\n` +
       `O admin do bolão te manda o ID (ou um link de convite). Você me envia, e eu peço aprovação pra ele.\n\n` +
       `Quer entrar em algum bolão agora? Manda *entrar em bolão*.`,
+  });
+}
+
+/**
+ * Bug Jeni 17/05: "obrigada" disparava SAUDACAO → menu completo de
+ * boas-vindas. Resposta esperada eh uma cordialidade curta sem reabrir
+ * o menu. Pequena variacao no texto pra nao soar robotico se o usuario
+ * agradecer varias vezes na mesma conversa.
+ */
+function escolherRespostaAgradecimento(nome: string): string {
+  const variantes = [
+    `🤙 Magina, *${nome}*! Tamo junto. Precisando, só chamar. ⚽`,
+    `👍 Disponha! Quando precisar é só mandar bala.`,
+    `🍀 De nada! Boa sorte nos palpites — qualquer coisa, chama.`,
+    `🤝 Tranquilo, *${nome}*! Tô aqui pra isso. Bora pra cima!`,
+    `😄 Imagina! Tamo junto na missão da Copa.`,
+  ];
+  return variantes[Math.floor(Math.random() * variantes.length)];
+}
+
+async function handleAgradecimento(msg: IncomingMessage) {
+  const usuario = await prisma.usuario.findUnique({
+    where: { whatsappId: msg.waId },
+    select: { nome: true },
+  });
+  const nome = usuario?.nome?.split(' ')[0] ?? 'craque';
+  await sendText({
+    to: msg.waId,
+    text: escolherRespostaAgradecimento(nome),
   });
 }
 
@@ -1328,22 +1367,30 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
       const p = parsed.palpite;
       const matches = await palpiteService.buscarBoloesComJogo(usuarioId, p.timeCasa, p.timeVisitante);
       if (matches.length > 1) {
-        // Mesmo jogo em N boloes → registra em todos automaticamente
-        const { registrados, erros } = await palpiteService.registrarPalpiteEmTodosBoloes({
-          usuarioId,
-          timeCasa: p.timeCasa,
-          timeVisitante: p.timeVisitante,
-          golsCasa: p.golsCasa,
-          golsVisitante: p.golsVisitante,
+        // Bug Jeni 17/05: ANTES registrava direto sem preview. Agora pede
+        // confirmacao mostrando todos os boloes onde vai aplicar.
+        await setSession(msg.waId, {
+          state: 'CONFIRMANDO_PALPITE_MULTI_BOLAO',
+          ctx: {
+            palpiteMultiBolaoPendente: {
+              timeCasa: p.timeCasa,
+              timeVisitante: p.timeVisitante,
+              golsCasa: p.golsCasa,
+              golsVisitante: p.golsVisitante,
+              bolaoNomes: matches.map((m) => m.bolaoNome),
+            },
+          },
         });
         const placarLabel = `${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`;
-        let textoResp = registrados.length === 1
-          ? `✅ Palpite registrado: *${placarLabel}* (no *${registrados[0].bolaoNome}*).`
-          : `✅ Palpite registrado: *${placarLabel}*\n\nAplicado em *${registrados.length}* bolões:\n${registrados.map((r) => `• ${r.bolaoNome}`).join('\n')}`;
-        if (erros.length > 0) {
-          textoResp += `\n\n⚠️ Não rolou em:\n${erros.map((e) => `• ${e.bolaoNome}: ${e.motivo}`).join('\n')}`;
-        }
-        await sendText({ to: msg.waId, text: textoResp });
+        const listaBoloes = matches.map((m) => `• ${m.bolaoNome}`).join('\n');
+        await sendText({
+          to: msg.waId,
+          text:
+            `📝 Vou registrar o palpite:\n\n` +
+            `*${placarLabel}*\n\n` +
+            `Aplicado em *${matches.length}* bolões:\n${listaBoloes}\n\n` +
+            `Confirma? _(responda *sim*, *não* ou *refazer*)_`,
+        });
         return;
       }
       // ISSUE-014: parseou palpite mas nao casou jogo em nenhuma rodada aberta
@@ -1672,6 +1719,66 @@ async function handleConfirmandoPalpitesInline(
   await registrarPalpitesConfirmados(msg, usuarioId, rodadaId, bolaoNome, palpites);
 }
 
+/**
+ * Bug Jeni 17/05: confirma o auto-apply multi-bolao do ISSUE-015.
+ * Antes desse handler, o palpite ia direto pro registro sem preview.
+ * Sim → aplica em todos os bolaes que tem o jogo. Nao/refazer → cancela.
+ */
+async function handleConfirmandoPalpiteMultiBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const pendente = session.ctx?.palpiteMultiBolaoPendente;
+  if (!pendente) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const texto = msg.text.trim().toLowerCase();
+  if (/^(refazer|refaz|de novo|tentar de novo)\b/.test(texto)) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '🔄 Beleza, esqueci esse palpite. Manda de novo no formato que preferir.',
+    });
+    return;
+  }
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '👍 Beleza, não registrei nada. Quando quiser palpitar de novo é só mandar.',
+    });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Responde *sim* pra confirmar, *não* pra cancelar, ou *refazer* pra mandar de novo.',
+    });
+    return;
+  }
+  // Registra em todos os boloes que tem o jogo
+  const { registrados, erros } = await palpiteService.registrarPalpiteEmTodosBoloes({
+    usuarioId,
+    timeCasa: pendente.timeCasa,
+    timeVisitante: pendente.timeVisitante,
+    golsCasa: pendente.golsCasa,
+    golsVisitante: pendente.golsVisitante,
+  });
+  await resetSession(msg.waId);
+  const placarLabel = `${pendente.timeCasa} ${pendente.golsCasa} × ${pendente.golsVisitante} ${pendente.timeVisitante}`;
+  let textoResp = registrados.length === 1
+    ? `${confirmacao()} Palpite registrado: *${placarLabel}* (no *${registrados[0].bolaoNome}*).`
+    : `${confirmacao()} Palpite registrado: *${placarLabel}*\n\nAplicado em *${registrados.length}* bolões:\n${registrados.map((r) => `• ${r.bolaoNome}`).join('\n')}`;
+  if (erros.length > 0) {
+    textoResp += `\n\n⚠️ Não rolou em:\n${erros.map((e) => `• ${e.bolaoNome}: ${e.motivo}`).join('\n')}`;
+  }
+  await sendText({ to: msg.waId, text: textoResp });
+}
+
 async function registrarPalpitesConfirmados(
   msg: IncomingMessage,
   usuarioId: string,
@@ -1795,38 +1902,9 @@ async function tentarPalpiteLivreViaLLM(
   return true;
 }
 
-async function registrarPalpiteInline(
-  msg: IncomingMessage,
-  usuarioId: string,
-  match: { bolaoId: string; bolaoNome: string; rodadaId: string; jogoTimeCasa: string; jogoTimeVisitante: string },
-  golsCasa: number,
-  golsVisitante: number,
-) {
-  try {
-    await palpiteService.registrarPalpiteEmRodada({
-      usuarioId,
-      rodadaId: match.rodadaId,
-      timeCasa: match.jogoTimeCasa,
-      timeVisitante: match.jogoTimeVisitante,
-      golsCasa,
-      golsVisitante,
-    });
-    const { faltam } = await palpiteService.statusPalpitesRodada(usuarioId, match.rodadaId);
-    let resp = `${confirmacao()} Palpite registrado no *${match.bolaoNome}*:\n` +
-      `*${match.jogoTimeCasa} ${golsCasa} x ${golsVisitante} ${match.jogoTimeVisitante}* ⚽`;
-    if (faltam > 0) {
-      resp += `\n\nFaltam ${faltam} jogo(s) nessa rodada — manda quando quiser.`;
-    } else {
-      resp += '\n\n🔒 Todos os palpites desta rodada registrados! Boa sorte! 🍀';
-    }
-    await sendText({ to: msg.waId, text: resp });
-  } catch (err) {
-    await sendText({
-      to: msg.waId,
-      text: `❌ Não consegui registrar: ${(err as Error).message}`,
-    });
-  }
-}
+// (dead code `registrarPalpiteInline` removido em 2026-05-18 — nunca foi
+// chamado em lugar algum. O fluxo correto eh `iniciarConfirmacaoPalpites`
+// que mostra preview antes de registrar.)
 
 // ============================================================
 // Fluxo: ABRIR_RODADA (admin)
@@ -2250,9 +2328,61 @@ async function handleMeusBoloes(msg: IncomingMessage, usuarioId: string) {
   await sendText({ to: msg.waId, text: partes.join('\n\n') });
 }
 
+/**
+ * Strip robusto de frases-gatilho pra ranking, pra evitar que o nome
+ * extraido vire a frase inteira do usuario.
+ *
+ * Bug 17/05 (Jeni): "Quero ver o ranking" caia em RANKING (via LLM), mas
+ * o replace antigo (so removia "ranking" no comeco) deixava "Quero ver
+ * o ranking" inteiro como nomeBolao, e a busca falhava com
+ * "bolao nao encontrado".
+ *
+ * Estrategia: enumera prefixos/sufixos de pergunta + palavras-trigger
+ * (ranking/tabela/classificacao + verbos), tira tudo. O que sobra eh
+ * o "ruido" do usuario — se for so artigo/preposicao, vira vazio
+ * (fluxo: bot pergunta qual bolao).
+ */
+function extrairNomeBolaoDoRanking(raw: string): string {
+  let resto = raw.trim().toLowerCase();
+  // Normaliza acentos so pra match — preserva original em caso de retorno
+  const normalizado = resto.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  resto = normalizado;
+
+  // 1. Frases-gatilho de pergunta/pedido + trigger juntos
+  const phrasesParaRemover = [
+    /\b(?:eu )?(?:quero|gostaria de|queria|preciso|gostava de|posso)(?: ver| saber| consultar| conferir| dar uma olhada (?:em|no|na))?\b/g,
+    /\b(?:me )?(?:mostra|mostrar|manda|passa|envia|exibe|exibir|abre|abrir)\b/g,
+    /\b(?:qual|qual eh|qual o|qual a|como (?:ta|esta|anda)|como vai)\b/g,
+    /\b(?:da uma )?olhada\b/g,
+    /\bda hora\b/g,
+    /\bagora\b/g,
+    /\bpor favor\b/g,
+    /\bpfv\b/g,
+    // O trigger em si — RANKING_PATTERNS equivalente
+    /\b(?:ranking|tabela|classificacao|placar geral|pontuacao geral)\b/g,
+    /\bquem (?:ta|esta) (?:na frente|ganhando|liderando|em primeiro)\b/g,
+    // Artigos/preposicoes soltos (limpa o cabecalho do nome)
+    /^\s*(?:do|da|dos|das|de|o|a|os|as|para o|para a|pro|pra|no|na|nos|nas|em|em o|em a)\s+/g,
+  ];
+  for (const p of phrasesParaRemover) {
+    resto = resto.replace(p, ' ');
+  }
+
+  // 2. Cleanup final: espacos, artigos isolados nos extremos
+  resto = resto.replace(/\s+/g, ' ').trim();
+  // remove artigos finais/iniciais soltos
+  resto = resto.replace(/^(?:o|a|os|as|do|da|dos|das|de|no|na|em|para|pra)\s+/g, '');
+  resto = resto.replace(/\s+(?:o|a|os|as|do|da|dos|das|de|no|na|em|para|pra)$/g, '');
+  resto = resto.replace(/^[\s.,!?;:-]+|[\s.,!?;:-]+$/g, '').trim();
+
+  // 3. Se sobrou so 1-2 chars ou ficou vazio, considera "sem nome"
+  if (resto.length < 2) return '';
+  return resto;
+}
+
 async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: string) {
-  // raw comeca com "ranking ..." — extrai nome
-  const nomeBolao = raw.replace(/^ranking\s*/i, '').trim();
+  // Extrai nome do bolao apos strip de frases gatilho (ver fix Jeni 17/05)
+  const nomeBolao = extrairNomeBolaoDoRanking(raw);
   // HOTFIX 17/05: ranking eh consulta historica. Inclui FINALIZADOS pra
   // honrar a promessa "palpites e ranking ficam guardados" feita pelo bot
   // na hora do encerramento.

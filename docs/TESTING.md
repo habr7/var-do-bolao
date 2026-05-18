@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**322+ tests** distribuídos em `tests/unit/`. Cobre:
+**342+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -48,7 +48,7 @@ npm run test:watch
 
 ## 2. Simulação determinística (`scripts/simulate-conversation.ts`)
 
-Roda **75+ cenários** que cobrem todos os bugs reais já vistos em conversas
+Roda **85+ cenários** que cobrem todos os bugs reais já vistos em conversas
 com usuários. Não toca DB/Redis nem rede — só testa o parser e o admin parser
 (que é onde mora a maioria dos bugs).
 
@@ -332,6 +332,19 @@ npx tsx scripts/run-repair-once.ts
 
 Roda uma única vez e sai. Útil também pra forçar o reparo logo após
 aplicar uma migration nova sem ter que reiniciar o servidor.
+
+### Bloco F — Hotfixes UX pós-feedback Jeni (3.1.3)
+
+| Mensagem | Esperado |
+|---|---|
+| `Quero ver o ranking` | Ranking direto (1 bolão) ou pergunta numerada qual bolão. NÃO responde "bolão 'Quero ver o ranking' não encontrado". |
+| `Ver o ranking` | Mesmo. |
+| `me mostra a tabela` | Mesmo. |
+| `ranking Firma FC` | Continua funcionando — busca pelo nome real. |
+| `obrigada` (depois de qualquer ação) | Resposta curta amigável tipo "🤙 Magina, *Jeniffer*! Tamo junto. Precisando, só chamar. ⚽" — **NÃO** reabre o menu completo. |
+| `vlw` | Idem. |
+| `thanks` | Idem. |
+| (multi-bolão, mesmo jogo em vários) `Brasil 2x1 Marrocos` | Bot mostra preview "📝 Vou registrar... Aplicado em *3* bolões: ..." + pede `sim/não/refazer`. **NÃO** registra direto sem perguntar. |
 
 ### Bloco E — Migrations Prisma (3.1.2)
 
