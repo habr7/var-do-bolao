@@ -632,6 +632,113 @@ const CENARIOS: Cenario[] = [
     msg: 'oi',
     esperado: { intencao: Intencao.SAUDACAO },
   },
+
+  // ====================================================================
+  // SPRINT 3 — expansao de cordialidade (DESPEDIDA / CUMPRIMENTO / etc)
+  // ====================================================================
+  {
+    grupo: '👋 Sprint 3 — DESPEDIDA',
+    desc: '"tchau" → DESPEDIDA',
+    msg: 'tchau',
+    esperado: { intencao: Intencao.DESPEDIDA },
+  },
+  {
+    grupo: '👋 Sprint 3 — DESPEDIDA',
+    desc: '"falou" → DESPEDIDA',
+    msg: 'falou',
+    esperado: { intencao: Intencao.DESPEDIDA },
+  },
+  {
+    grupo: '👋 Sprint 3 — DESPEDIDA',
+    desc: '"flw" → DESPEDIDA',
+    msg: 'flw',
+    esperado: { intencao: Intencao.DESPEDIDA },
+  },
+  {
+    grupo: '👋 Sprint 3 — DESPEDIDA',
+    desc: '"até mais" → DESPEDIDA',
+    msg: 'até mais',
+    esperado: { intencao: Intencao.DESPEDIDA },
+  },
+  {
+    grupo: '🤝 Sprint 3 — CUMPRIMENTO_CASUAL',
+    desc: '"tudo bem?" → CUMPRIMENTO_CASUAL',
+    msg: 'tudo bem?',
+    esperado: { intencao: Intencao.CUMPRIMENTO_CASUAL },
+  },
+  {
+    grupo: '🤝 Sprint 3 — CUMPRIMENTO_CASUAL',
+    desc: '"blz?" → CUMPRIMENTO_CASUAL',
+    msg: 'blz?',
+    esperado: { intencao: Intencao.CUMPRIMENTO_CASUAL },
+  },
+  {
+    grupo: '🤝 Sprint 3 — CUMPRIMENTO_CASUAL',
+    desc: '"como vai?" → CUMPRIMENTO_CASUAL',
+    msg: 'como vai?',
+    esperado: { intencao: Intencao.CUMPRIMENTO_CASUAL },
+  },
+  {
+    grupo: '🤝 Sprint 3 — CUMPRIMENTO_CASUAL',
+    desc: '"oi tudo bem?" → CUMPRIMENTO_CASUAL (apos strip saudacao)',
+    msg: 'oi tudo bem?',
+    esperado: { intencao: Intencao.CUMPRIMENTO_CASUAL },
+  },
+  {
+    grupo: '👍 Sprint 3 — CONCORDANCIA_CASUAL',
+    desc: '"ok" → CONCORDANCIA_CASUAL',
+    msg: 'ok',
+    esperado: { intencao: Intencao.CONCORDANCIA_CASUAL },
+  },
+  {
+    grupo: '👍 Sprint 3 — CONCORDANCIA_CASUAL',
+    desc: '"beleza" → CONCORDANCIA_CASUAL',
+    msg: 'beleza',
+    esperado: { intencao: Intencao.CONCORDANCIA_CASUAL },
+  },
+  {
+    grupo: '👍 Sprint 3 — CONCORDANCIA_CASUAL',
+    desc: '"blz" (sem ?) → CONCORDANCIA_CASUAL',
+    msg: 'blz',
+    esperado: { intencao: Intencao.CONCORDANCIA_CASUAL },
+  },
+  {
+    grupo: '👍 Sprint 3 — CONCORDANCIA_CASUAL',
+    desc: '"show" → CONCORDANCIA_CASUAL',
+    msg: 'show',
+    esperado: { intencao: Intencao.CONCORDANCIA_CASUAL },
+  },
+  {
+    grupo: '👍 Sprint 3 — CONCORDANCIA_CASUAL',
+    desc: '"top" → CONCORDANCIA_CASUAL',
+    msg: 'top',
+    esperado: { intencao: Intencao.CONCORDANCIA_CASUAL },
+  },
+  {
+    grupo: '😂 Sprint 3 — RISADA',
+    desc: '"kkkk" → RISADA',
+    msg: 'kkkk',
+    esperado: { intencao: Intencao.RISADA },
+  },
+  {
+    grupo: '😂 Sprint 3 — RISADA',
+    desc: '"hahaha" → RISADA',
+    msg: 'hahaha',
+    esperado: { intencao: Intencao.RISADA },
+  },
+  {
+    grupo: '😂 Sprint 3 — RISADA',
+    desc: '"rsrsrs" → RISADA',
+    msg: 'rsrsrs',
+    esperado: { intencao: Intencao.RISADA },
+  },
+  // Regressao critica: "ok quero criar bolão" nao pode virar CONCORDANCIA
+  {
+    grupo: '🛡️ Sprint 3 — regressao',
+    desc: '"ok quero criar bolão" NAO eh CONCORDANCIA (pattern restrito)',
+    msg: 'ok quero criar bolão',
+    esperado: { intencao: Intencao.CRIAR_BOLAO },
+  },
 ];
 
 // ============================================================

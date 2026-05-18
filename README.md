@@ -4,7 +4,7 @@
 > direta (DM)** — sem grupo, sem app, sem fricção. Foco atual: Copa do Mundo
 > FIFA 2026.
 
-[![Tests](https://img.shields.io/badge/tests-342%20passing-green)]()
+[![Tests](https://img.shields.io/badge/tests-377%20passing-green)]()
 [![Node](https://img.shields.io/badge/node-20%2B-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)]()
 [![LLM](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash%20Lite-orange)]()
@@ -239,6 +239,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.2.0** (2026-05-18) — Expansão de cordialidade + histórico persistente. 4 novos intents (DESPEDIDA/CUMPRIMENTO_CASUAL/CONCORDANCIA_CASUAL/RISADA) com respostas curtas randomizadas. Nova tabela Prisma `MensagemNaoEntendida` substitui lista Redis (TTL 30d) por persistência queryable, captura também `low_confidence` (LLM < 0.55). LGPD: whatsappId hashado sha256-16, retenção 180d via cron mensal. 377 tests, 102 cenários.
 - **v3.1.3** (2026-05-18) — Hotfixes UX pós-feedback Jeni: (a) RANKING aceita "Quero ver o ranking" / "Ver o ranking" / "me mostra a tabela" — antes virava nome de bolão; (b) Nova intent AGRADECIMENTO ("obrigada", "valeu", "vlw"...) com resposta curta amigável — não reabre o menu; (c) Multi-bolão auto-apply (ISSUE-015) agora pede confirmação com preview. 342 tests, 85 cenários.
 - **v3.1.2** (2026-05-17) — Patch da migration: `@unique` original foi criado como UNIQUE INDEX, então o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op. Nova migration `drop_jogos_apijogoid_unique_index` derruba o índice órfão; bolão `#K6VCCJ` reparado. Novo script `scripts/run-repair-once.ts` pra disparar o reparo sob demanda.
 - **v3.1.1** (2026-05-17) — Hotfix pós-Sprint 2: (a) `Jogo.apiJogoId` unique-por-rodada + `criarBolao` atômico + job de reparo (corrige "rodada vazia" do 2º bolão em diante); (b) bolões encerrados visíveis em consultas (ranking/meus palpites/meus bolões) — honra a promessa "fica guardado" feita no encerramento

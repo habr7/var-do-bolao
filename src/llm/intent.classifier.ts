@@ -51,8 +51,12 @@ const INTENCOES_VALIDAS = [
   Intencao.REMOVER_PARTICIPANTE,
   // Sprint 2 — pontuacao cruzada (023)
   Intencao.RESUMO_BOLOES,
-  // Sprint 3 — cordialidade (bug Jeni 17/05)
+  // Sprint 3 — cordialidade (bug Jeni 17/05 + expansao)
   Intencao.AGRADECIMENTO,
+  Intencao.DESPEDIDA,
+  Intencao.CUMPRIMENTO_CASUAL,
+  Intencao.CONCORDANCIA_CASUAL,
+  Intencao.RISADA,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
 ] as const;
@@ -102,7 +106,26 @@ interface ClassificationResult {
   motivo?: string;
 }
 
-export async function classificarIntencao(text: string): Promise<Intencao | null> {
+/**
+ * Resultado rico do classifier — expoe tambem o intent que o LLM tentou
+ * (mesmo quando rejeitado por low confidence) + a confianca pontuada.
+ * Util pra logar casos de "quase certeza" e descobrir variantes que merecem
+ * virar regex.
+ */
+export interface ClassificationOutcome {
+  /** Intent final (null se LLM falhou ou confianca < threshold). */
+  intencao: Intencao | null;
+  /** Intent crua que o LLM tentou (mesmo se rejeitada). Pode ser desconhecida. */
+  intencaoTentada?: string;
+  /** Confianca pontuada (0-1). */
+  confianca?: number;
+}
+
+const THRESHOLD_CONFIANCA = 0.55;
+
+export async function classificarIntencao(
+  text: string,
+): Promise<ClassificationOutcome> {
   const raw = await chat(
     [
       { role: 'system', content: INTENT_CLASSIFIER_PROMPT },
@@ -112,13 +135,33 @@ export async function classificarIntencao(text: string): Promise<Intencao | null
   );
 
   const parsed = tryParseJson<ClassificationResult>(raw);
-  if (!parsed) return null;
-  if (typeof parsed.confianca !== 'number' || parsed.confianca < 0.55) return null;
+  if (!parsed) {
+    // LLM falhou parsing — caller decide o que fazer (provavel: tentar
+    // smart-fallback ou cair no "nao entendi" final).
+    return { intencao: null };
+  }
+
+  // Sempre captura intencao tentada + confianca (caller usa pra log)
+  const outcome: ClassificationOutcome = {
+    intencao: null,
+    intencaoTentada: parsed.intencao,
+    confianca: typeof parsed.confianca === 'number' ? parsed.confianca : undefined,
+  };
+
+  if (
+    typeof parsed.confianca !== 'number' ||
+    parsed.confianca < THRESHOLD_CONFIANCA
+  ) {
+    // Caso low_confidence: o LLM teve um palpite mas nao com certeza suficiente.
+    // Caller pode usar `outcome.intencaoTentada` + `outcome.confianca` pra
+    // logar via `registrarMsgNaoEntendida(text, state, 'low_confidence', {...})`.
+    return outcome;
+  }
 
   // Valida que a intencao retornada eh uma das aceitas
-  const intencao = (INTENCOES_VALIDAS as readonly string[]).includes(parsed.intencao)
-    ? (parsed.intencao as Intencao)
-    : null;
+  if ((INTENCOES_VALIDAS as readonly string[]).includes(parsed.intencao)) {
+    outcome.intencao = parsed.intencao as Intencao;
+  }
 
-  return intencao;
+  return outcome;
 }

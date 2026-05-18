@@ -391,8 +391,38 @@ quando começa?  •  quando termina?  •  quando abre rodada?
 obrigada  •  obrigado  •  valeu  •  vlw  •  brigado  •  brigadão
 thanks  •  thx  •  tmj  •  tamo junto  •  agradecido
 ```
-→ Cordialidade curta amigável — não reabre o menu. Texto randomizado pra
-não ficar robótico ("Magina, *Fulano*! Tamo junto. Precisando, só chamar.").
+→ `AGRADECIMENTO` — cordialidade curta amigável, não reabre o menu. Texto
+randomizado pra não ficar robótico ("Magina, *Fulano*! Tamo junto.
+Precisando, só chamar.").
+
+```
+tchau  •  até logo  •  até mais  •  até amanhã  •  falou  •  flw
+fui  •  abraço  •  abs  •  bjs  •  beijos
+```
+→ `DESPEDIDA` — resposta curta de saída ("🤙 Falou, *Fulano*! Tamo junto.").
+
+```
+tudo bem?  •  tudo bom?  •  blz?  •  td certo?  •  como vai?
+como ta?  •  suave?  •  firmeza?
+```
+→ `CUMPRIMENTO_CASUAL` — bot responde + sugere ações leves ("De boa,
+*Fulano*! 🤙 Manda *ranking*, *meus pontos* ou *próximos jogos*").
+> ⚠️ Diferença do `AGRADECIMENTO`/`DESPEDIDA`: o `?` é importante.
+> "blz?" → CUMPRIMENTO. "blz" sem `?` → CONCORDANCIA_CASUAL.
+
+```
+ok  •  beleza  •  blz  •  show  •  massa  •  legal  •  fechou
+perfeito  •  top  •  combinado  •  tranquilo  •  entendi  •  saquei  •  boa
+```
+→ `CONCORDANCIA_CASUAL` — acknowledgement curto sem reabrir menu
+("👍 Show! Tô por aqui.").
+> ⚠️ Em fluxos de confirmação (`CONFIRMANDO_*`) essas mesmas palavras viram
+> SIM via `interpretarSimNao`. Esse handler só dispara em IDLE.
+
+```
+kkkk  •  kk  •  rsrs  •  hahaha  •  huehue  •  😂  •  🤣
+```
+→ `RISADA` — resposta minimalista (emoji curto ou "kkkkk").
 
 ---
 

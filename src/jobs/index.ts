@@ -9,6 +9,7 @@ import { sendPalpiteCallJob } from './send-palpite-call.job.js';
 import { sendRemindersJob } from './send-reminders.job.js';
 import { sendRankingJob } from './send-ranking.job.js';
 import { repararBoloesQuebrados } from './repair-broken-boloes.job.js';
+import { limparMensagensAntigas } from './limpar-mensagens-antigas.job.js';
 
 function wrap(name: string, fn: () => Promise<void>) {
   return async () => {
@@ -58,6 +59,17 @@ export function registerJobs() {
     '0 3 * * *',
     wrap('repair-broken-boloes', async () => {
       await repararBoloesQuebrados();
+    }),
+    { timezone: env.TIMEZONE },
+  );
+
+  // Sprint 3 — limpeza mensal de mensagens nao entendidas (LGPD).
+  // Dia 1 de cada mes as 05:00. Deleta registros mais antigos que
+  // MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS (default 180).
+  cron.schedule(
+    '0 5 1 * *',
+    wrap('limpar-mensagens-antigas', async () => {
+      await limparMensagensAntigas();
     }),
     { timezone: env.TIMEZONE },
   );

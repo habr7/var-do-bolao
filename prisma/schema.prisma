@@ -28,6 +28,7 @@ model Usuario {
   boloesAdministrados  Bolao[]             @relation("BolaoAdmin")
   solicitacoesFeitas   SolicitacaoEntrada[]
   bolaoPadrao          Bolao?              @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
+  mensagensNaoEntendidas MensagemNaoEntendida[]
 
   @@map("usuarios")
 }
@@ -243,4 +244,42 @@ model PalpiteJogo {
 
   @@unique([palpiteId, jogoId])
   @@map("palpites_jogos")
+}
+
+// ============================================
+// MENSAGEM_NAO_ENTENDIDA — historico persistente pra melhorar o bot
+// ============================================
+// Substitui a antiga lista Redis (metrics:YYYY-MM-DD:nao-entendi). Persistencia
+// permanente queryable via SQL — pra revisar mensagens que cairam fora de
+// regex/LLM e identificar variantes novas a virar handler.
+//
+// Captura 4 motivos:
+//   - regex_fail: parser regex nao casou nada (default antes de tentar LLM)
+//   - llm_fail: LLM intent classifier retornou null (deu erro / sem resposta)
+//   - final_fallback: tudo falhou, bot mostrou "nao entendi" generico
+//   - low_confidence: LLM tentou classificar mas confianca < 0.55 (ouro pra
+//     descobrir variantes que merecem virar regex)
+//
+// LGPD: whatsappId NUNCA persistido em claro — so hash sha256-16. usuarioId eh
+// FK opcional (ON DELETE SET NULL — se usuario deletar conta, log perde
+// linkagem mas mensagem fica como dado anonimo).
+//
+// TTL: removido pelo job mensal `limpar-mensagens-antigas` (default 180 dias,
+// configuravel via MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS).
+model MensagemNaoEntendida {
+  id              String   @id @default(uuid())
+  usuarioId       String?
+  whatsappIdHash  String                          // SHA-256(whatsappId).slice(0,16)
+  texto           String   @db.Text               // truncado em 500 chars
+  state           String                          // estado FSM no momento ("IDLE", "CONFIRMANDO_*", etc)
+  motivo          String                          // 'regex_fail' | 'llm_fail' | 'final_fallback' | 'low_confidence'
+  llmIntent       String?                         // intent que o LLM tentou (mesmo low-conf)
+  llmConfianca    Float?                          // 0-1
+  criadoEm        DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([criadoEm])
+  @@index([motivo, criadoEm])
+  @@map("mensagens_nao_entendidas")
 }

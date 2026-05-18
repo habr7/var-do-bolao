@@ -5,7 +5,26 @@
 >
 > Este arquivo é a fonte canônica do que **já foi feito** vs **o que falta**.
 
-**Última atualização:** 2026-05-18 (após hotfixes UX pós-feedback Jeni)
+**Última atualização:** 2026-05-18 (após expansão de cordialidade + histórico persistente — v3.2.0)
+
+---
+
+## 🎨 UX polish + observabilidade (v3.2.0) — concluído (2026-05-18)
+
+Após os 4 hotfixes do dia, foi pedido (1) ampliar o tratamento de cordialidade
+pra cobrir mais casos como "obrigada" e (2) criar um histórico persistente
+de mensagens não-entendidas pra melhorar o bot continuamente.
+
+| # | O que foi feito |
+|---|---|
+| CORD-A | **4 intents novos de cordialidade**: `DESPEDIDA` (tchau/flw/abraço), `CUMPRIMENTO_CASUAL` (tudo bem?/blz?/como vai?), `CONCORDANCIA_CASUAL` (ok/beleza/show/perfeito), `RISADA` (kkk/rsrs/hahaha/😂). Cada um com handler dedicado, múltiplas variantes de resposta randomizadas. Não reabrem menu — saem com cordialidade curta. |
+| CORD-B | Pattern restritivo (`^...$`) pra evitar comer palavras incidentais. Diferenciação por `?`: "blz?" → CUMPRIMENTO, "blz" → CONCORDANCIA. "oi tudo bem?" usa stripSaudacao + matchIntent → CUMPRIMENTO_CASUAL. |
+| CORD-C | Não conflita com fluxos de confirmação — em `CONFIRMANDO_*` states o FSM dispatcher pega "ok" antes via `interpretarSimNao` (vira SIM); em IDLE vira CONCORDANCIA_CASUAL. Também não pisa em `tentarAcaoAdminEmIdle` — admin com pendentes que manda "ok" continua sendo aprovação. |
+| OBS-A | **Nova tabela Prisma `MensagemNaoEntendida`** (migration `20260518120000`). Substitui a antiga lista Redis (TTL 30d, top 500/dia, expirava) por persistência indefinida queryable via SQL. Cobertura: `regex_fail`, `llm_fail`, `final_fallback`, **`low_confidence`** (LLM tentou < 0.55 — ouro pra encontrar variantes a virar regex novo). |
+| OBS-B | `classificarIntencao` mudou de retornar `Intencao\|null` para `ClassificationOutcome` com `{intencao, intencaoTentada, confianca}`. Caller (router) agora loga o palpite + confiança do LLM mesmo quando rejeitado, dando contexto pro analista offline. |
+| OBS-C | **LGPD**: `whatsappId` NUNCA persistido em claro — só hash sha256-16 via `hashIdentificador()`. FK `usuarioId` com `ON DELETE SET NULL`. Env nova `MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS` (default 180). Job mensal `limpar-mensagens-antigas` (`0 5 1 * *`) + script CLI `scripts/limpar-mensagens-antigas.ts`. |
+
+**Métricas:** 377 unit tests (era 342) · 102 cenários (era 85).
 
 ---
 

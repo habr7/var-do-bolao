@@ -93,6 +93,10 @@ const baseSchema = z.object({
   LLM_URL: z.string().default('https://ollama.com'),
   LLM_API_KEY: z.string().default('dry-run-llm-key'),
   LLM_MODEL: z.string().default('gpt-oss:20b'),
+
+  // Sprint 3 — historico de mensagens nao entendidas (LGPD)
+  // Retencao em dias antes do job mensal limpar. Default 180 dias.
+  MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS: z.coerce.number().default(180),
 });
 
 export type Env = z.infer<typeof baseSchema>;

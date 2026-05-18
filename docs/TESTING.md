@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**342+ tests** distribuídos em `tests/unit/`. Cobre:
+**377+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -48,7 +48,7 @@ npm run test:watch
 
 ## 2. Simulação determinística (`scripts/simulate-conversation.ts`)
 
-Roda **85+ cenários** que cobrem todos os bugs reais já vistos em conversas
+Roda **102+ cenários** que cobrem todos os bugs reais já vistos em conversas
 com usuários. Não toca DB/Redis nem rede — só testa o parser e o admin parser
 (que é onde mora a maioria dos bugs).
 
@@ -332,6 +332,44 @@ npx tsx scripts/run-repair-once.ts
 
 Roda uma única vez e sai. Útil também pra forçar o reparo logo após
 aplicar uma migration nova sem ter que reiniciar o servidor.
+
+### Bloco G — Cordialidade expandida + histórico persistente (3.2.0)
+
+#### Cordialidade
+
+| Mensagem | Esperado |
+|---|---|
+| `tchau` / `flw` / `até mais` / `abraço` | Resposta curta de saída ("🤙 Falou, *Nome*! Tamo junto.") — **não** reabre menu |
+| `tudo bem?` / `blz?` / `como vai?` | Bot responde + sugere ações leves ("Manda *ranking*, *palpitar* ou *meus bolões*") — **não** menu cru |
+| `oi tudo bem?` (saudação encadeada) | Vira CUMPRIMENTO_CASUAL (não SAUDACAO pura) — stripSaudacao + matchIntent |
+| `ok` / `beleza` / `show` / `perfeito` / `top` | Resposta curta sem menu ("👍 Show! Tô por aqui.") |
+| `blz` (sem `?`) | CONCORDANCIA_CASUAL |
+| `blz?` (com `?`) | CUMPRIMENTO_CASUAL — `?` é o diferenciador |
+| `kkkk` / `rsrs` / `hahaha` / `😂` | Emoji minimalista — não menu |
+| (dentro de `sair do bolão` → "ok") | **Vira SIM** (continua saindo) — regressão crítica |
+| (admin com pendentes → "ok") | **Vira aprovação** (admin parser pega antes) — regressão crítica |
+| `ok eu quero criar bolão` (frase longa) | NÃO vira CONCORDANCIA_CASUAL (pattern restritivo `^...$`) — vira CRIAR_BOLAO |
+
+#### Histórico persistente
+
+Após mandar algumas mensagens não-entendidas pro bot:
+
+```cmd
+:: Ver últimas 10 amostras
+docker exec var_do_bolao-postgres-1 psql -U varbolao -d varbolao -c "SELECT motivo, \"llmIntent\", \"llmConfianca\", texto FROM mensagens_nao_entendidas ORDER BY \"criadoEm\" DESC LIMIT 10;"
+
+:: Agregado por motivo dos últimos 7d
+docker exec var_do_bolao-postgres-1 psql -U varbolao -d varbolao -c "SELECT motivo, COUNT(*) FROM mensagens_nao_entendidas WHERE \"criadoEm\" > NOW() - INTERVAL '7 days' GROUP BY motivo;"
+
+:: Variantes que o LLM "achou que era RANKING" mas <0.55 (ouro pra regex novo)
+docker exec var_do_bolao-postgres-1 psql -U varbolao -d varbolao -c "SELECT texto, \"llmConfianca\" FROM mensagens_nao_entendidas WHERE motivo='low_confidence' AND \"llmIntent\"='RANKING' ORDER BY \"criadoEm\" DESC LIMIT 20;"
+```
+
+Esperado:
+- `low_confidence` aparece quando você manda mensagens borderline tipo "me passa a tabela aí brother"
+- `final_fallback` aparece em mensagens completamente fora de domínio ("xpto blablabla")
+- `whatsappIdHash` é hex 16 chars — nunca o número em claro
+- Job manual: `npx tsx scripts/limpar-mensagens-antigas.ts`
 
 ### Bloco F — Hotfixes UX pós-feedback Jeni (3.1.3)
 

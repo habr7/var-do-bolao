@@ -284,13 +284,26 @@ async function handleIdle(
 
   // Fallback: pede ao LLM pra classificar a mensagem em linguagem natural
   // antes de cair no "nao entendi". Se LLM retornar algo conhecido, despacha.
-  const intencaoLLM = await classificarIntencao(msg.text);
+  const outcomeLLM = await classificarIntencao(msg.text);
+  const intencaoLLM = outcomeLLM.intencao;
   if (intencaoLLM && intencaoLLM !== Intencao.TEXTO_LIVRE) {
     void incContador('llm.intent.classifier.hit');
     const handledLLM = await dispatchIntencao(msg, usuarioId, intencaoLLM, raw);
     if (handledLLM) return;
   } else {
     void incContador('llm.intent.classifier.miss');
+    // Low confidence: LLM tentou classificar mas ficou abaixo de 0.55.
+    // Captura pra revisao offline — ouro pra descobrir variantes que merecem
+    // virar regex/handler novo.
+    if (outcomeLLM.intencaoTentada && typeof outcomeLLM.confianca === 'number') {
+      void incContador('llm.intent.classifier.low_conf');
+      void registrarMsgNaoEntendida(msg.text, 'IDLE', 'low_confidence', {
+        whatsappId: msg.waId,
+        usuarioId,
+        llmIntent: outcomeLLM.intencaoTentada,
+        llmConfianca: outcomeLLM.confianca,
+      });
+    }
   }
 
   // Smart fallback: em vez de devolver "nao entendi" direto, tenta uma
@@ -300,9 +313,14 @@ async function handleIdle(
   const respostaLLM = await responderConversacional(msg.text);
   if (respostaLLM) {
     void incContador('llm.conversational.hit');
-    void registrarMsgNaoEntendida(msg.text, 'IDLE', 'llm_fail');
+    void registrarMsgNaoEntendida(msg.text, 'IDLE', 'llm_fail', {
+      whatsappId: msg.waId,
+      usuarioId,
+      llmIntent: outcomeLLM.intencaoTentada,
+      llmConfianca: outcomeLLM.confianca,
+    });
     console.log(
-      `[smart-fallback] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} respondido_via_llm`,
+      `[smart-fallback] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} llm_tried=${outcomeLLM.intencaoTentada ?? 'null'} conf=${outcomeLLM.confianca ?? 'null'} respondido_via_llm`,
     );
     await sendText({ to: msg.waId, text: respostaLLM });
     return;
@@ -312,9 +330,14 @@ async function handleIdle(
   // Ultimo recurso: resposta amigavel admitindo que nao entendeu.
   // Loga em formato facil de grep ([nao-entendi]) pra revisar depois.
   void incContador('msg.nao_entendi');
-  void registrarMsgNaoEntendida(msg.text, 'IDLE', 'final_fallback');
+  void registrarMsgNaoEntendida(msg.text, 'IDLE', 'final_fallback', {
+    whatsappId: msg.waId,
+    usuarioId,
+    llmIntent: outcomeLLM.intencaoTentada,
+    llmConfianca: outcomeLLM.confianca,
+  });
   console.log(
-    `[nao-entendi] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} text=${JSON.stringify(msg.text.slice(0, 200))}`,
+    `[nao-entendi] waId=${msg.waId} regex_intent=${intencao} llm_intent=${intencaoLLM ?? 'null'} llm_tried=${outcomeLLM.intencaoTentada ?? 'null'} conf=${outcomeLLM.confianca ?? 'null'} text=${JSON.stringify(msg.text.slice(0, 200))}`,
   );
   await sendText({
     to: msg.waId,
@@ -467,9 +490,25 @@ async function dispatchIntencao(
       await handleResumoBoloes(msg, usuarioId);
       return true;
 
-    // Sprint 3 — cordialidade (bug Jeni 17/05)
+    // Sprint 3 — cordialidade (bug Jeni 17/05 + expansao)
     case Intencao.AGRADECIMENTO:
       await handleAgradecimento(msg);
+      return true;
+
+    case Intencao.DESPEDIDA:
+      await handleDespedida(msg);
+      return true;
+
+    case Intencao.CUMPRIMENTO_CASUAL:
+      await handleCumprimentoCasual(msg);
+      return true;
+
+    case Intencao.CONCORDANCIA_CASUAL:
+      await handleConcordanciaCasual(msg);
+      return true;
+
+    case Intencao.RISADA:
+      await handleRisada(msg);
       return true;
 
     case Intencao.PALPITE_INLINE:
@@ -656,6 +695,95 @@ async function handleAgradecimento(msg: IncomingMessage) {
     to: msg.waId,
     text: escolherRespostaAgradecimento(nome),
   });
+}
+
+/**
+ * Helper compartilhado: pega o primeiro nome do usuario (com fallback).
+ */
+async function primeiroNomeDoUsuario(waId: string): Promise<string> {
+  const usuario = await prisma.usuario.findUnique({
+    where: { whatsappId: waId },
+    select: { nome: true },
+  });
+  return usuario?.nome?.split(' ')[0] ?? 'craque';
+}
+
+/**
+ * DESPEDIDA — "tchau", "flw", "abraço", "fui"...
+ * Resposta curta de saída sem reabrir menu. Multiplas variantes pra
+ * naturalidade.
+ */
+function escolherRespostaDespedida(nome: string): string {
+  const variantes = [
+    `🤙 Falou, *${nome}*! Tamo junto.`,
+    `👋 Abraço, *${nome}*! Até a próxima.`,
+    `⚽ Beleza! Bora pra cima nos próximos jogos. 🍀`,
+    `✌️ Tchau! Qualquer coisa, chama.`,
+    `🙋 Até mais, *${nome}*! Boa sorte com os palpites.`,
+  ];
+  return variantes[Math.floor(Math.random() * variantes.length)];
+}
+
+async function handleDespedida(msg: IncomingMessage) {
+  const nome = await primeiroNomeDoUsuario(msg.waId);
+  await sendText({ to: msg.waId, text: escolherRespostaDespedida(nome) });
+}
+
+/**
+ * CUMPRIMENTO_CASUAL — "tudo bem?", "blz?", "como vai?"
+ * Responde de volta + oferece ajuda contextual leve (não reabre menu cru).
+ */
+function escolherRespostaCumprimento(nome: string): string {
+  const variantes = [
+    `Tudo certo por aqui, *${nome}*! E você?\n\nQuer ver o *ranking*, *meus palpites* ou ver os *próximos jogos*?`,
+    `De boa, *${nome}*! 🤙 Manda *ranking*, *meus pontos* ou *próximos jogos* — tô pronto.`,
+    `Tô na área, *${nome}*! Bora pra alguma jogada? *ranking*, *palpitar* ou *meus bolões*.`,
+  ];
+  return variantes[Math.floor(Math.random() * variantes.length)];
+}
+
+async function handleCumprimentoCasual(msg: IncomingMessage) {
+  const nome = await primeiroNomeDoUsuario(msg.waId);
+  await sendText({ to: msg.waId, text: escolherRespostaCumprimento(nome) });
+}
+
+/**
+ * CONCORDANCIA_CASUAL — "ok", "beleza", "show", "fechou", "perfeito"
+ * IMPORTANTE: dentro de CONFIRMANDO_* states, o FSM dispatcher pega ANTES
+ * via interpretarSimNao. Esse handler so dispara em IDLE (fluxo padrao).
+ * Reposta curta sem reabrir menu.
+ */
+function escolherRespostaConcordancia(): string {
+  const variantes = [
+    `👍 Show! Tô por aqui se precisar.`,
+    `🤙 Beleza! Manda quando quiser palpitar ou ver o ranking.`,
+    `✅ Tranquilo! Qualquer coisa, chama.`,
+    `🙌 Combinado!`,
+  ];
+  return variantes[Math.floor(Math.random() * variantes.length)];
+}
+
+async function handleConcordanciaCasual(msg: IncomingMessage) {
+  await sendText({ to: msg.waId, text: escolherRespostaConcordancia() });
+}
+
+/**
+ * RISADA — "kkkk", "rsrs", "hahaha", "😂😂😂"
+ * Resposta minimalista, só emoji ou frase super curta.
+ */
+function escolherRespostaRisada(): string {
+  const variantes = [
+    `😄`,
+    `😆`,
+    `kkkkk`,
+    `🤣`,
+    `haha`,
+  ];
+  return variantes[Math.floor(Math.random() * variantes.length)];
+}
+
+async function handleRisada(msg: IncomingMessage) {
+  await sendText({ to: msg.waId, text: escolherRespostaRisada() });
 }
 
 // ============================================================

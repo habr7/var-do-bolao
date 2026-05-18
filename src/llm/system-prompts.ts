@@ -64,7 +64,11 @@ INTENCOES:
 - RENOMEAR_BOLAO: admin quer renomear o bolao. Ex: "renomear bolao", "mudar nome do bolao".
 - REMOVER_PARTICIPANTE: admin quer tirar alguem do bolao. Ex: "remover Fulano", "tirar Fulano do bolao", "expulsar".
 - RESUMO_BOLOES: usuario quer ver desempenho em todos os bolaes em que participa. Ex: "como to indo nos boloes?", "meu desempenho geral", "em quantos bolaes to em primeiro?".
-- AGRADECIMENTO: usuario agradeceu/se despediu com cordialidade simples. Ex: "obrigada", "valeu", "vlw", "brigado", "thanks", "tmj", "agradecido". NAO mostre menu — bot responde so com uma cordialidade curta de volta.
+- AGRADECIMENTO: usuario agradeceu. Ex: "obrigada", "valeu", "vlw", "brigado", "thanks", "tmj", "agradecido". NAO mostre menu — bot responde so com uma cordialidade curta de volta.
+- DESPEDIDA: usuario encerrando a conversa. Ex: "tchau", "ate logo", "ate mais", "falou", "flw", "fui", "abraco", "abs", "bjs". NAO mostre menu — bot responde com uma saida curta.
+- CUMPRIMENTO_CASUAL: usuario perguntando "tudo bem?". Ex: "tudo bem?", "tudo bom?", "blz?", "td certo?", "como vai?", "suave?", "firmeza?". NAO eh saudacao pura ("oi") — eh perguntinha social. Bot responde curto + sugere proximas acoes (NAO o menu completo).
+- CONCORDANCIA_CASUAL: usuario respondeu OK/beleza/show de forma curta em IDLE (apos uma acao concluida). Ex: "ok", "beleza", "show", "fechou", "tranquilo", "perfeito", "saquei", "entendi". CUIDADO: dentro de um fluxo de confirmacao (CONFIRMANDO_*), essas mesmas palavras viram SIM via outro caminho — voce so vê em IDLE. Responda curto sem reabrir menu.
+- RISADA: usuario mandou risada isolada. Ex: "kkkk", "rsrs", "hahaha", "😂", "🤣". Responda com emoji curto, sem menu.
 - PENDENTES: admin perguntando solicitacoes pendentes. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.

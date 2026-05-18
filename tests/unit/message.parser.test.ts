@@ -578,6 +578,121 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('Sprint 3 — DESPEDIDA', () => {
+    it('"tchau" → DESPEDIDA', () => {
+      expect(parseIntencao('tchau').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"até mais" → DESPEDIDA', () => {
+      expect(parseIntencao('até mais').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"falou" → DESPEDIDA', () => {
+      expect(parseIntencao('falou').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"flw" → DESPEDIDA', () => {
+      expect(parseIntencao('flw').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"fui" → DESPEDIDA', () => {
+      expect(parseIntencao('fui').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"abraço" → DESPEDIDA', () => {
+      expect(parseIntencao('abraço').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"abs" → DESPEDIDA', () => {
+      expect(parseIntencao('abs').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"bjs" → DESPEDIDA', () => {
+      expect(parseIntencao('bjs').intencao).toBe(Intencao.DESPEDIDA);
+    });
+    it('"até amanhã" → DESPEDIDA', () => {
+      expect(parseIntencao('até amanhã').intencao).toBe(Intencao.DESPEDIDA);
+    });
+  });
+
+  describe('Sprint 3 — CUMPRIMENTO_CASUAL', () => {
+    it('"tudo bem?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('tudo bem?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    it('"tudo bom?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('tudo bom?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    it('"td certo?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('td certo?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    it('"como vai?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('como vai?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    it('"como ta?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('como ta?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    it('"suave?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('suave?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    it('"firmeza?" → CUMPRIMENTO_CASUAL', () => {
+      expect(parseIntencao('firmeza?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+    // Saudacao encadeada: "oi tudo bem?" deve cair em CUMPRIMENTO_CASUAL
+    // (e nao em SAUDACAO pura) graças ao stripSaudacao + INTENT_RULES.
+    it('"oi tudo bem?" → CUMPRIMENTO_CASUAL (após strip saudação)', () => {
+      expect(parseIntencao('oi tudo bem?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+  });
+
+  describe('Sprint 3 — CONCORDANCIA_CASUAL', () => {
+    it('"ok" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('ok').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"beleza" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('beleza').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"blz" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('blz').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"show" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('show').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"fechou" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('fechou').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"perfeito" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('perfeito').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"top" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('top').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    it('"entendi" → CONCORDANCIA_CASUAL', () => {
+      expect(parseIntencao('entendi').intencao).toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+    // Pattern restritivo: "ok eu quero criar bolão" não deve virar CONCORDANCIA
+    it('"ok quero criar bolão" NÃO é CONCORDANCIA (pattern restrito)', () => {
+      const r = parseIntencao('ok quero criar bolão');
+      expect(r.intencao).not.toBe(Intencao.CONCORDANCIA_CASUAL);
+    });
+  });
+
+  describe('Sprint 3 — RISADA', () => {
+    it('"kkkk" → RISADA', () => {
+      expect(parseIntencao('kkkk').intencao).toBe(Intencao.RISADA);
+    });
+    it('"kk" → RISADA', () => {
+      expect(parseIntencao('kk').intencao).toBe(Intencao.RISADA);
+    });
+    it('"rsrsrs" → RISADA', () => {
+      expect(parseIntencao('rsrsrs').intencao).toBe(Intencao.RISADA);
+    });
+    it('"hahaha" → RISADA', () => {
+      expect(parseIntencao('hahaha').intencao).toBe(Intencao.RISADA);
+    });
+    it('"huehue" → RISADA', () => {
+      expect(parseIntencao('huehue').intencao).toBe(Intencao.RISADA);
+    });
+    it('"😂" → RISADA', () => {
+      expect(parseIntencao('😂').intencao).toBe(Intencao.RISADA);
+    });
+    it('"🤣🤣🤣" → RISADA', () => {
+      expect(parseIntencao('🤣🤣🤣').intencao).toBe(Intencao.RISADA);
+    });
+  });
+
   describe('Sprint 3 — AGRADECIMENTO (bug Jeni 17/05)', () => {
     it('"obrigada" → AGRADECIMENTO (nao SAUDACAO)', () => {
       expect(parseIntencao('obrigada').intencao).toBe(Intencao.AGRADECIMENTO);

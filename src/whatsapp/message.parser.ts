@@ -57,8 +57,12 @@ export enum Intencao {
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
-  // Sprint 3 — handler de cordialidade (bug Jeni 17/05)
-  AGRADECIMENTO = 'AGRADECIMENTO', // "obrigada", "valeu", "vlw", "brigado", "thx"
+  // Sprint 3 — handlers de cordialidade
+  AGRADECIMENTO = 'AGRADECIMENTO',          // "obrigada", "valeu", "vlw", "brigado", "thx"
+  DESPEDIDA = 'DESPEDIDA',                  // "tchau", "flw", "abraço", "fui"
+  CUMPRIMENTO_CASUAL = 'CUMPRIMENTO_CASUAL', // "tudo bem?", "blz?", "como vai"
+  CONCORDANCIA_CASUAL = 'CONCORDANCIA_CASUAL', // "ok", "beleza" (em IDLE — em CONFIRMANDO_* vira SIM)
+  RISADA = 'RISADA',                         // "kkkk", "rsrs", "hahaha"
 
   // Intencoes de admin
   APROVAR = 'APROVAR',
@@ -266,6 +270,85 @@ const AGRADECIMENTO_PATTERNS: RegExp[] = [
   /^agrade[cç]o\b/,
 ];
 
+// "Tchau / até / flw" — usuario encerrando a conversa
+const DESPEDIDA_PATTERNS: RegExp[] = [
+  /^tchau\b/,
+  /^xau(zinho)?\b/,
+  /^at[eé] (?:logo|mais|amanh[aã]|breve|depois|j[aá]|qualquer)\b/,
+  /^at[eé]\s*\+\s*$/,
+  /^falou(?: men| brother| veio| irmao)?\b/,
+  /^fal[ou]w\b/,
+  /^flw+\b/,
+  /^fui\b/,
+  /^abra[cç]os?\b/,
+  /^abs\b/,
+  /^bjs?\b/,
+  /^beijos?\b/,
+  /^bjao\b/,
+  /^bjs gente\b/,
+  /^se cuida\b/,
+  /^boa noite$/, // saudacao de despedida (so quando isolada — SAUDACOES set ja pega isso, mas explicito)
+];
+
+// "Tudo bem? / blz? / suave?" — small talk
+// IMPORTANTE: padroes com `?` no final exigem o caractere de interrogacao
+// pra disambiguar "blz" (concordancia, sem ?) vs "blz?" (pergunta social).
+// Formas afirmativas sao tratadas em CONCORDANCIA_CASUAL_PATTERNS.
+const CUMPRIMENTO_CASUAL_PATTERNS: RegExp[] = [
+  /\btudo (?:bem|bom|certo|tranquilo|jo[ií]a|joia)\b/,
+  /\bt[aá] (?:tudo|tranquilo|de boa)\b/,
+  /\bcomo (?:voc[eê] )?(?:vai|ta|esta|anda|vai indo)\b/,
+  /^blz\?$/,
+  /^belezinha\?$/,
+  /^td certo\?$/,
+  /^td bem\?$/,
+  /^suave\?$/,
+  /^firmeza\?$/,
+  /^de boa\?$/,
+];
+
+// "Ok / beleza / show / massa" — concordancia/acknowledgement casual em IDLE.
+// IMPORTANTE: em CONFIRMANDO_* states, o FSM dispatcher pega antes e interpreta
+// via `interpretarSimNao` (bolao.matcher.ts) — entao "ok" dentro de CONFIRMANDO_SAIR_BOLAO
+// continua sendo SIM. Esta intent so dispara em IDLE (apos FSM passar).
+//
+// Patterns SAO RESTRITIVOS (^...$) pra nao pegar palavras incidentais em frases longas.
+const CONCORDANCIA_CASUAL_PATTERNS: RegExp[] = [
+  /^ok+\b\s*[.!]?\s*$/,
+  /^okay\b\s*[.!]?\s*$/,
+  /^beleza\b\s*[.!]?\s*$/,
+  /^blz\b\s*[.!]?\s*$/,
+  /^show( de bola)?\b\s*[.!]?\s*$/,
+  /^massa\b\s*[.!]?\s*$/,
+  /^maneiro\b\s*[.!]?\s*$/,
+  /^legal\b\s*[.!]?\s*$/,
+  /^fechou\b\s*[.!]?\s*$/,
+  /^fech[oô]u?\b\s*[.!]?\s*$/,
+  /^combinado\b\s*[.!]?\s*$/,
+  /^tranquilo\b\s*[.!]?\s*$/,
+  /^tranq\b\s*[.!]?\s*$/,
+  /^perfeito\b\s*[.!]?\s*$/,
+  /^top( demais)?\b\s*[.!]?\s*$/,
+  /^d[aá] certo\b\s*[.!]?\s*$/,
+  /^entendi(?: po| sim| beleza)?\b\s*[.!]?\s*$/,
+  /^saquei\b\s*[.!]?\s*$/,
+  /^boa\b\s*[.!]?\s*$/, // como elogio curto: "boa!"
+];
+
+// "kkkk / rsrs / hahaha" — risada isolada
+const RISADA_PATTERNS: RegExp[] = [
+  /^k{2,}$/,
+  /^(?:rs){2,}$/,
+  /^rsrs+$/,
+  /^(?:ha){2,}h?$/,
+  /^(?:he){2,}h?$/,
+  /^(?:hue){2,}$/,
+  /^k{1,3}(?:\s+k{1,3}){1,}$/, // "kk kk" e variantes
+  /^😂{1,}\s*😂*$/u,
+  /^🤣{1,}\s*🤣*$/u,
+  /^😆{1,}\s*😆*$/u,
+];
+
 // "Abrir rodada / iniciar / começar bolao"
 const ABRIR_RODADA_PATTERNS: RegExp[] = [
   /\babrir rodada\b/,
@@ -471,9 +554,19 @@ const PENDENTES_PATTERNS: RegExp[] = [
 ];
 
 const INTENT_RULES: IntentRules[] = [
-  // AGRADECIMENTO no topo: super especifico, evita que "obrigada" caia no
-  // fallback LLM e seja classificado como SAUDACAO (bug Jeni 17/05).
+  // Cordialidade no topo — super especificos, evitam que mensagens sociais
+  // curtas (obrigada/tchau/tudo bem?/ok/kkk) caiam no fallback LLM e
+  // sejam classificadas como SAUDACAO (reabrindo menu).
+  // Bug Jeni 17/05 + expansao Sprint 3.
   { intencao: Intencao.AGRADECIMENTO, padroes: AGRADECIMENTO_PATTERNS },
+  { intencao: Intencao.DESPEDIDA, padroes: DESPEDIDA_PATTERNS },
+  // CUMPRIMENTO_CASUAL antes de SAUDACAO porque "oi tudo bem?" precisa
+  // virar CUMPRIMENTO (não SAUDACAO solta). Trabalha junto com stripSaudacao.
+  { intencao: Intencao.CUMPRIMENTO_CASUAL, padroes: CUMPRIMENTO_CASUAL_PATTERNS },
+  // CONCORDANCIA_CASUAL: pattern restrito (^...$) pra não pegar palavras
+  // em frases longas. Em CONFIRMANDO_* states o FSM dispatcher pega antes.
+  { intencao: Intencao.CONCORDANCIA_CASUAL, padroes: CONCORDANCIA_CASUAL_PATTERNS },
+  { intencao: Intencao.RISADA, padroes: RISADA_PATTERNS },
   // Ordem: mais especificos antes. REGRAS antes de AJUDA pq "como funciona
   // pontuacao" vs "como funciona" sao bem proximos.
   { intencao: Intencao.REGRAS, padroes: REGRAS_PATTERNS },

@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.1.3
-**Última atualização:** 2026-05-18 (hotfixes UX pós-feedback Jeni: RANKING natural, AGRADECIMENTO, confirmação multi-bolão)
+**Versão do documento:** 3.2.0
+**Última atualização:** 2026-05-18 (expansão de cordialidade + tabela persistente de mensagens não-entendidas)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -381,8 +381,9 @@ Contadores em Redis (via `src/utils/metrics.ts`):
 | `llm.conversational.{hit,miss}` | LLM smart fallback respondeu/não |
 | `msg.nao_entendi` | caiu no "não entendi" final |
 
-Amostras de mensagens não roteadas em `metrics:YYYY-MM-DD:nao-entendi` (lista,
-top 500, TTL 30 dias).
+Amostras de mensagens não roteadas: a partir de **v3.2.0** vão pra tabela
+Prisma `mensagens_nao_entendidas` (persistência indefinida até job mensal
+de limpeza). Antes ficavam em Redis com TTL 30d. Ver seção 17 pra detalhes.
 
 ---
 
@@ -421,14 +422,21 @@ top 500, TTL 30 dias).
 | `REMOVER_PARTICIPANTE` | "remover Fulano", "tirar Fulano do bolão", "expulsar" | admin remove participante com confirmação (ISSUE-021) |
 | `RESUMO_BOLOES` | "como to indo nos boloes", "meu desempenho geral" | resumo posição + pontos em cada bolão (ISSUE-023) |
 | `AGRADECIMENTO` | "obrigado/a", "valeu", "vlw", "brigado/a", "thanks", "tmj", "agradecido" | cordialidade curta randomizada — não reabre menu (bug Jeni 17/05) |
+| `DESPEDIDA` | "tchau", "flw", "falou", "fui", "abraço", "abs", "bjs", "até logo/mais/amanhã" | resposta curta de saída sem reabrir menu (Sprint 3) |
+| `CUMPRIMENTO_CASUAL` | "tudo bem?", "blz?", "td certo?", "como vai?", "como ta?", "suave?", "firmeza?" | responde + sugere ações leves ("quer ver ranking ou palpitar?") |
+| `CONCORDANCIA_CASUAL` | "ok", "beleza", "blz", "show", "fechou", "perfeito", "top", "entendi", "saquei" | acknowledgement curto. Em `CONFIRMANDO_*` o FSM pega antes via `interpretarSimNao` (vira SIM); só dispara em IDLE. |
+| `RISADA` | "kkkk", "rsrs", "hahaha", "huehue", "😂", "🤣" | emoji curto, sem menu |
 | `APROVAR` / `RECUSAR` | `!aprovar Nome` / `!recusar Nome` | ações admin explícitas |
 | `PENDENTES` | "pendentes", "tem pedido pra aprovar" | lista pedidos pendentes |
 | `CANCELAR` | "cancelar", "sair", "esquece" | reset FSM + menu |
 | `TEXTO_LIVRE` | (fallback) | passa pra camada 2 (LLM) |
 
-**Ordem do matching em `INTENT_RULES`**: `AGRADECIMENTO → REGRAS → INFO_SENHA →
-EXCLUIR_BOLAO → ... → CRIAR_BOLAO → ENTRAR_BOLAO → RANKING`. AGRADECIMENTO no
-topo pra "obrigada" não cair em SAUDACAO via fallback LLM.
+**Ordem do matching em `INTENT_RULES`**: `AGRADECIMENTO → DESPEDIDA →
+CUMPRIMENTO_CASUAL → CONCORDANCIA_CASUAL → RISADA → REGRAS → INFO_SENHA →
+EXCLUIR_BOLAO → ... → CRIAR_BOLAO → ENTRAR_BOLAO → RANKING`. Cordialidade no
+topo pra mensagens curtas/sociais não caírem em SAUDACAO via fallback LLM
+(reabrindo menu). Patterns são restritivos (`^...$`) pra não comer
+palavras incidentais em frases longas.
 
 Específicos antes de genéricos (ex: `INFO_SENHA` antes de `ENTRAR_BOLAO` porque
 "senha do bolão" tem "bolão").
@@ -601,6 +609,23 @@ model PalpiteJogo {
   pontosObtidos Int    @default(0)
   @@unique([palpiteId, jogoId])
 }
+
+// Sprint 3: histórico persistente de mensagens não-entendidas (LGPD-friendly)
+// Substitui a antiga lista Redis (TTL 30d, 500/dia). Persistência indefinida
+// até o job mensal de limpeza derrubar registros > MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS.
+model MensagemNaoEntendida {
+  id              String   @id @default(uuid())
+  usuarioId       String?  // FK opcional — ON DELETE SET NULL
+  whatsappIdHash  String   // sha256(whatsappId).slice(0,16) — NUNCA em claro
+  texto           String   @db.Text  // truncado em 500 chars
+  state           String                 // estado FSM no momento
+  motivo          String   // 'regex_fail' | 'llm_fail' | 'final_fallback' | 'low_confidence'
+  llmIntent       String?  // intent que LLM tentou (mesmo low-conf)
+  llmConfianca    Float?   // 0-1
+  criadoEm        DateTime @default(now())
+  @@index([criadoEm])
+  @@index([motivo, criadoEm])
+}
 ```
 
 ### 9.1 Operações críticas — invariantes que NÃO podem regredir
@@ -691,6 +716,7 @@ ID do bolão: #K3MZ8P
 | `send-bom-dia` | `0 * * * *` | Saudação nos dias com jogo (decide horário internamente) |
 | `send-palpite-call` | `5 * * * *` | Chamada de palpites `PALPITE_CALL_HORAS_ANTES` (6h) antes do 1o jogo do dia |
 | `repair-broken-boloes` | boot + `0 3 * * *` | Detecta bolões ATIVOS sem rodada ou com rodada vazia, carrega jogos via adapter, notifica admin via DM. Roda 1x no boot (limpa legado) + 1x/dia às 03:00 (defensivo). Idempotente. |
+| `limpar-mensagens-antigas` | `0 5 1 * *` | LGPD: deleta registros de `mensagens_nao_entendidas` mais antigos que `MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS` (default 180). Roda dia 1 de cada mês às 05:00. |
 | `validate-pix` | *desativado* | (mantido comentado, volta quando reativar PIX) |
 
 Idempotência via flags em Redis (`bom_dia_sent:YYYY-MM-DD:waId`,
@@ -820,22 +846,67 @@ Migração no futuro pode reusar todo o pipeline interno (`message.parser`,
 
 ---
 
-## 17. Métricas / Observabilidade (ISSUE-008)
+## 17. Métricas / Observabilidade (ISSUE-008 + Sprint 3)
 
-`src/utils/metrics.ts` + Redis. Funções `incContador`, `registrarMsgNaoEntendida`,
-`lerMetricasDoDia`, `lerAmostrasNaoEntendi`.
+Duas camadas:
 
-Logs estruturados:
+### 17.1 Contadores agregados (Redis, TTL 30d)
+
+`src/utils/metrics.ts` — hash diário em `metrics:YYYY-MM-DD`. Função
+`incContador(nome)`. Convenções de nomes: `msg.total`, `msg.nao_entendi`,
+`intent.<NOME>`, `llm.intent.classifier.{hit,miss,low_conf}`, `llm.conversational.{hit,miss}`,
+`admin.<acao>`. Consulta via `lerMetricasDoDia()` ou `redis-cli HGETALL`.
+
+### 17.2 Mensagens não-entendidas (Postgres, retenção configurável)
+
+**Tabela `mensagens_nao_entendidas`** (Sprint 3) substitui a antiga lista
+Redis. Persistência indefinida até o job mensal de limpeza
+(`MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS`, default 180). Captura 4 motivos:
+
+| Motivo | Quando |
+|--------|--------|
+| `regex_fail` | Camada 1 (regex) não casou nenhuma intent — atualmente não disparado explicitamente (cai pra LLM antes) |
+| `llm_fail` | Smart-fallback respondeu mas regex e classifier falharam — bot escapou via conversational responder |
+| `final_fallback` | Tudo falhou — bot mostrou "não entendi" cru |
+| `low_confidence` | **LLM classifier tentou classificar mas confiança < 0.55**. **Ouro pra descobrir variantes que merecem virar regex novo.** Captura também `llmIntent` (chute do LLM) + `llmConfianca`. |
+
+**LGPD**: `whatsappId` nunca persistido em claro — só hash sha256-16
+(`hashIdentificador()` em metrics.ts). FK `usuarioId` opcional com
+`ON DELETE SET NULL` — se admin deletar conta, log fica anônimo mas não
+é deletado.
+
+**Consultas úteis:**
+
+```sql
+-- Top motivos da última semana
+SELECT motivo, COUNT(*) FROM mensagens_nao_entendidas
+WHERE "criadoEm" > NOW() - INTERVAL '7 days'
+GROUP BY motivo ORDER BY COUNT(*) DESC;
+
+-- Variantes de RANKING que o LLM "achou que era ranking" mas não tinha certeza
+-- (ouro pra criar regex novo)
+SELECT texto, "llmConfianca" FROM mensagens_nao_entendidas
+WHERE motivo = 'low_confidence' AND "llmIntent" = 'RANKING'
+ORDER BY "criadoEm" DESC LIMIT 20;
+
+-- Usuários distintos no fallback (hash)
+SELECT "whatsappIdHash", COUNT(*) FROM mensagens_nao_entendidas
+WHERE "criadoEm" > NOW() - INTERVAL '30 days'
+GROUP BY "whatsappIdHash" ORDER BY COUNT(*) DESC LIMIT 10;
+```
+
+### 17.3 Logs estruturados
 
 | Prefixo | Onde | O que loga |
 |---------|------|------------|
 | `[timing]` | toda mensagem | `waId=... intent=... state=... user=Xms session=Yms parse=Zms dispatch=Wms total=Tms` |
 | `[llm]` | toda chamada LLM | `provider=gemini model=... latency=Xms ok` |
-| `[smart-fallback]` | LLM responder funcionou | `waId=... regex_intent=X llm_intent=Y` |
-| `[nao-entendi]` | tudo falhou | `text=...` (truncado em 200 chars) |
+| `[smart-fallback]` | LLM responder funcionou | `waId=... regex_intent=X llm_intent=Y llm_tried=Z conf=N` |
+| `[nao-entendi]` | tudo falhou | `text=... llm_tried=Z conf=N` (truncado em 200 chars) |
 | `[fsm-escape]` | estado interrompido | `state=X → IDLE (nova intent=Y)` |
 | `[multi-palpite]` | parse multilinha | `ok=N descartadas=M` |
 | `[webhook-debug]` | toda request webhook | dados do payload Evolution |
+| `[limpar-mensagens-antigas]` | job mensal | `removidos: N (>180d)` |
 
 ---
 
@@ -972,4 +1043,5 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 3.1 | 2026-05-17 | Sprint 2 completo (ISSUES 009-023): +10 intents, +14 FSM states, bolão padrão (schema migration), editar/apagar palpite, validar placar absurdo, multi-bolão auto-apply, renomear bolão, remover participante, RESUMO_BOLOES. 322 tests, 75 cenários. |
 | 3.1.1 | 2026-05-17 | Hotfixes pós-Sprint 2 em produção: (a) `Jogo.apiJogoId` deixa de ser unique global → `@@unique([rodadaId, apiJogoId])` + `criarBolao` virou transação atômica + novo job `repair-broken-boloes` (boot + 03:00 diário). Corrige bolões 2º em diante ficando com rodada vazia. (b) Bolões `FINALIZADO` voltaram a aparecer em consultas (ranking/meus palpites/meus bolões), marcados com 🏁; `handleProximosJogos` ganhou mensagem auto-diagnóstica quando usuário só tem encerrados; repository split `listarBoloesAtivos*` vs `listarBoloes*ComHistorico`. **322 tests, 75 cenários — sem regressão.** |
 | 3.1.2 | 2026-05-17 | Patch da migration de unique-por-rodada. Descoberto em deploy local: o `@unique` original do init migration foi materializado como `CREATE UNIQUE INDEX "jogos_apiJogoId_key"`, não como `ALTER TABLE ADD CONSTRAINT`. Por isso o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op silencioso e o índice unique global ficava órfão, ainda bloqueando inserts cross-bolão. Novo migration `20260517170000_drop_jogos_apijogoid_unique_index` executa `DROP INDEX IF EXISTS`. Bolão `#K6VCCJ` (legacy quebrado) reparado com sucesso após apply. Novo script `scripts/run-repair-once.ts` permite disparar o reparo sob demanda sem subir o servidor. |
-| **3.1.3** | **2026-05-18** | **Hotfixes UX pós-feedback Jeni:** (a) `RANKING` intent agora aceita frases naturais como "Quero ver o ranking", "Ver o ranking", "me mostra a tabela" via padrões regex novos + `extrairNomeBolaoDoRanking` que faz strip robusto pra não usar a frase inteira como nome do bolão; (b) Nova intent `AGRADECIMENTO` ("obrigada/o", "valeu", "vlw", "brigado/a", "thanks", "tmj") com handler curto e amigável randomizado — não reabre o menu como SAUDACAO fazia; (c) ISSUE-015 (auto-apply multi-bolão) agora passa por confirmação `CONFIRMANDO_PALPITE_MULTI_BOLAO` com preview dos N bolões antes de registrar. Removido dead code `registrarPalpiteInline`. **342 tests (era 322), 85 cenários (era 75).** (este documento) |
+| 3.1.3 | 2026-05-18 | Hotfixes UX pós-feedback Jeni: (a) `RANKING` intent agora aceita frases naturais como "Quero ver o ranking", "Ver o ranking", "me mostra a tabela" via padrões regex novos + `extrairNomeBolaoDoRanking` que faz strip robusto pra não usar a frase inteira como nome do bolão; (b) Nova intent `AGRADECIMENTO` ("obrigada/o", "valeu", "vlw", "brigado/a", "thanks", "tmj") com handler curto e amigável randomizado — não reabre o menu como SAUDACAO fazia; (c) ISSUE-015 (auto-apply multi-bolão) agora passa por confirmação `CONFIRMANDO_PALPITE_MULTI_BOLAO` com preview dos N bolões antes de registrar. Removido dead code `registrarPalpiteInline`. 342 tests (era 322), 85 cenários (era 75). |
+| **3.2.0** | **2026-05-18** | **Expansão de cordialidade + histórico persistente.** **4 novos intents de cordialidade**: `DESPEDIDA` (tchau/flw/abraço/fui), `CUMPRIMENTO_CASUAL` (tudo bem?/blz?/como vai?), `CONCORDANCIA_CASUAL` (ok/beleza/show/perfeito — só em IDLE; em CONFIRMANDO_* o FSM pega antes), `RISADA` (kkk/rsrs/hahaha/😂). Cada um com handler dedicado e variantes randomizadas — não reabrem menu. **Nova tabela Prisma `MensagemNaoEntendida`** substitui a antiga lista Redis (TTL 30d) por persistência indefinida queryable via SQL. Captura também casos `low_confidence` (LLM tentou classificar mas ficou < 0.55) com `llmIntent` + `llmConfianca` — ouro pra descobrir variantes que merecem virar regex. `classificarIntencao` mudou de retornar `Intencao\|null` para `ClassificationOutcome` com `intencao` + `intencaoTentada` + `confianca`. LGPD: `whatsappId` nunca em claro — só hash sha256-16; FK `usuarioId` com `ON DELETE SET NULL`; job mensal de limpeza derruba registros antigos via `MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS` (default 180). **377 tests (era 342), 102 cenários (era 85).** (este documento) |
