@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**377+ tests** distribuídos em `tests/unit/`. Cobre:
+**384+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -48,7 +48,7 @@ npm run test:watch
 
 ## 2. Simulação determinística (`scripts/simulate-conversation.ts`)
 
-Roda **102+ cenários** que cobrem todos os bugs reais já vistos em conversas
+Roda **106+ cenários** que cobrem todos os bugs reais já vistos em conversas
 com usuários. Não toca DB/Redis nem rede — só testa o parser e o admin parser
 (que é onde mora a maioria dos bugs).
 
@@ -332,6 +332,19 @@ npx tsx scripts/run-repair-once.ts
 
 Roda uma única vez e sai. Útil também pra forçar o reparo logo após
 aplicar uma migration nova sem ter que reiniciar o servidor.
+
+### Bloco H — Hotfix 4 bugs Humberto (3.2.1)
+
+| Mensagem | Esperado |
+|---|---|
+| `Pontuação` (capitalizado) | MEUS_PONTOS — bot lista bolões e pede qual |
+| `pontuacao` (sem til) | MEUS_PONTOS |
+| `score` / `quanto pontuei` | MEUS_PONTOS |
+| `Ajuda` | Texto novo com linguagem natural — sem `!comandos` |
+| (Após "meus bolões" mostrar lista) `Bolao teste oficial` | Bot oferece **menu contextual** ("você já participa, quer: 1.ranking, 2.meus palpites, 3.meus pontos, 4.próximos jogos, 5.criar bolão novo?") — NÃO inicia criação |
+| (No estado CRIANDO_BOLAO_NOME) `próximos jogos` | Bot **auto-cancela** criação + processa próximos jogos |
+| (No estado CRIANDO_BOLAO_SENHA) `quero ver os próximos jogos` | Idem — cancela criação + processa |
+| (No estado CRIANDO_BOLAO_NOME) `Bolão da Firma` (nome legítimo) | Continua aceitando como nome (não é intent forte) |
 
 ### Bloco G — Cordialidade expandida + histórico persistente (3.2.0)
 

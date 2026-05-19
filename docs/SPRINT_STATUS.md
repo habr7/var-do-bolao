@@ -5,7 +5,23 @@
 >
 > Este arquivo é a fonte canônica do que **já foi feito** vs **o que falta**.
 
-**Última atualização:** 2026-05-18 (após expansão de cordialidade + histórico persistente — v3.2.0)
+**Última atualização:** 2026-05-18 (após hotfix 4-bugs Humberto — v3.2.1)
+
+---
+
+## 🛠️ Hotfix 4 bugs Humberto (v3.2.1) — concluído (2026-05-18)
+
+Conversa real revelou 4 bugs em sequência. Mapeados via tabela
+`mensagens_nao_entendidas` + transcrição:
+
+| # | Bug | Conserto |
+|---|---|---|
+| 1 | `"Bolao teste oficial"` (sozinho, depois de "meus bolões") virou CRIAR_BOLAO. LLM classifier alucinou — sem verbo de ação, mas tinha "bolao" no texto. Bot criou bolão duplicado. | Novo helper `tentarOferecerMenuContextualPorNomeBolao` — antes de despachar CRIAR_BOLAO, fuzzy-matcha o raw com bolões que o user já participa (incluindo encerrados). Se bate, mostra menu contextual ("você já participa! quer ranking/meus palpites/meus pontos/próximos jogos/criar bolão novo?"). System prompt do LLM agora exige verbo de ação explícito (criar/abrir/montar/fazer/novo) — só nome de bolão sozinho → DESCONHECIDO. |
+| 2 | `"Proximos jogos"` no estado `CRIANDO_BOLAO_NOME` virou nome do bolão. Pior: `"Quero ver os proximos jogos..."` no `CRIANDO_BOLAO_SENHA` virou senha (tinha >6 chars). Resultado: bolão chamado "Proximos jogos" criado por engano. | Novo helper `tentarFsmEscapeCriandoBolao` — em ambos os handlers (`handleCriandoBolaoNome`, `handleCriandoBolaoSenha`) roda `parseIntencao(msg.text)` PRIMEIRO. Se bate intent forte (PROXIMOS_JOGOS/RANKING/MEUS_BOLOES/AJUDA/MENU/CANCELAR/COMO_CONVIDAR/QUEM_PARTICIPA/etc), auto-cancela criação + reprocessa a mensagem via `handleIncomingMessage`. Mensagem clara avisando ("isso parece um comando, cancelei a criação"). |
+| 3 | `"Pontuação"` sozinho virou RANKING("pontuacao") → bot procurou bolão chamado "pontuacao" e respondeu "não encontrado". | `MEUS_PONTOS_PATTERNS` ampliado com `^pontua[cç][aã]o$`, `^pontos?$`, `^score`, `^meu score`, `^minha pontuacao`, `quanto pontuei`. |
+| 4 | `"Ajuda"` mostrou texto da v1 com comandos no formato `!comando` (legado, prefixo "!", não funciona mais). | `formatAjuda` em `src/utils/formatting.ts` reescrito pra refletir UX atual v3.2.0+: linguagem natural, todos os fluxos (palpitar, criar/admin, entrar, consultas, editar/apagar palpite, bolão padrão, sair). |
+
+**Métricas:** 384 tests (era 377) · 106 cenários (era 102).
 
 ---
 

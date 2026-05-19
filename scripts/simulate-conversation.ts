@@ -739,6 +739,34 @@ const CENARIOS: Cenario[] = [
     msg: 'ok quero criar bolão',
     esperado: { intencao: Intencao.CRIAR_BOLAO },
   },
+
+  // ====================================================================
+  // Bug Humberto 18/05 — Pontuação / Ajuda / FSM escape / Match contextual
+  // ====================================================================
+  {
+    grupo: '📊 Bug Humberto 18/05 — pontuação',
+    desc: '"Pontuação" → MEUS_PONTOS (era RANKING("pontuacao"))',
+    msg: 'Pontuação',
+    esperado: { intencao: Intencao.MEUS_PONTOS },
+  },
+  {
+    grupo: '📊 Bug Humberto 18/05 — pontuação',
+    desc: '"pontuacao" sem til → MEUS_PONTOS',
+    msg: 'pontuacao',
+    esperado: { intencao: Intencao.MEUS_PONTOS },
+  },
+  {
+    grupo: '📊 Bug Humberto 18/05 — pontuação',
+    desc: '"score" → MEUS_PONTOS',
+    msg: 'score',
+    esperado: { intencao: Intencao.MEUS_PONTOS },
+  },
+  {
+    grupo: '📊 Bug Humberto 18/05 — pontuação',
+    desc: '"quanto pontuei" → MEUS_PONTOS',
+    msg: 'quanto pontuei',
+    esperado: { intencao: Intencao.MEUS_PONTOS },
+  },
 ];
 
 // ============================================================

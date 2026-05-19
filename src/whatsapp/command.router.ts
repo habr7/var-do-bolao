@@ -365,13 +365,25 @@ async function dispatchIntencao(
       await sendText({ to: msg.waId, text: formatAjuda(env.BOT_PREFIX) });
       return true;
 
-    case Intencao.CRIAR_BOLAO:
+    case Intencao.CRIAR_BOLAO: {
+      // Bug Humberto 18/05: "Bolao teste oficial" virou CRIAR_BOLAO no LLM
+      // classifier mesmo sem verbo de acao. Antes de iniciar fluxo de
+      // criacao, checa se o raw bate fuzzy com bolao que o user ja
+      // participa — se bater, oferece menu contextual em vez de criar.
+      const interceptou = await tentarOferecerMenuContextualPorNomeBolao(
+        msg,
+        usuarioId,
+        raw,
+      );
+      if (interceptou) return true;
+
       await setSession(msg.waId, { state: 'CRIANDO_BOLAO_NOME', ctx: {} });
       await sendText({
         to: msg.waId,
         text: '⚽ Bora criar um bolão novo!\n\nComo você quer chamar?\n_(ex: Bolão da Firma, Copa dos Amigos…)_',
       });
       return true;
+    }
 
     case Intencao.ENTRAR_BOLAO:
       await setSession(msg.waId, { state: 'ENTRANDO_NOME', ctx: { tentativas: 0 } });
@@ -931,7 +943,76 @@ async function handleQuandoComeca(msg: IncomingMessage, usuarioId: string) {
 // ============================================================
 // Fluxo: CRIAR BOLAO
 // ============================================================
-async function handleCriandoBolaoNome(msg: IncomingMessage, _usuarioId: string) {
+
+/**
+ * Bug Humberto 18/05: usuario no estado CRIANDO_BOLAO_NOME ou _SENHA manda
+ * "Proximos jogos" / "Quero ver os proximos jogos..." achando que esta
+ * conversando normalmente. Bot aceita como nome/senha do bolao e cria um
+ * bolao chamado "Proximos jogos" — desastre.
+ *
+ * Fix: detectar se o input bate intent forte (PROXIMOS_JOGOS / RANKING /
+ * MEUS_BOLOES / AJUDA / MENU / CANCELAR / etc) e, se sim, auto-cancelar
+ * a criacao + processar a intent ate fim. Mensagem clara informando o
+ * que aconteceu.
+ *
+ * Estados protegidos (NAO escapam): nenhum aqui (CRIAR_BOLAO eh seguro
+ * abandonar — nada foi persistido ainda).
+ *
+ * Returns `true` se interceptou.
+ */
+async function tentarFsmEscapeCriandoBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+): Promise<boolean> {
+  // Intencoes "fortes" que indicam claramente que user nao queria criar
+  const INTENCOES_FORTES_QUE_ESCAPAM = new Set<Intencao>([
+    Intencao.PROXIMOS_JOGOS,
+    Intencao.JOGOS_HOJE,
+    Intencao.RANKING,
+    Intencao.MEU_PALPITE,
+    Intencao.MEUS_PONTOS,
+    Intencao.MEUS_BOLOES,
+    Intencao.AJUDA,
+    Intencao.MENU,
+    Intencao.CANCELAR,
+    Intencao.COMO_CONVIDAR,
+    Intencao.QUEM_PARTICIPA,
+    Intencao.INFO_PRODUTO,
+    Intencao.INFO_PRECO,
+    Intencao.COMO_PALPITAR,
+    Intencao.QUANDO_COMECA,
+    Intencao.REGRAS,
+    Intencao.RESUMO_BOLOES,
+    Intencao.SAIR_BOLAO,
+    Intencao.EXCLUIR_BOLAO,
+    Intencao.DEFINIR_BOLAO_PADRAO,
+    Intencao.RENOMEAR_BOLAO,
+    Intencao.PENDENTES,
+  ]);
+
+  const { intencao } = parseIntencao(msg.text);
+  if (!INTENCOES_FORTES_QUE_ESCAPAM.has(intencao)) return false;
+
+  console.log(
+    `[fsm-escape] usuario=${usuarioId} state=CRIANDO_BOLAO_* nova_intent=${intencao} — auto-cancelando criacao`,
+  );
+
+  await resetSession(msg.waId);
+  await sendText({
+    to: msg.waId,
+    text:
+      `🤔 "${msg.text}" parece um comando, não nome/senha do bolão.\n\n` +
+      `Cancelei a criação. Vou processar o comando agora — se você quiser criar bolão depois, é só mandar *criar bolão*.`,
+  });
+  // Re-processa a mensagem do zero (agora em IDLE, sem state ativo)
+  await handleIncomingMessage(msg);
+  return true;
+}
+
+async function handleCriandoBolaoNome(msg: IncomingMessage, usuarioId: string) {
+  // FSM escape: se input bate intent forte, abandona criacao
+  if (await tentarFsmEscapeCriandoBolao(msg, usuarioId)) return;
+
   const nome = msg.text.trim();
   if (nome.length < 3 || nome.length > 60) {
     await sendText({ to: msg.waId, text: '⚠️ Nome deve ter entre 3 e 60 caracteres. Tenta de novo:' });
@@ -956,6 +1037,9 @@ async function handleCriandoBolaoNome(msg: IncomingMessage, _usuarioId: string) 
 }
 
 async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, session: Session) {
+  // FSM escape: se input bate intent forte, abandona criacao
+  if (await tentarFsmEscapeCriandoBolao(msg, usuarioId)) return;
+
   const senha = msg.text.trim();
   if (!isValidPassword(senha)) {
     await sendText({ to: msg.waId, text: '⚠️ Senha deve ter entre 6 e 100 caracteres. Tenta de novo:' });
@@ -2403,6 +2487,81 @@ async function handleEscolhendoIntencaoPalpites(
   } else {
     await sendText({ to: msg.waId, text: regrasTexto() });
   }
+}
+
+// ============================================================
+// Helper: intercepta "nome de bolão sozinho" no IDLE
+// ============================================================
+/**
+ * Bug Humberto 18/05: o usuario manda "Bolao teste oficial" (depois de ver
+ * a lista em "meus boloes") e o LLM classifier classifica como CRIAR_BOLAO
+ * (mesmo sem verbo de acao). Bot inicia fluxo de criacao, criando um bolao
+ * duplicado por engano.
+ *
+ * Fix: antes de despachar CRIAR_BOLAO, fuzzy-match o raw com boloes que o
+ * user ja participa. Se match unico, oferece menu contextual ("voce ja
+ * participa! quer: ranking / meus palpites / criar bolao novo com mesmo
+ * nome?"). Se >1 match, lista. Se 0 match, segue fluxo normal de criacao.
+ *
+ * Retorna `true` se interceptou (caller nao deve seguir o fluxo padrao).
+ */
+async function tentarOferecerMenuContextualPorNomeBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  raw: string,
+): Promise<boolean> {
+  // Heuristica: so faz sentido pra inputs curtos sem verbo de acao explicito.
+  // Se tem "criar/abrir/montar/fazer/novo", o user definitivamente quer
+  // criar (mesmo que o nome bate com bolao existente — sera permitido).
+  const textoLower = raw.toLowerCase().trim();
+  const temVerboCriar = /\b(?:criar|abrir|montar|fazer|nov[ao]|novinho)\b/.test(textoLower);
+  if (temVerboCriar) return false;
+
+  // Texto muito curto (1-2 chars) ou muito longo (>60) — nao tenta match
+  if (textoLower.length < 3 || textoLower.length > 60) return false;
+
+  // Busca boloes do user (incluindo encerrados — fuzzy match historico)
+  const todos = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
+  if (todos.length === 0) return false;
+
+  // Fuzzy match: usa o mesmo helper de matcher (escolherBolaoDaLista)
+  const escolhido = await escolherBolaoDaLista(
+    raw,
+    todos.map((b) => ({ id: b.id, nome: b.nome })),
+  );
+  if (!escolhido) return false;
+
+  const bolao = todos.find((b) => b.id === escolhido.id);
+  if (!bolao) return false;
+
+  const ehAdmin = bolao.adminId === usuarioId;
+  const ehEncerrado = bolao.status === 'FINALIZADO';
+  const statusLabel = ehEncerrado ? ' 🏁 _(encerrado)_' : '';
+  const adminLabel = ehAdmin ? ' 👑 _(admin)_' : '';
+
+  // Menu contextual — opcoes diferentes pra encerrado vs ativo, admin vs nao
+  const opcoes: string[] = [];
+  opcoes.push(`*ranking* — ver classificação`);
+  opcoes.push(`*meus palpites* — histórico no bolão`);
+  opcoes.push(`*meus pontos* — sua pontuação`);
+  if (!ehEncerrado) {
+    opcoes.push(`*próximos jogos* — agenda pra palpitar`);
+    if (ehAdmin) {
+      opcoes.push(`*como convido* — pegar link wa.me`);
+    }
+  }
+  opcoes.push(`*criar bolão* — criar um novo (com nome diferente)`);
+
+  const lista = opcoes.map((o, i) => `${i + 1}. ${o}`).join('\n');
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `🤔 Achei que você está se referindo ao bolão *${bolao.nome}*${statusLabel}${adminLabel}.\n\n` +
+      `O que você quer fazer?\n\n${lista}\n\n` +
+      `_Manda o nome do comando que quiser, ou *cancelar* pra ignorar._`,
+  });
+  return true;
 }
 
 // ============================================================

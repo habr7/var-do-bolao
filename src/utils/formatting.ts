@@ -69,25 +69,63 @@ export function formatResultados(rodada: number, jogos: JogoDisplay[]): string {
   return `${header}\n${lines.join('\n')}\n${'─'.repeat(30)}\n📺 _VAR do Bolão_`;
 }
 
-export function formatAjuda(prefix: string): string {
-  return `📖 *VAR do Bolão — Comandos*
+/**
+ * Bug Humberto 18/05: este texto estava completamente desatualizado, mostrando
+ * o formato `!comando` legado da v1 que nao funciona mais. A UX atual eh
+ * linguagem natural sem prefixo. Atualizado pra refletir os intents e
+ * fluxos suportados em v3.2.0+.
+ *
+ * O parametro `prefix` eh ignorado (mantido pra compat); pode ser removido
+ * num refactor futuro.
+ */
+export function formatAjuda(_prefix: string): string {
+  void _prefix;
+  return `📖 *VAR do Bolão — Guia completo*
 
-👑 *Admin:*
-${prefix}criar bolao [nome] — Cria um bolão
-${prefix}abrir rodada [N] — Abre rodada para palpites
-${prefix}fechar rodada — Fecha rodada atual
-${prefix}calcular — Calcula pontuação
+Fala comigo em *português normal*, sem prefixo. Eu entendo gírias e erros de digitação.
 
-⚽ *Participante:*
-${prefix}entrar — Entra no bolão
-${prefix}sair — Sai do bolão
-${prefix}palpite — Registra palpites
-${prefix}meu palpite — Vê seus palpites
-${prefix}ranking — Ranking geral
-${prefix}rodada — Jogos da rodada
-${prefix}meus pontos — Sua pontuação
-${prefix}resultados — Resultados dos jogos
+⚽ *Palpitar* (jeito mais rápido):
+Manda o placar direto, qualquer formato funciona:
+• \`Brasil 2x1 Marrocos\`
+• \`Brasil 2 a 1 Marrocos\`
+• \`Brasil dois a um Marrocos\` (extenso)
+• \`Brasil perde de 1 a 0 do Marrocos\` (narrativa)
+Vários de uma vez, um por linha — eu mostro preview e você confirma.
 
-💡 _Você também pode enviar palpites direto:_
-_Flamengo 2x1 Palmeiras_`;
+🏆 *Bolão (admin)*:
+• *criar bolão* — cria novo (gratuito)
+• *como convido* — pega o link wa.me pra encaminhar
+• *aprovado Fulano* / *recusar Fulano* — aprova/recusa pedido
+• *renomear bolão* — muda o nome
+• *remover Fulano* — tira alguém
+• *excluir bolão* — encerra (palpites/ranking ficam guardados)
+
+🎟️ *Entrar em bolão*:
+• Clica no link wa.me que o admin mandou (caminho mais rápido)
+• Ou manda o ID: \`#K3MZ8P\`
+• Ou *entrar em bolão* + nome
+
+📊 *Consultas*:
+• *ranking* — classificação do bolão (ou \`ranking Firma FC\`)
+• *meus pontos* / *pontuação* — sua posição
+• *meus palpites* — histórico
+• *próximos jogos* / *jogos hoje* — agenda
+• *meus bolões* — todos os bolões que você participa
+• *quem participa* — quem está em cada bolão
+• *como tô indo nos bolões* — resumo cruzado
+• *regras* — pontuação 10/7/5/3/0
+
+✏️ *Editar / apagar palpite*:
+• *corrigir palpite* / *mudar palpite*
+• *apagar palpite* / *desfazer palpite*
+
+⭐ *Bolão padrão* (multi-bolão):
+• *bolão padrão* — define qual usar por default
+Comandos como ranking, meus pontos passam a usar ele direto.
+
+🚪 *Sair*:
+• *sair do bolão* — sai (palpites ficam no histórico)
+• *cancelar* — aborta qualquer fluxo em andamento
+
+💡 _Em dúvida, manda *menu* ou *ajuda* — eu volto aqui._`;
 }

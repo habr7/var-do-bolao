@@ -198,11 +198,17 @@ const JOGOS_HOJE_PATTERNS: RegExp[] = [
   /\bo que tem hoje\b/,
 ];
 
-// "Meus pontos / quanto fiz"
+// "Meus pontos / quanto fiz / pontuacao"
 const MEUS_PONTOS_PATTERNS: RegExp[] = [
   /^meus? pontos?\b/,
+  /^pontos?$/,                       // "pontos" / "ponto" sozinho
+  /^pontua[cç][aã]o$/,               // "pontuação" / "pontuacao" sozinho (Bug Humberto 18/05)
+  /^minha pontua[cç][aã]o\b/,
+  /^score\b/,
+  /^meu score\b/,
   /\bquantos? ponto/,
   /\bquanto (?:eu )?fiz\b/,
+  /\bquanto (?:eu )?pontuei\b/,
   /\bminha pontuacao\b/,
   /\bmeu placar\b/,
   /\bestou (?:em )?qual (?:posicao|lugar)\b/,

@@ -578,6 +578,30 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('Bug Humberto 18/05 — MEUS_PONTOS variantes', () => {
+    it('"pontuação" sozinho → MEUS_PONTOS', () => {
+      expect(parseIntencao('pontuação').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"pontuacao" sem til → MEUS_PONTOS', () => {
+      expect(parseIntencao('pontuacao').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"Pontuação" (capitalizado) → MEUS_PONTOS', () => {
+      expect(parseIntencao('Pontuação').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"pontos" sozinho → MEUS_PONTOS', () => {
+      expect(parseIntencao('pontos').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"minha pontuação" → MEUS_PONTOS', () => {
+      expect(parseIntencao('minha pontuação').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"quanto pontuei" → MEUS_PONTOS', () => {
+      expect(parseIntencao('quanto pontuei').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"score" → MEUS_PONTOS', () => {
+      expect(parseIntencao('score').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+  });
+
   describe('Sprint 3 — DESPEDIDA', () => {
     it('"tchau" → DESPEDIDA', () => {
       expect(parseIntencao('tchau').intencao).toBe(Intencao.DESPEDIDA);
