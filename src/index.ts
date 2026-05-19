@@ -27,6 +27,14 @@ async function buildApp() {
   app.get('/webhook/whatsapp', webhookVerifyHandler);
   app.post('/webhook/whatsapp', webhookMessageHandler);
 
+  // Web API (site vardobolao.com.br) — registrada APENAS se WEB_API_ENABLED=true.
+  // Quando off (default), o bot eh identico ao binario antigo. Zero impacto
+  // de carga/log no fluxo do WhatsApp.
+  if (env.WEB_API_ENABLED) {
+    const { registerWebApi } = await import('./web-api/index.js');
+    await registerWebApi(app);
+  }
+
   return app;
 }
 

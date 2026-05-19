@@ -21,7 +21,7 @@ export default function PoliticaPrivacidadePage() {
             Política de Privacidade
           </h1>
           <p className="mt-3 text-sm text-white/55">
-            Última atualização: 17 de maio de 2026
+            Última atualização: 18 de maio de 2026
           </p>
 
           <Section title="1. Quem somos">
@@ -36,13 +36,21 @@ export default function PoliticaPrivacidadePage() {
           <Section title="2. Dados coletados">
             <ul>
               <li><strong>Identificação:</strong> nome (do seu perfil WhatsApp), número de celular.</li>
-              <li><strong>Conta web (opcional):</strong> email, senha (armazenada com hash bcrypt).</li>
+              <li><strong>Conta web (opcional):</strong> email, senha (armazenada com hash bcrypt cost 12).</li>
+              <li>
+                <strong>Data de nascimento (opcional):</strong> coletada apenas se você quiser preencher.
+                Finalidades: (a) validar que você tem 18+ — ver Termos de Uso; (b) cumprimentar no
+                seu aniversário com uma mensagem leve. Não é dado sensível pela LGPD (art. 5º, II)
+                e não é compartilhada com terceiros. Você pode editar ou apagar a qualquer momento
+                em <strong>Meu perfil</strong>.
+              </li>
               <li><strong>Uso do produto:</strong> bolões dos quais participa, palpites, pontuação.</li>
+              <li><strong>Códigos OTP:</strong> códigos de 6 dígitos para login web, com TTL curto (10 min) e descartados após uso.</li>
               <li><strong>Técnicos:</strong> IP, agente do navegador, timestamps de acesso — apenas para segurança e prevenção de abuso.</li>
             </ul>
             <p>
               <strong>Não coletamos</strong> dados de localização precisa,
-              contatos da agenda, fotos, ou qualquer informação além do
+              contatos da agenda, fotos, dados biométricos, ou qualquer informação além do
               estritamente necessário pra operar o bolão.
             </p>
           </Section>

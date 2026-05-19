@@ -84,13 +84,10 @@ web/
 |----------|-------------|---------|-----------|
 | `NEXT_PUBLIC_SITE_URL` | sim | `http://localhost:3001` | URL canônica (metadata, sitemap) |
 | `NEXT_PUBLIC_BOT_WHATSAPP_NUMBER` | sim | `5511978277516` | Número do bot. Só dígitos. Usado nos `wa.me` |
-| `BOT_API_URL` | **fase 2** | `http://localhost:3000` | URL do Fastify do bot |
-| `BOT_API_SECRET` | **fase 2** | — | HMAC compartilhado com `WEB_API_SECRET` do bot |
-| `SESSION_SECRET` | **fase 2** | — | `openssl rand -hex 32` |
-| `SESSION_COOKIE_NAME` | **fase 2** | `vdb_session` | — |
+| `BOT_API_URL` | sim | `http://localhost:3000` | URL do Fastify do bot. O Next faz proxy SSR — o navegador nunca bate direto. |
 
-A fase 2 (OTP + sessão + endpoints REST no bot) ainda não foi implementada
-— veja `PLANO_SITE_VAR_DO_BOLAO.md` seção 4.
+Pra que o login/dashboard funcione, o bot **precisa** estar com `WEB_API_ENABLED=true`
+no `.env` dele. Sem isso o bot continua só com o webhook do WhatsApp (comportamento default).
 
 ---
 
@@ -133,9 +130,32 @@ npm run typecheck   :: tsc --noEmit (não emite)
 ## Roadmap (alinhado com PLANO_SITE_VAR_DO_BOLAO.md)
 
 - ✅ **Fase 1** — Landing one-pager + páginas legais + skeleton de login/app
-- ⏳ **Fase 2** — Backend OTP + sessão (no bot, pasta `src/web-api/`)
-- ⏳ **Fase 3** — Login OTP real + área logada com dados reais
-- ⏳ **Fase 4** — QA, Lighthouse, deploy Railway, DNS
+- ✅ **Fase 2** — Backend OTP + sessão HMAC (no bot, em `src/web-api/`)
+- ✅ **Fase 3** — Login OTP real (2 passos) + first-access (com `dataNascimento` opcional) +
+  login por senha + dashboard real + bolão detalhe com tabs (ranking/palpites/jogos) + perfil + logout
+- ⏳ **Fase 4** — QA, Lighthouse audit, WCAG AA, deploy Railway, DNS
+
+### Estrutura do fluxo de auth
+
+1. **`/login` (modo OTP)** — usuário digita celular → POST `/api/auth/otp/request` no bot
+   → bot manda código de 6 dígitos via Evolution → usuário cola código → POST `/api/auth/otp/verify`
+   → se `UsuarioWeb` existe, cookie HMAC `vdb_session` é setado e redireciona pra `/app`. Se não
+   existe, cookie temporário `vdb_pre_cadastro` (10 min) e redireciona pra `/login/primeiro-acesso`.
+2. **`/login/primeiro-acesso`** — formulário com nome (pré-preenchido do WhatsApp), email,
+   data de nascimento (opcional), senha. POST `/api/auth/first-access` cria `UsuarioWeb`,
+   troca o pre-cookie por sessão definitiva.
+3. **`/login` (modo senha)** — alternativa após cadastro: email + senha → POST `/api/auth/login`.
+4. **`/app/*`** — protegido por `middleware.ts` (checa presença do cookie). Validação
+   criptográfica do HMAC acontece no Fastify quando o Next faz fetch SSR (`lib/api.ts`).
+5. **`/app/perfil` → "Sair"** — server action `logout()` chama POST `/api/auth/logout` e
+   limpa o cookie local.
+
+### LGPD — data de nascimento
+
+Campo opcional. Não é dado sensível pela LGPD (art. 5º, II). Finalidades documentadas
+na [Política de Privacidade](/politica-privacidade) e no Termo: validação de maioridade
+e cumprimento no aniversário. Usuário pode editar/apagar a qualquer momento em
+`/app/perfil`.
 
 ---
 

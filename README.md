@@ -4,7 +4,7 @@
 > direta (DM)** — sem grupo, sem app, sem fricção. Foco atual: Copa do Mundo
 > FIFA 2026.
 
-[![Tests](https://img.shields.io/badge/tests-322%20passing-green)]()
+[![Tests](https://img.shields.io/badge/tests-337%20passing-green)]()
 [![Node](https://img.shields.io/badge/node-20%2B-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)]()
 [![LLM](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash%20Lite-orange)]()
@@ -248,6 +248,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.3** (2026-05-18) — **Fase 2 + Fase 3 do site: área logada totalmente funcional.** Web API no bot em `src/web-api/` (toggle via `WEB_API_ENABLED`, default OFF): OTP via WhatsApp (Evolution), sessão HMAC compacta, rate limit Redis, endpoints `/api/auth/*`, `/api/me/*`, `/api/boloes/:codigo/*`. Schema novo: `UsuarioWeb` (com `dataNascimento` opcional / LGPD-friendly) e `OtpToken`. No site (`web/`): `/login` real em 2 passos OTP + login alternativo por senha, `/login/primeiro-acesso` com data de nascimento opcional, `/app` dashboard real, `/app/bolao/[codigo]` com 3 tabs (Ranking · Meus Palpites · Próximos Jogos), `/app/perfil` editável + logout. **337 tests (15 novos), bot 100% intacto quando flag desligada.**
 - **v3.2** (2026-05-17) — **Site institucional** em `web/` (Next.js 15 + App Router + Tailwind 4): landing one-pager dark com paleta verde-gramado, contagem regressiva pra Copa 2026, FAQ acordeon, páginas legais (privacidade/termos), skeleton de `/login` e `/app`. Bot intocado — site é um subprojeto isolado com `package.json` próprio. Roadmap em fases no [web/README.md](web/README.md).
 - **v3.1.2** (2026-05-17) — Patch da migration: `@unique` original foi criado como UNIQUE INDEX, então o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op. Nova migration `drop_jogos_apijogoid_unique_index` derruba o índice órfão; bolão `#K6VCCJ` reparado. Novo script `scripts/run-repair-once.ts` pra disparar o reparo sob demanda.
 - **v3.1.1** (2026-05-17) — Hotfix pós-Sprint 2: (a) `Jogo.apiJogoId` unique-por-rodada + `criarBolao` atômico + job de reparo (corrige "rodada vazia" do 2º bolão em diante); (b) bolões encerrados visíveis em consultas (ranking/meus palpites/meus bolões) — honra a promessa "fica guardado" feita no encerramento

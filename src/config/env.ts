@@ -93,6 +93,27 @@ const baseSchema = z.object({
   LLM_URL: z.string().default('https://ollama.com'),
   LLM_API_KEY: z.string().default('dry-run-llm-key'),
   LLM_MODEL: z.string().default('gpt-oss:20b'),
+
+  // Web API (site vardobolao.com.br) — Fase 2 do PLANO_SITE.
+  // Quando FALSE (default), as rotas /api/auth/*, /api/me, /api/boloes/*
+  // NAO sao registradas — o bot fica idntico ao binario antigo. Ligar
+  // explicitamente em prod quando quiser expor a area logada do site.
+  WEB_API_ENABLED: z.preprocess(coerceBool, z.boolean()).default(false),
+  // Origem do site (CORS). Em dev: http://localhost:3001. Em prod:
+  // https://www.vardobolao.com.br. Pode listar mais de uma separada por virgula.
+  WEB_ORIGIN: z.string().default('http://localhost:3001'),
+  // Segredo HMAC compartilhado entre Next.js e Fastify pra assinar o
+  // cookie de sessao. Min 32 bytes. Gerar com: openssl rand -hex 32.
+  WEB_SESSION_SECRET: z.string().default('dev-only-change-in-prod-min-32-bytes-hex-secret-please'),
+  // Tempo de vida da sessao em dias (cookie + assinatura). 30 default.
+  WEB_SESSION_TTL_DAYS: z.coerce.number().default(30),
+
+  // OTP via WhatsApp (Evolution API)
+  OTP_VALIDITY_MINUTES: z.coerce.number().default(10),
+  OTP_MAX_ATTEMPTS: z.coerce.number().default(5),
+  // Rate limits por whatsappId (Redis bucket). Anti brute force.
+  OTP_RATE_LIMIT_PER_MINUTE: z.coerce.number().default(1),  // max 1 OTP/min
+  OTP_RATE_LIMIT_PER_DAY: z.coerce.number().default(5),     // max 5 OTP/dia
 });
 
 export type Env = z.infer<typeof baseSchema>;

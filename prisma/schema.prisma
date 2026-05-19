@@ -28,6 +28,9 @@ model Usuario {
   boloesAdministrados  Bolao[]             @relation("BolaoAdmin")
   solicitacoesFeitas   SolicitacaoEntrada[]
   bolaoPadrao          Bolao?              @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
+  // Conta web (opcional) — preenchida no primeiro login pelo site.
+  // Usuario do bot pode existir sem UsuarioWeb (so usa WhatsApp).
+  usuarioWeb           UsuarioWeb?
 
   @@map("usuarios")
 }
@@ -225,6 +228,49 @@ model Palpite {
 
   @@unique([usuarioId, rodadaId])
   @@map("palpites")
+}
+
+// ============================================
+// USUARIO_WEB — Conta web (opcional) do Usuario.
+// Linkada 1-1 com Usuario via usuarioId. Permite login no site
+// (vardobolao.com.br) com email/senha alem do OTP.
+//
+// LGPD: dataNascimento eh opcional. Quando preenchida, serve pra
+// validar maioridade (TermosUso) e cumprimentar no aniversario.
+// Nao eh dado sensivel pela LGPD (art. 5o II).
+// ============================================
+model UsuarioWeb {
+  id              String   @id @default(uuid())
+  usuarioId       String   @unique
+  email           String   @unique
+  senhaHash       String                              // bcrypt cost 12
+  dataNascimento  DateTime?                           // opcional
+  emailVerificado Boolean  @default(false)            // futuro: validacao por email
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+  ultimoLoginEm   DateTime?
+
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("usuarios_web")
+}
+
+// ============================================
+// OTP_TOKEN — Codigo de uso unico mandado via WhatsApp pro login web.
+// TTL curto (10min default), max 5 tentativas, rate-limited por waId.
+// ============================================
+model OtpToken {
+  id           String    @id @default(uuid())
+  whatsappId   String                                  // so digitos (ex: 5511999999999)
+  codigo       String                                  // 6 digitos numericos
+  usadoEm      DateTime?                               // null = ainda valido
+  expiraEm     DateTime                                // criadoEm + OTP_VALIDITY_MINUTES
+  tentativas   Int       @default(0)                   // anti brute force (max 5)
+  criadoEm     DateTime  @default(now())
+
+  @@index([whatsappId, codigo])
+  @@index([expiraEm])                                  // pra job de limpeza opcional
+  @@map("otp_tokens")
 }
 
 // ============================================

@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.2
-**Última atualização:** 2026-05-17 (Sprint 2 + 2 hotfixes + patch migration + lançamento do subprojeto `web/`)
+**Versão do documento:** 3.3
+**Última atualização:** 2026-05-18 (Fase 2+3 do site: Web API no bot + área logada com OTP, sessão HMAC, dashboard real)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -968,6 +968,7 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 3.1.1 | 2026-05-17 | Hotfixes pós-Sprint 2 em produção: (a) `Jogo.apiJogoId` deixa de ser unique global → `@@unique([rodadaId, apiJogoId])` + `criarBolao` virou transação atômica + novo job `repair-broken-boloes` (boot + 03:00 diário). Corrige bolões 2º em diante ficando com rodada vazia. (b) Bolões `FINALIZADO` voltaram a aparecer em consultas (ranking/meus palpites/meus bolões), marcados com 🏁; `handleProximosJogos` ganhou mensagem auto-diagnóstica quando usuário só tem encerrados; repository split `listarBoloesAtivos*` vs `listarBoloes*ComHistorico`. **322 tests, 75 cenários — sem regressão.** |
 | **3.1.2** | **2026-05-17** | **Patch da migration de unique-por-rodada.** Descoberto em deploy local: o `@unique` original do init migration foi materializado como `CREATE UNIQUE INDEX "jogos_apiJogoId_key"`, não como `ALTER TABLE ADD CONSTRAINT`. Por isso o `DROP CONSTRAINT IF EXISTS` da migration anterior era no-op silencioso e o índice unique global ficava órfão, ainda bloqueando inserts cross-bolão. Novo migration `20260517170000_drop_jogos_apijogoid_unique_index` executa `DROP INDEX IF EXISTS`. Bolão `#K6VCCJ` (legacy quebrado) reparado com sucesso após apply. Novo script `scripts/run-repair-once.ts` permite disparar o reparo sob demanda sem subir o servidor (útil quando porta 3000 já está ocupada). (este documento) |
 | **3.2** | **2026-05-17** | **Subprojeto `web/` — site institucional + área logada (skeleton).** Next.js 15 + App Router + Tailwind CSS 4 + React 19, isolado do bot (próprio `package.json`, `tsconfig.json`, sem compartilhar `node_modules`). Landing one-pager dark-mode com paleta verde-gramado: Hero, Como Funciona (3 passos), Por Que (4 benefícios), Banner Copa 2026 com countdown JS, FAQ acordeon, Fale Conosco (mailto), Footer. Páginas adicionais: `/login` (form desabilitado até Fase 2), `/app` (dashboard mock), `/politica-privacidade` e `/termos` (placeholders LGPD para revisão jurídica), `/not-found` 404 com tom de voz, `robots.ts` + `sitemap.ts` para SEO. CTAs primários abrem `wa.me` do bot com mensagem pré-preenchida (zero atrito). Deploy independente, bot intocado. Roadmap detalhado em [`web/README.md`](web/README.md). Veja seção 23 abaixo. |
+| **3.3** | **2026-05-18** | **Fase 2 + Fase 3 do site — Web API funcional + área logada real.** Schema Prisma novo: `UsuarioWeb` (com `dataNascimento` opcional/LGPD-friendly) e `OtpToken`. Migration `20260518100000_web_api_usuario_e_otp`. Pasta `src/web-api/` com: `session.service.ts` (token HMAC compacto via crypto nativo), `otp.service.ts` (gerar 6-dig + enviar via Evolution + verificar + rate limit), `rate-limit.ts` (bucket Redis), `session.middleware.ts` (decorator Fastify), `auth.routes.ts` (otp/request, otp/verify, first-access, login, logout, session), `me.routes.ts` (GET/PATCH /me, GET /me/boloes com posição + próximo jogo), `bolao.routes.ts` (ranking, meus-palpites, próximos-jogos). Wire-up CONDICIONAL em `src/index.ts` via `WEB_API_ENABLED` (default `false` = bot idêntico ao 3.2). Dependências novas: `@fastify/cookie`, `@fastify/cors`. Prisma pinado em `~6.6.0` pra preservar tipos do bot. No `web/`: `lib/api.ts` (proxy SSR pro bot com forward de cookies), `lib/session.ts`, `middleware.ts` (protege `/app/*`), server actions de auth, `/login` real (2 passos OTP + alternativa senha), `/login/primeiro-acesso` (com `dataNascimento` opcional), `/app` (dashboard real), `/app/bolao/[codigo]` (tabs Ranking/Palpites/Jogos), `/app/perfil` (editar nome/data + logout). Política de privacidade atualizada com finalidade do `dataNascimento`. **337 tests (322 + 15 novos), bot intocado quando `WEB_API_ENABLED=false`.** Veja seção 24 abaixo. |
 
 ---
 
@@ -1141,4 +1142,189 @@ Garantia explícita:
 
 Portanto: **subir essa versão não derruba e não modifica o comportamento
 do bot em produção**.
+
+---
+
+## 24. Web API — Fase 2 + Fase 3 entregues (v3.3)
+
+### 24.1 Filosofia
+
+O bot **continua sendo a única fonte de verdade** das mutações de dados
+(criar bolão, palpitar, aprovar pedido). O site só **lê** — qualquer ação
+destrutiva no `web/` redireciona pro WhatsApp via `wa.me` com mensagem
+pré-preenchida. Isso garante:
+
+- Zero duplicação de regras de negócio entre canais.
+- Cache agressivo no site sem risco de stale-state em mutações.
+- Auditoria simples (toda mutação tem mensagem de WhatsApp correspondente).
+
+A única exceção: `PATCH /api/me` permite editar nome/dataNascimento, porque
+isso é dado de conta web (não de bolão) e não tem fluxo correspondente no
+chat do bot.
+
+### 24.2 Schema novo (Prisma)
+
+```prisma
+model UsuarioWeb {
+  id              String   @id @default(uuid())
+  usuarioId       String   @unique
+  email           String   @unique
+  senhaHash       String                            // bcrypt cost 12
+  dataNascimento  DateTime?                         // opcional (LGPD)
+  emailVerificado Boolean  @default(false)
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+  ultimoLoginEm   DateTime?
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  @@map("usuarios_web")
+}
+
+model OtpToken {
+  id           String    @id @default(uuid())
+  whatsappId   String
+  codigo       String                                // 6 dígitos
+  usadoEm      DateTime?
+  expiraEm     DateTime                              // criadoEm + OTP_VALIDITY_MINUTES
+  tentativas   Int       @default(0)                 // max OTP_MAX_ATTEMPTS
+  criadoEm     DateTime  @default(now())
+  @@index([whatsappId, codigo])
+  @@index([expiraEm])
+  @@map("otp_tokens")
+}
+```
+
+A `Usuario` ganhou a relação inversa `usuarioWeb UsuarioWeb?`. Migration:
+`prisma/migrations/20260518100000_web_api_usuario_e_otp/migration.sql`.
+
+### 24.3 Endpoints REST
+
+Todos só são registrados se `WEB_API_ENABLED=true`. CORS aceita `WEB_ORIGIN`
+(virgula-separada). Cookies `httpOnly`, `SameSite=Lax`, `Secure` em prod.
+
+| Método | Rota | Auth | Função |
+|--------|------|------|--------|
+| POST | `/api/auth/otp/request` | pública | Gera OTP + manda via Evolution. Sempre 200 (anti-enumeration). Rate limit por waId. |
+| POST | `/api/auth/otp/verify` | pública | Valida código. Se `UsuarioWeb` existe, seta `vdb_session`. Senão, seta `vdb_pre_cadastro` (10 min). |
+| POST | `/api/auth/first-access` | pre-cookie | Cria `UsuarioWeb` (nome, email, senha, dataNascimento opcional). Troca pre-cookie por sessão. |
+| POST | `/api/auth/login` | pública | Login com email + senha. Bcrypt cost 12. Rate limit por email. |
+| POST | `/api/auth/logout` | qualquer | Limpa cookie. |
+| GET | `/api/auth/session` | sessão | Sanity check (`{ uid, wid }`). |
+| GET | `/api/me` | sessão | Perfil + email + dataNascimento. |
+| PATCH | `/api/me` | sessão | Atualiza nome / dataNascimento. |
+| GET | `/api/me/boloes` | sessão | Lista bolões com posição, pontos, próximo jogo, flag "falta palpitar". |
+| GET | `/api/boloes/:codigo/ranking` | sessão (participante) | Ranking completo. |
+| GET | `/api/boloes/:codigo/meus-palpites` | sessão (participante) | Histórico por rodada com pontuação. |
+| GET | `/api/boloes/:codigo/proximos-jogos` | sessão (participante) | Jogos abertos, com flag "já palpitou" e o palpite atual. |
+
+### 24.4 Sessão — token HMAC compacto
+
+Em vez de `iron-session` (mais peso, mais deps), implementamos um token
+HMAC bem pequeno em `src/web-api/session.service.ts`:
+
+```
+token = <base64url(JSON({uid, wid, exp}))> . <HMAC-SHA256(payload, WEB_SESSION_SECRET)>
+```
+
+Validação: `verifySessionToken()` faz compare em tempo constante
+(`crypto.timingSafeEqual`), checa expiração, parse JSON. Logout = expira
+o cookie no browser; sem lista de revogação no MVP (TTL curto + cookie
+httpOnly basta).
+
+### 24.5 OTP via WhatsApp
+
+`src/web-api/otp.service.ts`:
+- `gerarEEnviarOtp(waId)` — invalida tokens anteriores do mesmo waId
+  (mantém auditoria), cria novo de 6 dígitos, persiste `OtpToken`, manda
+  via `sendText()` do Evolution (mesmo cliente do bot).
+- `verificarOtp(waId, codigo)` — busca token mais recente não-usado,
+  checa `tentativas >= OTP_MAX_ATTEMPTS` (invalida se sim), checa
+  expiração, compara código, incrementa tentativas em caso de erro.
+- `normalizarTelefoneBR(input)` — função pura testada (15 testes
+  unitários novos).
+
+Rate limit por waId via Redis bucket: `OTP_RATE_LIMIT_PER_MINUTE=1` +
+`OTP_RATE_LIMIT_PER_DAY=5`. Login com senha tem rate limit independente
+por email (5/15min).
+
+### 24.6 Flag `WEB_API_ENABLED` — escopo de impacto
+
+`src/index.ts`:
+
+```ts
+if (env.WEB_API_ENABLED) {
+  const { registerWebApi } = await import('./web-api/index.js');
+  await registerWebApi(app);
+}
+```
+
+Import dinâmico, dentro do `if`. Quando `WEB_API_ENABLED=false` (default):
+- Nenhum módulo de `src/web-api/` é carregado em memória.
+- `@fastify/cookie` e `@fastify/cors` não são registrados.
+- Banco não consulta `usuarios_web` nem `otp_tokens` (essas migrations
+  rodam, mas as tabelas ficam vazias).
+- Comportamento do webhook `/webhook/whatsapp` é literalmente o mesmo do
+  `v3.2`.
+
+Subir o branch com a flag desligada = zero risco pra produção do bot.
+
+### 24.7 Reuso das funções existentes (não duplicação)
+
+A invariante 9.1 ("backend novo só LÊ via Prisma, usa MESMAS funções de
+repository") foi respeitada:
+
+| Endpoint | Reusa de |
+|----------|----------|
+| `/api/me/boloes` | `listarBoloesDoUsuarioComHistorico` + `buscarRodadaAberta` |
+| `/api/boloes/:codigo/ranking` | `buscarRankingBolao` |
+| `/api/boloes/:codigo/meus-palpites` | Query direta usando o mesmo padrão de `buscarPontuacaoDetalhada` |
+| `/api/boloes/:codigo/proximos-jogos` | `buscarRodadaAberta` + `prisma.jogo.findMany` direto |
+
+Zero novas regras de negócio. Zero risco de drift entre bot e site.
+
+### 24.8 LGPD — data de nascimento
+
+`dataNascimento` é:
+- **Opcional** no schema (`DateTime?`) e no form de cadastro.
+- **Não-sensível** pela LGPD (art. 5º, II — sensível seria étnico,
+  religioso, biométrico, etc).
+- Finalidade documentada em [/politica-privacidade](web/src/app/politica-privacidade/page.tsx):
+  (a) validação de maioridade pra cumprir Termos; (b) cumprimentar no
+  aniversário com mensagem leve.
+- **Não compartilhada com terceiros** — fica só no Postgres do bolão.
+- **Editável/removível** em `/app/perfil` a qualquer momento (PATCH /api/me
+  aceita `dataNascimento: null`).
+
+### 24.9 Novas variáveis de ambiente
+
+```ini
+# Liga/desliga toda a Web API. Default false = bot sem mudanca.
+WEB_API_ENABLED=false
+WEB_ORIGIN=http://localhost:3001
+WEB_SESSION_SECRET=<openssl rand -hex 32>
+WEB_SESSION_TTL_DAYS=30
+
+OTP_VALIDITY_MINUTES=10
+OTP_MAX_ATTEMPTS=5
+OTP_RATE_LIMIT_PER_MINUTE=1
+OTP_RATE_LIMIT_PER_DAY=5
+```
+
+### 24.10 Testes novos
+
+- `tests/unit/session.service.test.ts` — 6 testes: roundtrip HMAC,
+  detecção de assinatura adulterada, swap de payload, expiração, formato
+  inválido, JSON corrompido.
+- `tests/unit/otp.service.test.ts` — 6 testes de `normalizarTelefoneBR`
+  (formatos brasileiros) + 3 placeholders pra suite de integração futura.
+
+Total: **337 testes passando** (322 anteriores + 15 novos).
+
+### 24.11 Falta pra Fase 4 (não entregue ainda)
+
+- Lighthouse audit (target >90 em todas as métricas).
+- Teste OTP fim-a-fim com WhatsApp real (`DRY_RUN_WHATSAPP=false`).
+- Deploy Railway (2 services: bot com `WEB_API_ENABLED=true` + web).
+- DNS `vardobolao.com.br` no Registro.br.
+- Suite de integração com DB de teste (atualmente só testes puros).
+
 
