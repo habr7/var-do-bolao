@@ -578,6 +578,70 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('Sprint 4 — PERGUNTA_GERAL_FUTEBOL (Bug VPS 18/05)', () => {
+    it('"qual canal passa o Brasil hoje?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('qual canal passa o Brasil hoje?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"que canal vai passar o jogo?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('que canal vai passar o jogo?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"onde assistir a final?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('onde assistir a final?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"que horas joga o Brasil?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('que horas joga o Brasil?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"quem joga hoje?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('quem joga hoje?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"quem ganhou copa de 94?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('quem ganhou copa de 94?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"em que grupo o Brasil está?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('em que grupo o Brasil está?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+    it('"qual o placar do jogo?" → PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('qual o placar do jogo?').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+
+    // PROXIMOS_JOGOS deve continuar funcionando pra comandos puros
+    it('regressão: "próximos jogos" sozinho → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('próximos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('regressão: "quais próximos jogos" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('quais próximos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('regressão: "quero palpitar" → PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('quero palpitar').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+
+    // Negative lookahead: pergunta sobre time/país NAO matcha PROXIMOS_JOGOS
+    it('"quais próximos jogos da Inglaterra?" → NÃO é PROXIMOS_JOGOS', () => {
+      const r = parseIntencao('quais próximos jogos da Inglaterra?').intencao;
+      expect(r).not.toBe(Intencao.PROXIMOS_JOGOS);
+    });
+    it('"próximos jogos do Brasil" → NÃO é PROXIMOS_JOGOS (entidade especifica)', () => {
+      const r = parseIntencao('próximos jogos do Brasil').intencao;
+      expect(r).not.toBe(Intencao.PROXIMOS_JOGOS);
+    });
+  });
+
   describe('Bug Humberto 18/05 — MEUS_PONTOS variantes', () => {
     it('"pontuação" sozinho → MEUS_PONTOS', () => {
       expect(parseIntencao('pontuação').intencao).toBe(Intencao.MEUS_PONTOS);

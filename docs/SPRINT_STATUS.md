@@ -5,7 +5,37 @@
 >
 > Este arquivo é a fonte canônica do que **já foi feito** vs **o que falta**.
 
-**Última atualização:** 2026-05-18 (após hotfix 4-bugs Humberto — v3.2.1)
+**Última atualização:** 2026-05-18 (após nova intent PERGUNTA_GERAL_FUTEBOL — v3.3.0)
+
+---
+
+## 🌍 Pergunta geral de futebol via LLM (v3.3.0) — concluído (2026-05-18)
+
+Usuário em produção (VPS) perguntou:
+> "Quais próximos jogos da Inglaterra?"
+> "Qual canal posso assistir o Brasil hoje?"
+
+Bot respondeu "não faz parte de bolão" / "bolão não encontrado". Causa: o
+bot tentava forçar TUDO em comando do bolão. Problema arquitetural: LLM
+era usado só pra **classificar** mensagens em intent — nunca pra
+**responder** perguntas gerais com conhecimento.
+
+| # | O que foi feito |
+|---|---|
+| 1 | **Nova intent `PERGUNTA_GERAL_FUTEBOL`** com 25+ patterns dedicados (qual canal, onde assistir, que horas joga, quem ganhou, em que grupo, jogos da [time], grupo da copa, sorteio, fase de grupos, etc). |
+| 2 | **`PROXIMOS_JOGOS_PATTERNS` ganhou negative lookahead** `(?!\s+d[aoe]\s+\w)` — patterns bare como `\bproximos? jogos?\b` não matcham mais quando seguidos por preposição + entidade ("da Inglaterra", "do Brasil"). |
+| 3 | **`responderConversacional` (LLM) reescrito**: prompt antes proibia inventar dados E forçava redirect pra comando — agora **autoriza** responder perguntas gerais de futebol usando conhecimento próprio (times, copas, regras, transmissão genérica com disclaimer). Mantém proibição crítica: NUNCA invente palpite/ranking/pontos/IDs do user. |
+| 4 | **`INTENT_CLASSIFIER_PROMPT`** ganhou regra-chave: qualquer pergunta que menciona TIME/PAÍS/CANAL/JOGO específico → `PERGUNTA_GERAL_FUTEBOL`, mesmo se contém keywords como "próximos jogos" / "ranking" / "palpite". |
+| 5 | **Novo handler `handlePerguntaGeralFutebol`** em `command.router.ts` — chama `responderConversacional` direto + métrica `intent.PERGUNTA_GERAL_FUTEBOL` e `llm.conversational.hit/miss`. Fallback gracioso quando LLM falha. |
+
+**Métricas:** 397 tests (era 384) · 116 cenários (era 106).
+
+**Casos cobertos** (todos antes caíam em "não entendi" ou comando errado):
+- "Quais próximos jogos da Inglaterra?" → LLM responde sobre seleção inglesa
+- "Qual canal passa o Brasil?" → LLM responde "normalmente Globo/SporTV..."
+- "Quem ganhou copa de 94?" → LLM: "Brasil, contra Itália nos pênaltis"
+- "Em que grupo o Brasil está?" → LLM responde com grupo da Copa 2026
+- "Que horas joga a França?" → LLM com disclaimer + redirect leve
 
 ---
 

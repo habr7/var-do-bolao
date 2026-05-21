@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**384+ tests** distribuídos em `tests/unit/`. Cobre:
+**397+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -48,7 +48,7 @@ npm run test:watch
 
 ## 2. Simulação determinística (`scripts/simulate-conversation.ts`)
 
-Roda **106+ cenários** que cobrem todos os bugs reais já vistos em conversas
+Roda **116+ cenários** que cobrem todos os bugs reais já vistos em conversas
 com usuários. Não toca DB/Redis nem rede — só testa o parser e o admin parser
 (que é onde mora a maioria dos bugs).
 
@@ -332,6 +332,30 @@ npx tsx scripts/run-repair-once.ts
 
 Roda uma única vez e sai. Útil também pra forçar o reparo logo após
 aplicar uma migration nova sem ter que reiniciar o servidor.
+
+### Bloco I — Perguntas gerais de futebol via LLM (3.3.0)
+
+Cenário: usuário pergunta sobre futebol em geral (não sobre o bolão dele).
+
+| Mensagem | Esperado |
+|---|---|
+| `Quais próximos jogos da Inglaterra?` | LLM responde com info da seleção inglesa na Copa 2026 (grupo, fixtures conhecidos) — NÃO mostra jogos do bolão do user |
+| `Qual canal posso assistir o Brasil hoje?` | LLM responde com info de transmissão (Globo/SporTV/FIFA+/Cazé) — disclaimer "normalmente passa em" |
+| `Quem ganhou copa de 94?` | LLM responde "Brasil, contra Itália nos pênaltis" |
+| `Em que grupo o Brasil está?` | LLM responde com grupo da Copa 2026 |
+| `Onde vai ser a final?` | LLM responde (Estados Unidos, MetLife Stadium) com disclaimer |
+| `Que horas joga a França?` | LLM responde se souber, com disclaimer "info geral; pra ver seu bolão manda *meus bolões*" |
+| **Regressão**: `próximos jogos` sozinho | Continua sendo PROXIMOS_JOGOS (lista jogos do bolão do user) |
+| **Regressão**: `quero palpitar` | Continua sendo PROXIMOS_JOGOS |
+| **Regressão**: `ranking` sozinho | Continua sendo RANKING (do bolão) |
+| **Regressão**: `quando começa?` | Continua sendo QUANDO_COMECA (sobre rodada do bolão) |
+
+Validação técnica:
+```cmd
+:: Verifica que a intent foi classificada e métrica incrementada
+docker exec var_do_bolao-redis-1 redis-cli HGET "metrics:$(date +%Y-%m-%d)" intent.PERGUNTA_GERAL_FUTEBOL
+docker exec var_do_bolao-redis-1 redis-cli HGET "metrics:$(date +%Y-%m-%d)" llm.conversational.hit
+```
 
 ### Bloco H — Hotfix 4 bugs Humberto (3.2.1)
 

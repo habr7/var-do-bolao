@@ -63,6 +63,8 @@ export enum Intencao {
   CUMPRIMENTO_CASUAL = 'CUMPRIMENTO_CASUAL', // "tudo bem?", "blz?", "como vai"
   CONCORDANCIA_CASUAL = 'CONCORDANCIA_CASUAL', // "ok", "beleza" (em IDLE — em CONFIRMANDO_* vira SIM)
   RISADA = 'RISADA',                         // "kkkk", "rsrs", "hahaha"
+  // Sprint 4 — perguntas gerais de futebol (nao sobre o bolao do user)
+  PERGUNTA_GERAL_FUTEBOL = 'PERGUNTA_GERAL_FUTEBOL', // "quais jogos da Inglaterra?", "qual canal passa o Brasil?", "quem ganhou copa de 94?"
 
   // Intencoes de admin
   APROVAR = 'APROVAR',
@@ -164,11 +166,19 @@ const MEU_PALPITE_PATTERNS: RegExp[] = [
 // "Proximos jogos / quais jogos faltam / o que ainda nao palpitei"
 // Cobre tambem inversao "jogos proximos", variantes com "qual/quais",
 // e AÇÃO de palpitar ("quero dar palpites", "vou fazer um palpite", etc).
+//
+// BUG VPS 18/05: "Quais próximos jogos da Inglaterra?" matchava o padrao
+// genérico `\bproximos? jogos?\b` e ia pra handleProximosJogos (que lista
+// jogos do BOLAO do user, nao da Inglaterra). Agora os padroes genericos
+// usam negative lookahead pra NAO matchar quando seguido por preposicao
+// + entidade (da/do/de + palavra), que indica pergunta sobre time/pais
+// especifico. Esses casos caem em PERGUNTA_GERAL_FUTEBOL ou no LLM.
 const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
-  /\bproximos? jogos?\b/,
-  /\bjogos? proximos?\b/, // ordem invertida — Bug 4
-  /\bquais (?:os )?proximos? jogos?\b/,
-  /\bquais (?:os )?jogos? proximos?\b/,
+  // Bare "proximos jogos" — apenas se NAO seguido de preposicao + entidade
+  /\bproximos? jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+  /\bjogos? proximos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/, // ordem invertida — Bug 4
+  /\bquais (?:os )?proximos? jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+  /\bquais (?:os )?jogos? proximos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
   /\bjogos? que (?:ainda )?(?:nao palpitei|faltam|tem)\b/,
   /\bo que (?:ainda )?(?:nao palpitei|falta palpitar)\b/,
   /\bquais (?:eu )?(?:ainda )?(?:nao palpitei|preciso palpitar)\b/,
@@ -183,10 +193,63 @@ const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   /\b(?:quero|bora|vou|vamos) palpitar\b/,
   /\bdeixa eu (?:dar|fazer|registrar|palpitar)\b/,
   /\bpalpitar (?:nos? |em |nesses? )?jogos?\b/,
-  /\blista (?:de )?jogos?\b/,
-  /\bme mostra os jogos?\b/,
-  /\bmostra(?:r)? os jogos?\b/,
-  /\bver os jogos?\b/,
+  /\blista (?:de )?jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+  /\bme mostra os jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+  /\bmostra(?:r)? os jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+  /\bver os jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+];
+
+// Sprint 4 (Bug VPS 18/05) — "Pergunta geral sobre futebol".
+// Quando o usuario pergunta sobre time/pais/canal/jogo especifico que
+// nao eh o bolao dele, queremos passar pra LLM responder naturalmente —
+// nao forcar em comando do bot. Padroes captam claramente:
+//   - "qual canal" (transmissão TV)
+//   - "onde assistir" (transmissão)
+//   - "quem joga" / "joga contra" / "vai jogar" (sobre time especifico)
+//   - "que dia/hora joga X" (data de jogo especifico)
+//   - "quem ganhou" / "resultado" (sobre jogo passado)
+//   - perguntas com "?" + nome de time/pais (regex de entidades comuns)
+const PERGUNTA_GERAL_FUTEBOL_PATTERNS: RegExp[] = [
+  // Canal / transmissão / onde assistir
+  /\bqual (?:o )?canal\b/,
+  /\bque canal\b/,
+  /\bem que canal\b/,
+  /\bonde (?:vou |posso |consigo |da pra |eu )?(?:assist[ie]r|ver|passa|transmite)\b/,
+  /\baonde (?:vou |posso |consigo |da pra |eu )?(?:assist[ie]r|ver|passa|transmite)\b/,
+  /\bvai passar\b/,
+  // Dia / hora de jogo especifico. NAO inclui "comeca/começa" sozinho —
+  // isso eh QUANDO_COMECA (sobre rodada do bolao). PERGUNTA_GERAL_FUTEBOL
+  // exige indicacao explicita de jogo/time externo.
+  /\bque (?:dia|hora|horas) (?:joga|passa|tem jogo)\b/,
+  /\bquando (?:joga|passa)\s+(?:o |a |os |as )?\w+/, // exige objeto: "quando joga o brasil"
+  /\bque horas (?:eh|é|sera|será) o jogo\b/,
+  // Quem joga / vai jogar (sobre time externo)
+  /\bquem joga\b/,
+  /\bquem jogou\b/,
+  /\bquem ganhou\b/,
+  /\bquem venceu\b/,
+  /\bquem (?:fez|marcou) gol\b/,
+  /\bvai jogar\b.*\?/,
+  /\bjogou contra\b/,
+  // Resultado / placar de jogo especifico (mas nao "meu palpite")
+  /\bresultado (?:do |de |da )?jogo\b/,
+  /\bplacar (?:do |de )(?:jogo|brasil|argentina|copa)\b/,
+  /\bcomo (?:foi|terminou) o jogo\b/,
+  /\bqual (?:foi )?o placar\b/,
+  // Grupos / sorteio / fase de copa
+  /\bgrupo (?:do|da)\b/,
+  /\bem que grupo\b/,
+  /\bsorteio\b/,
+  /\bfase de grupos\b/,
+  /\boitavas|quartas|semifinal|final da copa\b/,
+  // "jogos da/do [time]" / "jogo contra X" — captura "quais proximos jogos
+  // da Inglaterra?" e variantes que NAO sao sobre o bolao do user.
+  /\bjogos?\s+(?:d[aoe]|contra|na\s|no\s|em\s|sobre)\s+\w/,
+  /\b(?:proxim[oa]|ultim[oa])\s+jogo\s+(?:d[aoe]|contra|na|no|em)\s+\w/,
+  // Pergunta com nome de pais/time depois de "joga/jogou":
+  // "Inglaterra joga hoje?", "Brasil jogou contra X" — quando comeca com
+  // letra maiuscula seguida de verbo.
+  /\b(?:joga|jogou|jogara)\b.*\b(?:contra|com|hoje|amanha|domingo|segunda|terca|quarta|quinta|sexta|sabado)\b/,
 ];
 
 // "Jogos hoje / agenda"
@@ -573,6 +636,12 @@ const INTENT_RULES: IntentRules[] = [
   // em frases longas. Em CONFIRMANDO_* states o FSM dispatcher pega antes.
   { intencao: Intencao.CONCORDANCIA_CASUAL, padroes: CONCORDANCIA_CASUAL_PATTERNS },
   { intencao: Intencao.RISADA, padroes: RISADA_PATTERNS },
+  // Sprint 4 — PERGUNTA_GERAL_FUTEBOL antes de PROXIMOS_JOGOS/JOGOS_HOJE/
+  // RANKING porque perguntas sobre time/canal/jogo especifico tem
+  // palavras-chave em comum mas devem cair em LLM conversacional, nao
+  // em handler de comando. Bug VPS 18/05 ("Quais proximos jogos da
+  // Inglaterra?" virava handleProximosJogos do bolao do user).
+  { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL, padroes: PERGUNTA_GERAL_FUTEBOL_PATTERNS },
   // Ordem: mais especificos antes. REGRAS antes de AJUDA pq "como funciona
   // pontuacao" vs "como funciona" sao bem proximos.
   { intencao: Intencao.REGRAS, padroes: REGRAS_PATTERNS },

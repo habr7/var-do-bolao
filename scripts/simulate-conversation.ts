@@ -767,6 +767,71 @@ const CENARIOS: Cenario[] = [
     msg: 'quanto pontuei',
     esperado: { intencao: Intencao.MEUS_PONTOS },
   },
+
+  // ====================================================================
+  // Sprint 4 — Bug VPS 18/05: perguntas gerais de futebol
+  // ====================================================================
+  {
+    grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
+    desc: '"Quais próximos jogos da Inglaterra?" → PERGUNTA_GERAL_FUTEBOL (era PROXIMOS_JOGOS do bolão do user)',
+    msg: 'Quais próximos jogos da Inglaterra?',
+    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+  },
+  {
+    grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
+    desc: '"Qual canal posso assistir o Brasil hoje?" → PERGUNTA_GERAL_FUTEBOL',
+    msg: 'Qual canal posso assistir o Brasil hoje?',
+    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+  },
+  {
+    grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
+    desc: '"onde assistir a final?" → PERGUNTA_GERAL_FUTEBOL',
+    msg: 'onde assistir a final?',
+    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+  },
+  {
+    grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
+    desc: '"que horas joga o Brasil?" → PERGUNTA_GERAL_FUTEBOL',
+    msg: 'que horas joga o Brasil?',
+    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+  },
+  {
+    grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
+    desc: '"quem ganhou copa de 94?" → PERGUNTA_GERAL_FUTEBOL',
+    msg: 'quem ganhou copa de 94?',
+    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+  },
+  {
+    grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
+    desc: '"em que grupo o Brasil está?" → PERGUNTA_GERAL_FUTEBOL',
+    msg: 'em que grupo o Brasil está?',
+    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+  },
+  // Regressões críticas: comandos sobre o bolão DO USER continuam funcionando
+  {
+    grupo: '🛡️ Sprint 4 — regressão',
+    desc: '"próximos jogos" sozinho continua PROXIMOS_JOGOS',
+    msg: 'próximos jogos',
+    esperado: { intencao: Intencao.PROXIMOS_JOGOS },
+  },
+  {
+    grupo: '🛡️ Sprint 4 — regressão',
+    desc: '"quero palpitar" continua PROXIMOS_JOGOS',
+    msg: 'quero palpitar',
+    esperado: { intencao: Intencao.PROXIMOS_JOGOS },
+  },
+  {
+    grupo: '🛡️ Sprint 4 — regressão',
+    desc: '"quando começa?" continua QUANDO_COMECA',
+    msg: 'quando começa?',
+    esperado: { intencao: Intencao.QUANDO_COMECA },
+  },
+  {
+    grupo: '🛡️ Sprint 4 — regressão',
+    desc: '"ranking" sozinho continua RANKING',
+    msg: 'ranking',
+    esperado: { intencao: Intencao.RANKING },
+  },
 ];
 
 // ============================================================

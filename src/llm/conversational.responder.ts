@@ -2,53 +2,62 @@ import { chat } from './llm.client.js';
 import { BASE_CONTEXT } from './system-prompts.js';
 
 /**
- * Smart fallback final: quando o regex parser E o intent classifier
- * falharam em classificar a mensagem em uma das intencoes conhecidas,
- * em vez de devolver "nao entendi" cru, pede ao LLM uma resposta curta
- * e direcionada.
+ * LLM conversacional — responde diretamente o usuario quando a mensagem
+ * NAO eh um comando do bot. Cobre dois casos:
  *
- * O system prompt instrui o modelo:
- *   - PT-BR coloquial, conciso (max 4-5 linhas)
- *   - NUNCA inventar dados especificos (palpites, datas, bolaes)
- *   - Quando o user fizer pergunta sobre dados, direcionar pro comando
- *     correto ("manda *próximos jogos* pra ver", "manda *ranking*")
- *   - Quando o user falar algo offtopic (futebol em geral, etc), respondem
- *     casualmente mas curtos
- *   - Em ultimo caso, sugerir o menu/ajuda
+ *   1. **Pergunta geral de futebol** (PERGUNTA_GERAL_FUTEBOL): "qual canal
+ *      passa o Brasil?", "quando joga a Inglaterra?", "quem ganhou copa de
+ *      94?". O bot responde usando conhecimento proprio do LLM, com leve
+ *      disclaimer pra datas/dados que podem estar desatualizados.
  *
- * Retorna `string | null`. Caller decide o fallback (geralmente o "nao
- * entendi" textual + menu).
+ *   2. **Smart-fallback final** (apos regex + classifier falharem): em
+ *      vez de devolver "nao entendi" cru, tenta uma resposta direcionada.
+ *
+ * O prompt AUTORIZA responder perguntas de futebol — esse era o gap antes
+ * (bot sempre redirecionava pra comando, mesmo quando user nao queria info
+ * do bolao dele). Mantem a proibicao critica: NUNCA inventar dados
+ * especificos do bolao do user (palpites, ranking, IDs, pontos).
+ *
+ * Bug VPS 18/05: usuario perguntando "qual canal passa o Brasil hoje?" e
+ * "quais proximos jogos da Inglaterra?" recebia respostas tipo "voce nao
+ * faz parte de nenhum bolao" — o bot estava forcando interpretacao como
+ * comando. Esta funcao agora cobre essas perguntas.
  */
 
 const RESPONDER_PROMPT = `${BASE_CONTEXT}
 
-TAREFA: o usuario mandou uma mensagem que o parser/classifier NAO conseguiu mapear em nenhuma intent conhecida. Voce responde como o bot, em portugues brasileiro casual, em ate 4-5 linhas.
+TAREFA: responder o usuario diretamente. A mensagem dele NAO eh um comando do bot — ou eh pergunta geral de futebol, ou eh papo casual/offtopic, ou eh ambigua.
 
-COMANDOS DISPONIVEIS (use pra redirecionar):
-- *próximos jogos* — ver jogos abertos pra palpitar
-- *meus palpites* — ver palpites ja dados
-- *meus pontos* — pontuacao do usuario
-- *ranking* — quem ta na frente
-- *regras* — regras de pontuacao
-- *como convido* — pegar mensagem de convite (admin)
-- *quem participa* — lista de quem ta no bolao
-- *criar bolão* / *entrar em bolão* — fluxos basicos
+VOCE PODE responder usando seu conhecimento proprio sobre:
+- Times, jogadores, copas (mundial, Libertadores, brasileirao, etc).
+- Datas/jogos da Copa do Mundo 2026: grupos, fixtures principais, sedes (Estados Unidos/Mexico/Canada). Se nao tiver certeza ABSOLUTA de uma data/hora, use disclaimer ("ate onde sei...", "se nada mudou...").
+- Regras gerais do futebol, historia das copas, lendarios.
+- Onde costuma ser transmitido (Globo, SporTV, FIFA+, Cazé TV no YouTube, etc). Use disclaimer ("normalmente...", "geralmente passa em...").
+- Curiosidades do futebol.
 
-DIRETRIZES:
-1. NUNCA invente: numero de palpite, nome de bolao, codigo (#XXX), placar, nome de usuario, data, ranking. Voce nao tem acesso ao banco.
-2. Se a pergunta exige dado especifico, sugere o comando correto ("manda *meus pontos* que te mostro").
-3. Se a mensagem for casual/social ("e ai?", "blz", "tudo bem"), responde curto e casual e oferece ajuda.
-4. Se for pergunta de futebol generica que voce sabe responder (regras do esporte, copa, etc), responde curto sem inventar dados.
-5. Se for completamente ininteligivel ou ofensiva, diga gentilmente que nao entendeu e mostre 3 opcoes principais.
-6. NUNCA prometa funcionalidade que nao existe (placar ao vivo, transmissao, audio, etc).
+VOCE NAO PODE:
+- Inventar palpites, ranking, pontos, nomes de usuario, codigos de bolao (#XXX) ou qualquer dado especifico do banco. Voce NAO tem acesso ao banco.
+- Prometer programacao ao vivo, placar ao vivo, transmissao via bot, ou qualquer feature que nao existe.
+- Inventar fatos com certeza falsa sobre Copa 2026 — quando incerto, diga.
 
-FORMATO DE OUTPUT: APENAS o texto da resposta, sem JSON, sem markdown fences, sem "voce poderia dizer".`;
+QUANDO REDIRECIONAR PRO BOT:
+- Se a pergunta eh sobre dados DO USER (palpites, pontos, bolao dele) → sugira o comando ("manda *meus pontos* que te mostro").
+- Se a pergunta eh geral (Inglaterra, canal, copa antiga) → RESPONDA usando seu conhecimento, NAO redirecione cru.
+- Se a mensagem eh ininteligivel ou ofensiva → diga gentilmente que nao entendeu, ofereca *ajuda*.
+
+ESTILO:
+- PT-BR brasileiro coloquial, conciso (max 5-6 linhas).
+- Sem formalismo. Pode usar "bora", "tipo", "ta".
+- Emojis com parcimônia (1-2 quando faz sentido).
+- Quando der info temporal/canal, terminar com "_(info geral; pra ver o que rola no SEU bolao, manda *meus bolões* ou *ranking*)_" — so quando relevante.
+
+FORMATO DE OUTPUT: APENAS o texto da resposta. Sem JSON, sem markdown fences, sem prefixo "Bot:" / "Resposta:".`;
 
 /**
- * Roda o LLM com o prompt de fallback conversacional. Devolve `null`
- * quando o LLM falha (LLM_ENABLED=false, timeout, etc).
+ * Roda o LLM com o prompt conversacional. Devolve `null` quando o LLM
+ * falha (LLM_ENABLED=false, timeout, etc).
  *
- * Latencia esperada: ~300-500ms (gemini-2.5-flash-lite) ou ~2s (ollama).
+ * Latencia esperada: ~400-700ms (gemini-2.5-flash-lite) ou ~2s (ollama).
  */
 export async function responderConversacional(textoUsuario: string): Promise<string | null> {
   const raw = await chat(
@@ -56,7 +65,7 @@ export async function responderConversacional(textoUsuario: string): Promise<str
       { role: 'system', content: RESPONDER_PROMPT },
       { role: 'user', content: textoUsuario },
     ],
-    { temperature: 0.4, maxTokens: 250 },
+    { temperature: 0.4, maxTokens: 320 },
   );
   if (!raw) return null;
   // Garante que nao tenha JSON fences ou prefixos suspeitos

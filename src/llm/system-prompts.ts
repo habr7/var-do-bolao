@@ -69,6 +69,7 @@ INTENCOES:
 - CUMPRIMENTO_CASUAL: usuario perguntando "tudo bem?". Ex: "tudo bem?", "tudo bom?", "blz?", "td certo?", "como vai?", "suave?", "firmeza?". NAO eh saudacao pura ("oi") — eh perguntinha social. Bot responde curto + sugere proximas acoes (NAO o menu completo).
 - CONCORDANCIA_CASUAL: usuario respondeu OK/beleza/show de forma curta em IDLE (apos uma acao concluida). Ex: "ok", "beleza", "show", "fechou", "tranquilo", "perfeito", "saquei", "entendi". CUIDADO: dentro de um fluxo de confirmacao (CONFIRMANDO_*), essas mesmas palavras viram SIM via outro caminho — voce so vê em IDLE. Responda curto sem reabrir menu.
 - RISADA: usuario mandou risada isolada. Ex: "kkkk", "rsrs", "hahaha", "😂", "🤣". Responda com emoji curto, sem menu.
+- PERGUNTA_GERAL_FUTEBOL: pergunta sobre FUTEBOL EM GERAL, fora do escopo do bolao do user. Ex: "quais proximos jogos da Inglaterra?", "qual canal passa o Brasil hoje?", "onde assisto a final?", "quem ganhou copa de 94?", "que horas joga a Franca?", "em que grupo o Brasil esta?", "vai ter sorteio?". O bot vai responder usando conhecimento geral via LLM. **Crucial: classifique aqui qualquer pergunta que mencione TIME/PAIS especifico, CANAL DE TV, ou JOGO ESPECIFICO** — mesmo que contenha palavras como "proximos jogos" / "ranking" / "palpite" — porque o user nao quer ver dados do bolao DELE, quer info GERAL.
 - PENDENTES: admin perguntando solicitacoes pendentes. Ex: "tem pedido pra aprovar?", "pendentes".
 - CANCELAR: cancelar acao em andamento. Ex: "esquece", "deixa pra la", "para".
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.
@@ -76,10 +77,14 @@ INTENCOES:
 DISTINCAO IMPORTANTE:
 - "Meus palpites" / "ver palpites" / "o que chutei" (MEU_PALPITE) = CONSULTA — ver historico de palpites JA dados.
 - "Quero/vou/bora DAR/FAZER palpites" / "quero palpitar" (PROXIMOS_JOGOS) = AÇÃO — usuario quer palpitar agora nos jogos abertos.
-- "Proximos jogos" / "o que falta palpitar" (PROXIMOS_JOGOS) = ver o que ainda falta.
+- "Proximos jogos" / "o que falta palpitar" (PROXIMOS_JOGOS) = ver o que ainda falta NO BOLAO DO USER.
+- **"Proximos jogos da Inglaterra?" / "Qual o ranking da Copa?" / "Quais jogos hoje" sem contexto de bolao (PERGUNTA_GERAL_FUTEBOL)** = pergunta GERAL, nao sobre o bolao do user. **Se a frase menciona time/pais especifico, canal, sorteio, ou algo que esta fora do escopo de bolao do user → PERGUNTA_GERAL_FUTEBOL.**
 - "palpites" sozinho (sem verbo, sem "meus") (PALPITES_AMBIGUO) = bot vai perguntar entre ver/fazer/regras.
-- "Meus pontos" (MEUS_PONTOS) = ver pontuacao numerica.
-- "Ranking" (RANKING) = ver tabela com todo mundo.
+- "Meus pontos" (MEUS_PONTOS) = ver pontuacao numerica DO USER no bolao.
+- "Ranking" sozinho (RANKING) = ver tabela do bolao DO USER.
+- "Ranking da Copa" / "Ranking da Inglaterra" (PERGUNTA_GERAL_FUTEBOL) = info geral, nao do bolao.
+
+REGRA-CHAVE: se a mensagem menciona um TIME/PAIS/JOGADOR/CANAL especifico e nao esta no contexto de "MEU palpite", "MEUS pontos" ou "MEU bolao", classifique como PERGUNTA_GERAL_FUTEBOL — o bot tem caminho separado pra responder esses casos via LLM conversacional, com conhecimento geral, sem inventar dados do bolao.
 
 REGRA-OURO: se a frase contem verbo de AÇÃO ("dar", "fazer", "registrar", "palpitar") junto da palavra "palpite(s)" -> PROXIMOS_JOGOS. So vire MEU_PALPITE quando for CONSULTA explicita ("meus", "ver", "quais", "o que palpitei").
 

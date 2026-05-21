@@ -523,6 +523,11 @@ async function dispatchIntencao(
       await handleRisada(msg);
       return true;
 
+    // Sprint 4 — pergunta geral sobre futebol (nao sobre o bolao do user)
+    case Intencao.PERGUNTA_GERAL_FUTEBOL:
+      await handlePerguntaGeralFutebol(msg);
+      return true;
+
     case Intencao.PALPITE_INLINE:
       await handlePalpiteInlineEmIdle(msg, usuarioId);
       return true;
@@ -796,6 +801,40 @@ function escolherRespostaRisada(): string {
 
 async function handleRisada(msg: IncomingMessage) {
   await sendText({ to: msg.waId, text: escolherRespostaRisada() });
+}
+
+/**
+ * Sprint 4 (Bug VPS 18/05) — pergunta geral sobre futebol que nao eh
+ * sobre o bolao do user. Ex: "qual canal passa o Brasil?", "quem joga
+ * hoje a Inglaterra?", "quem ganhou copa de 94?".
+ *
+ * Antes desta intent, perguntas assim viravam comando do bot por engano
+ * (handleProximosJogos do bolao do user, ou handleRanking buscando bolao
+ * com nome do time). Agora chama o LLM conversacional diretamente —
+ * autorizado a responder com conhecimento geral, sem inventar dados do
+ * banco do bot.
+ *
+ * Fallback gracioso quando LLM falha (timeout/no-key): mensagem amigavel
+ * admitindo que nao consegue ajudar agora.
+ */
+async function handlePerguntaGeralFutebol(msg: IncomingMessage) {
+  void incContador('intent.PERGUNTA_GERAL_FUTEBOL');
+  const resposta = await responderConversacional(msg.text);
+  if (resposta) {
+    void incContador('llm.conversational.hit');
+    await sendText({ to: msg.waId, text: resposta });
+    return;
+  }
+
+  // Fallback quando LLM esta off ou falhou
+  void incContador('llm.conversational.miss');
+  await sendText({
+    to: msg.waId,
+    text:
+      `🤖 Parece uma pergunta geral sobre futebol — não consegui responder agora ` +
+      `(o assistente está fora do ar). Tenta de novo daqui a pouco.\n\n` +
+      `Se quiser ver dados do *seu bolão*, manda *meus bolões*, *ranking* ou *meus palpites*.`,
+  });
 }
 
 // ============================================================

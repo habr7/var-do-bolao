@@ -57,6 +57,8 @@ const INTENCOES_VALIDAS = [
   Intencao.CUMPRIMENTO_CASUAL,
   Intencao.CONCORDANCIA_CASUAL,
   Intencao.RISADA,
+  // Sprint 4 — perguntas gerais sobre futebol (nao sobre bolao do user)
+  Intencao.PERGUNTA_GERAL_FUTEBOL,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
 ] as const;

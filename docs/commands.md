@@ -424,6 +424,20 @@ kkkk  •  kk  •  rsrs  •  hahaha  •  huehue  •  😂  •  🤣
 ```
 → `RISADA` — resposta minimalista (emoji curto ou "kkkkk").
 
+```
+qual canal passa o Brasil?  •  onde assistir a final?
+quais próximos jogos da Inglaterra?  •  que horas joga a França?
+quem ganhou copa de 94?  •  em que grupo o Brasil está?
+```
+→ `PERGUNTA_GERAL_FUTEBOL` — perguntas gerais sobre futebol que NÃO são
+sobre o bolão do user. O bot chama o LLM conversacional (Gemini) com
+prompt autorizado a responder usando conhecimento próprio (times, copas,
+regras, transmissão genérica).
+> ⚠️ O bot **nunca inventa** dados específicos do user (palpites/ranking/
+> pontos/IDs). Pra info de TV ao vivo, dá uma disclaimer "normalmente passa
+> em..." e sugere o site oficial. Pra dados do **seu bolão**, manda
+> `ranking`, `meus pontos`, `meus palpites`.
+
 ---
 
 ## Editar e apagar palpite
