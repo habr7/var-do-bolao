@@ -72,6 +72,8 @@ const baseSchema = z.object({
   // ollama em caso de falha.
   LLM_ENABLED: z.preprocess(coerceBool, z.boolean()).default(true),
   LLM_PROVIDER: z.enum(['gemini', 'ollama', 'auto']).default('auto'),
+  // Bump 5s→8s (18/05): Gemini sob carga responde em 4-7s as vezes.
+  // Timeout 5s causava abort precoce e null pro caller.
   LLM_TIMEOUT_MS: z.coerce.number().default(8000),
 
   // Gemini (Google AI Studio) — gratuito ate 1500 req/dia no flash.

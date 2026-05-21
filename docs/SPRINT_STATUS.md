@@ -5,7 +5,37 @@
 >
 > Este arquivo é a fonte canônica do que **já foi feito** vs **o que falta**.
 
-**Última atualização:** 2026-05-18 (após nova intent PERGUNTA_GERAL_FUTEBOL — v3.3.0)
+**Última atualização:** 2026-05-18 (após hotfix Gemini retry/timeout — v3.3.1)
+
+---
+
+## 🔁 Hotfix Gemini 503 + retry/timeout (v3.3.1) — concluído (2026-05-18)
+
+Após deploy do v3.3.0 na VPS, usuário testou novamente "Quais próximos
+jogos da Inglaterra?" e recebeu mensagem fallback "o assistente está fora
+do ar". Causa: **Gemini 2.5 Flash Lite estava retornando HTTP 503** ("This
+model is currently experiencing high demand") com alta frequência no Google
+— não era bug nosso, era sobrecarga do provedor.
+
+| # | Mudança | Por quê |
+|---|---|---|
+| 1 | `chatGemini` faz **retry automático** com backoff (400ms, 1200ms) em **HTTP 503/429/408 e timeouts** (até 3 tentativas) | Gemini Flash Lite frequentemente "balanceia" requests; sem retry, 1ª tentativa em 503 voltava `null` direto. Com retry, ~90% se resolvem no Gemini mesmo. |
+| 2 | `LLM_TIMEOUT_MS` default subiu de **5000→8000ms** | Gemini sob carga responde em 4-7s. 5s causava `AbortError` precoce. |
+| 3 | Logs explícitos `[llm] gemini SKIP — LLM_ENABLED=false` e `[llm] gemini SKIP — GEMINI_API_KEY vazia` | Antes ficavam silenciosos — VPS mal configurada parecia bug no código. |
+| 4 | Mensagem fallback do `handlePerguntaGeralFutebol` reescrita | Antes: "o assistente está fora do ar" (alarmista). Agora: "congestionado, tenta de novo" + sugere comandos do bolão que não dependem do LLM. |
+| 5 | Novo `scripts/test-conversational.ts` — smoke test do fluxo conversational | Roda as 4 perguntas reais reportadas em produção com retry. Diagnóstico rápido sem subir o servidor inteiro. |
+
+**Como o fallback Ollama Cloud entra**: o router em `llm.client.ts` tenta
+Gemini → se Gemini retornar null (após retries esgotados) → cai pra Ollama
+Cloud. Pra isso funcionar na VPS, `LLM_API_KEY` no `.env` precisa ser a
+chave real da Ollama Cloud (não o placeholder `substitua_pela_chave...`).
+
+**Métricas:** 400 tests (era 397) · 116 cenários. Novo: 3 tests do retry
+(503 retryable / 429 retryable / desiste após 3 tentativas).
+
+**Validação local feita** com `scripts/test-conversational.ts`: as 4
+perguntas reais responderam ✅ (algumas com retry, outras direto, uma via
+Ollama fallback após Gemini ainda dar 503 após 3 tentativas).
 
 ---
 

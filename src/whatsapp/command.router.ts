@@ -826,14 +826,18 @@ async function handlePerguntaGeralFutebol(msg: IncomingMessage) {
     return;
   }
 
-  // Fallback quando LLM esta off ou falhou
+  // Fallback quando LLM esgotou retries (Gemini overloaded + Ollama nao
+  // configurado/falhou). A mensagem nao culpa o user e oferece retry.
   void incContador('llm.conversational.miss');
+  console.warn(
+    `[handlePerguntaGeralFutebol] LLM esgotou retries pra waId=${msg.waId} text=${JSON.stringify(msg.text.slice(0, 100))}`,
+  );
   await sendText({
     to: msg.waId,
     text:
-      `🤖 Parece uma pergunta geral sobre futebol — não consegui responder agora ` +
-      `(o assistente está fora do ar). Tenta de novo daqui a pouco.\n\n` +
-      `Se quiser ver dados do *seu bolão*, manda *meus bolões*, *ranking* ou *meus palpites*.`,
+      `🤖 Caraca, foi mal — fiquei sem fôlego pra responder essa agora ` +
+      `(o assistente que responde perguntas gerais tá congestionado). Tenta de novo daqui a uns segundinhos? 🙏\n\n` +
+      `Pra dados do *seu bolão* (que não dependem do assistente), manda *ranking*, *meus pontos* ou *meus palpites*.`,
   });
 }
 
