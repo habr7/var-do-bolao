@@ -97,13 +97,24 @@ function toGeminiPayload(messages: ChatMessage[], opts: ChatOptions): GeminiRequ
   return body;
 }
 
-export async function chatGemini(
-  messages: ChatMessage[],
-  opts: ChatOptions = {},
-): Promise<string | null> {
-  if (!env.LLM_ENABLED) return null;
-  if (!env.GEMINI_API_KEY) return null;
+/**
+ * Status HTTP retryable: 503 (model overloaded) e 429 (rate limit). Gemini
+ * frequentemente retorna 503 quando o modelo flash-lite esta com pico de
+ * demanda, e melhora em poucos segundos. 408 (timeout do server) tambem
+ * vale a pena tentar.
+ */
+const STATUS_RETRYABLE = new Set([408, 429, 503]);
+const MAX_RETRIES = 2; // 1 tentativa + 2 retries = ate 3 chamadas
+const BACKOFF_MS = [400, 1200]; // backoff exponencial leve entre retries
 
+/**
+ * Uma chamada unica ao Gemini, sem retry. Usado como bloco basico de
+ * `chatGemini` (que envolve com retry pra 503/429).
+ */
+async function chatGeminiSingle(
+  messages: ChatMessage[],
+  opts: ChatOptions,
+): Promise<{ text: string | null; retryable: boolean }> {
   const timeoutMs = opts.timeoutMs ?? env.LLM_TIMEOUT_MS;
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}` +
@@ -126,22 +137,23 @@ export async function chatGemini(
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
+      const retryable = STATUS_RETRYABLE.has(response.status);
       console.warn(
-        `[llm] gemini HTTP ${response.status} (${latency}ms): ${errText.slice(0, 200)}`,
+        `[llm] gemini HTTP ${response.status} (${latency}ms)${retryable ? ' [retryable]' : ''}: ${errText.slice(0, 200)}`,
       );
-      return null;
+      return { text: null, retryable };
     }
 
     const data = (await response.json()) as GeminiResponse;
 
     if (data.error) {
       console.warn(`[llm] gemini error: ${data.error.message ?? 'unknown'}`);
-      return null;
+      return { text: null, retryable: false };
     }
 
     if (data.promptFeedback?.blockReason) {
       console.warn(`[llm] gemini bloqueado: ${data.promptFeedback.blockReason}`);
-      return null;
+      return { text: null, retryable: false };
     }
 
     const text =
@@ -150,16 +162,57 @@ export async function chatGemini(
     if (text) {
       console.log(`[llm] provider=gemini model=${env.GEMINI_MODEL} latency=${latency}ms ok`);
     }
-    return text?.trim() ?? null;
+    return { text: text?.trim() ?? null, retryable: false };
   } catch (error) {
     const err = error as { name?: string; message?: string };
     if (err.name === 'AbortError') {
-      console.warn(`[llm] gemini timeout apos ${timeoutMs}ms`);
-    } else {
-      console.warn('[llm] gemini erro:', err.message ?? String(err));
+      console.warn(`[llm] gemini timeout apos ${timeoutMs}ms [retryable]`);
+      return { text: null, retryable: true }; // timeout vale a pena tentar de novo
     }
-    return null;
+    console.warn('[llm] gemini erro:', err.message ?? String(err));
+    return { text: null, retryable: false };
   } finally {
     clearTimeout(timeoutHandle);
   }
+}
+
+/**
+ * Chat com Gemini, com retry automatico em 503/429/timeout.
+ *
+ * Gemini 2.5 Flash Lite frequentemente retorna HTTP 503 ("This model is
+ * currently experiencing high demand") em picos do Google. O retry resolve
+ * em 90% dos casos com 1-2 tentativas extras (latencia adicional ~400ms-1.5s).
+ *
+ * Quando todos os retries falham, retorna null pro caller usar o fallback
+ * (Ollama ou mensagem amigavel pro usuario).
+ */
+export async function chatGemini(
+  messages: ChatMessage[],
+  opts: ChatOptions = {},
+): Promise<string | null> {
+  if (!env.LLM_ENABLED) {
+    // Visivel pra diagnostico — sem isso ficava silencioso e dificultava
+    // identificar quando o LLM estava desligado por env.
+    console.warn('[llm] gemini SKIP — LLM_ENABLED=false');
+    return null;
+  }
+  if (!env.GEMINI_API_KEY) {
+    console.warn('[llm] gemini SKIP — GEMINI_API_KEY vazia');
+    return null;
+  }
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const wait = BACKOFF_MS[attempt - 1] ?? 1500;
+      console.log(`[llm] gemini retry #${attempt} apos ${wait}ms backoff...`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+    const result = await chatGeminiSingle(messages, opts);
+    if (result.text !== null) return result.text;
+    if (!result.retryable) return null; // erro nao-retryable: para imediato
+  }
+
+  // Esgotou retries
+  console.warn(`[llm] gemini desistiu apos ${MAX_RETRIES + 1} tentativas`);
+  return null;
 }

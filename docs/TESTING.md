@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**397+ tests** distribuídos em `tests/unit/`. Cobre:
+**400+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -257,6 +257,31 @@ Roda 3 testes contra a API real:
 
 Esperado: latência ~400-800ms cada. Se der HTTP 429 = cota grátis estourou
 (reset diário). Se der 200 = Gemini OK.
+
+### 5.1 Smoke test conversacional (`scripts/test-conversational.ts`)
+
+Adicionado em v3.3.1 — valida que **perguntas gerais sobre futebol** são
+respondidas naturalmente pelo LLM (sem cair em "assistente fora do ar"):
+
+```cmd
+npx tsx scripts/test-conversational.ts
+```
+
+Testa 4 perguntas reais reportadas em produção:
+- "Quais próximos jogos da Inglaterra?"
+- "Qual canal posso assistir o Brasil hoje?"
+- "Quem ganhou a Copa do Mundo de 1994?"
+- "Em que grupo o Brasil está na Copa 2026?"
+
+Cada uma com até 3 retries internos (porque Gemini 503 é comum em pico de
+demanda). Output mostra latência + resposta — se todas vierem ✅, o pipeline
+LLM→conversational tá saudável. Em algumas tentativas pode aparecer
+`[llm] gemini HTTP 503` + `[llm] gemini retry #1` — isso é esperado e prova
+que o retry funciona.
+
+**Quando rodar**: depois de mexer em qualquer coisa no `src/llm/`,
+`system-prompts.ts`, ou quando o usuário reportar "bot não respondeu
+pergunta geral de futebol".
 
 ---
 

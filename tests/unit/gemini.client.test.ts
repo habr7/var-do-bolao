@@ -78,15 +78,65 @@ describe('chatGemini', () => {
     expect(body.generationConfig.responseMimeType).toBeUndefined();
   });
 
-  it('retorna null quando HTTP != 2xx', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue({
+  it('retorna null quando HTTP nao-retryable (ex: 400 bad request)', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({
       ok: false,
-      status: 429,
-      text: async () => 'rate limit',
+      status: 400,
+      text: async () => 'bad request',
     } as Response);
 
     const out = await chatGemini([{ role: 'user', content: 'oi' }]);
     expect(out).toBeNull();
+    // 400 nao deve retry — uma unica chamada
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('faz RETRY em HTTP 503 (Gemini overloaded)', async () => {
+    const fetchSpy = vi
+      .spyOn(global, 'fetch')
+      // tentativa 1: 503
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: async () => 'high demand',
+      } as Response)
+      // tentativa 2 (retry): 200 com sucesso
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: 'olá!' }] } }] }),
+      } as Response);
+
+    const out = await chatGemini([{ role: 'user', content: 'oi' }]);
+    expect(out).toBe('olá!');
+    expect(fetchSpy).toHaveBeenCalledTimes(2); // 1 falha + 1 retry sucesso
+  });
+
+  it('faz RETRY em HTTP 429 (rate limit)', async () => {
+    const fetchSpy = vi
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({ ok: false, status: 429, text: async () => 'rate' } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }),
+      } as Response);
+
+    const out = await chatGemini([{ role: 'user', content: 'oi' }]);
+    expect(out).toBe('ok');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('desiste apos 3 tentativas (1 + 2 retries) se 503 continuar', async () => {
+    const fetchSpy = vi
+      .spyOn(global, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: async () => 'high demand',
+      } as Response);
+
+    const out = await chatGemini([{ role: 'user', content: 'oi' }]);
+    expect(out).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(3); // 1 + 2 retries
   });
 
   it('retorna null quando promptFeedback.blockReason', async () => {

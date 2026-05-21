@@ -4,7 +4,7 @@
 > direta (DM)** — sem grupo, sem app, sem fricção. Foco atual: Copa do Mundo
 > FIFA 2026.
 
-[![Tests](https://img.shields.io/badge/tests-397%20passing-green)]()
+[![Tests](https://img.shields.io/badge/tests-400%20passing-green)]()
 [![Node](https://img.shields.io/badge/node-20%2B-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)]()
 [![LLM](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash%20Lite-orange)]()
@@ -259,6 +259,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.3.1** (2026-05-18) — Hotfix Gemini sob carga: retry automático em HTTP 503/429/408 + timeout default 5s→8s. Após deploy do 3.3.0 na VPS, usuário via "assistente fora do ar" pois Gemini 2.5 Flash Lite estava sobrecarregado no Google. Logs antes silenciosos agora geram `[llm] gemini SKIP` quando config errada. Novo `scripts/test-conversational.ts` pra smoke test. 400 tests.
 - **v3.3.0** (2026-05-18) — Nova intent `PERGUNTA_GERAL_FUTEBOL` + LLM responder reescrito. Usuário VPS perguntava "Quais próximos jogos da Inglaterra?" e bot respondia "não faz parte de nenhum bolão". Agora perguntas gerais sobre futebol (times/canais/grupos da copa) são roteadas pra LLM conversacional autorizado a responder com conhecimento próprio. Regex `\bproximos? jogos?\b` ganhou negative lookahead pra não matchar "X da [time]". 397 tests, 116 cenários.
 - **v3.2.1** (2026-05-18) — Hotfix 4 bugs Humberto: (1) "Pontuação" sozinho ia pra RANKING("pontuacao") — patterns ampliados em MEUS_PONTOS (pontos/pontuacao/score/quanto pontuei); (2) "Ajuda" mostrava texto legado com `!comandos` — `formatAjuda` reescrito; (3) Nome de bolão sozinho ("Bolao teste oficial") virava CRIAR_BOLAO espúrio — fuzzy match contextual antes de iniciar criação + LLM prompt restritivo; (4) "Proximos jogos" no estado CRIANDO_BOLAO_NOME virava nome do bolão — FSM escape detecta intent forte e auto-cancela criação. 384 tests, 106 cenários.
 - **v3.2.0** (2026-05-18) — Expansão de cordialidade + histórico persistente. 4 novos intents (DESPEDIDA/CUMPRIMENTO_CASUAL/CONCORDANCIA_CASUAL/RISADA) com respostas curtas randomizadas. Nova tabela Prisma `MensagemNaoEntendida` substitui lista Redis (TTL 30d) por persistência queryable, captura também `low_confidence` (LLM < 0.55). LGPD: whatsappId hashado sha256-16, retenção 180d via cron mensal. 377 tests, 102 cenários.
