@@ -104,6 +104,26 @@ npx tsx scripts/simulate-conversation.ts    :: 55 cenários
 
 ---
 
+## Deploy / Produção (VPS + Docker)
+
+Produção roda em **VPS (Contabo, Ubuntu 24.04)** via Docker Compose com perfil
+`full` (todos os containers, incluindo o `app`), atrás de Nginx + HTTPS.
+
+**Atualização padrão** (no VPS, após `git pull`):
+
+```bash
+cd ~/var-do-bolao && git pull && docker compose --profile full up -d --build
+```
+
+O `--build` é obrigatório (o Dockerfile compila TS→JS no build; sem ele o
+container roda o código antigo). Se o commit mexeu em `prisma/`, rode também
+`docker compose exec app npx prisma migrate deploy`.
+
+Runbook completo (migrations, rollback, rodar scripts em prod, troubleshooting,
+o que **nunca** rodar): ver **[DEPLOY.md](DEPLOY.md)**.
+
+---
+
 ## Estrutura
 
 ```
