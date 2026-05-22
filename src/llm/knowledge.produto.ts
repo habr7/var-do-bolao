@@ -29,16 +29,17 @@ PONTUAÇÃO (não acumula — vale o melhor acerto):
 - Errou tudo → 0 pts
 
 PRAZO DE PALPITE:
-- Cada palpite pode ser registrado/editado até pouco antes do kickoff do jogo.
-- Os palpites da rodada inteira travam quando o PRIMEIRO jogo da rodada começa (regra geral); na Copa 2026 cada jogo libera/trava individualmente.
-- Pode editar quantas vezes quiser enquanto não travou.
+- Cada palpite pode ser registrado/editado até o kickoff do jogo (assim que o relógio bate a hora marcada, o palpite trava — mesmo que o jogo demore pra começar de fato).
+- Pode editar quantas vezes quiser enquanto o jogo não começou.
+- Jogo que ja comecou / acabou: o bot recusa palpite/edicao com mensagem "esse jogo ja comecou".
 
 PALPITES — FORMATOS ACEITOS:
 - "Brasil 2x1 Marrocos", "Bra 2 Mar 1", "BRA 2x1 MAR", "Brasil 2 a 1 Marrocos", "Brasil 2 por 1 Marrocos"
 - Linguagem natural: "acho que vai 3 a 0 pro Brasil", "Brasil perde de 1 a 0", "empate em 2"
 - MULTI-PALPITE: pode mandar VÁRIOS palpites de uma vez na mesma mensagem, separados por vírgula ou em linhas diferentes. Exemplo: "Brasil 2x1 Marrocos, México 1x1 África do Sul" registra os dois numa tacada.
-- Comando "corrigir palpite" / "mudar palpite" → editar palpite já dado (se rodada aberta).
-- Comando "apagar palpite" / "desfazer palpite" → remover palpite (se rodada aberta).
+- EDITAR palpite: comando "corrigir palpite" / "mudar palpite" abre o fluxo. Aceita TAMBÉM placar inline: "corrigir Brasil 3x1 Marrocos" / "mudar pra Brasil 2x1" — registra direto sem perguntar mais nada. Em linguagem natural ("muda meu palpite pra 3 a 1 pro Brasil") o LLM extrai o placar e atualiza.
+- Quando edita, o bot mostra "Era X, virou Y" pra confirmar a substituição.
+- APAGAR palpite: comando "apagar palpite" / "desfazer palpite" remove (se jogo ainda não começou).
 
 RANKING:
 - Ordenado por pontuação total (maior pra menor).

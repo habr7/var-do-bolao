@@ -117,6 +117,15 @@ export interface ConversaContext {
     jogoId: string;
   }>;
   palpitesNaoEntendidos?: string[];
+  // v3.7.0: placar inline guardado quando user mandou "corrigir Brasil 3x1"
+  // e ainda precisamos perguntar em qual bolão aplicar. Aplicado direto
+  // no `handleEscolhendoBolaoEditarPalpite` quando o user escolhe.
+  palpiteInline?: {
+    timeCasa: string;
+    timeVisitante: string;
+    golsCasa: number;
+    golsVisitante: number;
+  };
   // Contador de tentativas (usado em ENTRANDO_NOME pra dar 3 chances
   // antes de resetar e voltar ao menu). ISSUE-002.
   tentativas?: number;

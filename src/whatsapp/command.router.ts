@@ -4244,9 +4244,39 @@ async function handleConfirmandoRemocaoParticipante(
 
 // ============================================================
 // Sprint 2 — ISSUE-011: editar palpite
+// v3.7.0 — aceita placar inline ("corrigir Brasil 3x1"), LLM fallback,
+// mostra palpite anterior na confirmação, valida jogo individual.
 // ============================================================
+
+/**
+ * Tira o prefixo de comando ("corrigir palpite", "mudar", "errei o
+ * palpite", etc) pra deixar SÓ o que sobrou — provavelmente o placar
+ * novo. Ex: "corrigir Brasil 3x1 Marrocos" → "Brasil 3x1 Marrocos".
+ * Se não sobrou nada relevante, retorna string vazia.
+ */
+function extrairPlacarInlineDoComando(raw: string): string {
+  const prefixos = [
+    /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+(?:meu\s+|o\s+|um\s+)?palpite\s*/i,
+    /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+(?:o\s+)?placar\s*/i,
+    /^errei\s+(?:o\s+|meu\s+)?palpite\s*/i,
+    /^(?:quero|preciso|vou)\s+(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+(?:meu\s+|o\s+|um\s+)?palpite\s*/i,
+    // Apenas o verbo + nome de time/placar: "corrigir Brasil 3x1"
+    /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+/i,
+  ];
+  let resto = raw.trim();
+  for (const re of prefixos) {
+    const m = re.exec(resto);
+    if (m) {
+      resto = resto.slice(m[0].length).trim();
+      break;
+    }
+  }
+  // Remove conectores comuns ("pra", "para", "para:", ":", "→")
+  resto = resto.replace(/^(?:pra|para|p\/|:|→|->)\s+/i, '').trim();
+  return resto;
+}
+
 async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw: string) {
-  void raw;
   const boloesAbertos = await listarBoloesComRodadaAberta(usuarioId);
   if (boloesAbertos.length === 0) {
     await sendText({
@@ -4255,18 +4285,56 @@ async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw:
     });
     return;
   }
-  // Roteia pelo bolão padrão se setado
+
+  // v3.7.0: extrai placar inline se o usuário mandou junto do comando
+  // ("corrigir Brasil 3x1 Marrocos", "mudar palpite pra Brasil 2x1 Marrocos")
+  const restoTexto = extrairPlacarInlineDoComando(raw);
+  let placarInline: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number } | null = null;
+  if (restoTexto.length > 0) {
+    const parsed = parseIntencao(restoTexto);
+    if (parsed.intencao === Intencao.PALPITE_INLINE && parsed.palpite) {
+      placarInline = parsed.palpite;
+    }
+  }
+
+  // Resolve qual bolão usar (padrão > único > escolha)
   const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
   const padraoMatch = boloesAbertos.find((b) => b.bolaoId === padraoId);
-  if (padraoMatch) {
-    await iniciarEdicaoPalpite(msg, padraoMatch.bolaoId, padraoMatch.nome, padraoMatch.rodadaId);
+  const bolaoAlvo = padraoMatch ?? (boloesAbertos.length === 1 ? boloesAbertos[0] : null);
+
+  // Atalho: placar inline + bolão resolvido → registra direto
+  if (placarInline && bolaoAlvo) {
+    await registrarEdicaoDireta(msg, usuarioId, bolaoAlvo.bolaoId, bolaoAlvo.nome, bolaoAlvo.rodadaId, placarInline);
     return;
   }
-  if (boloesAbertos.length === 1) {
-    const b = boloesAbertos[0];
-    await iniciarEdicaoPalpite(msg, b.bolaoId, b.nome, b.rodadaId);
+
+  // Vários bolões e placar inline: guardar o placar e pedir só pra escolher bolão
+  if (placarInline && !bolaoAlvo) {
+    await setSession(msg.waId, {
+      state: 'EDITANDO_PALPITE_ESCOLHA_BOLAO',
+      ctx: {
+        boloesParaEscolher: boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome })),
+        palpiteInline: placarInline,
+      },
+    });
+    const lista = formatarBoloesNumerados(
+      boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
+    );
+    await sendText({
+      to: msg.waId,
+      text:
+        `✏️ Em qual bolão você quer atualizar pra *${placarInline.timeCasa} ${placarInline.golsCasa} × ${placarInline.golsVisitante} ${placarInline.timeVisitante}*?\n\n` +
+        `${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
     return;
   }
+
+  // Sem placar inline: comportamento clássico (pede placar)
+  if (bolaoAlvo) {
+    await iniciarEdicaoPalpite(msg, bolaoAlvo.bolaoId, bolaoAlvo.nome, bolaoAlvo.rodadaId);
+    return;
+  }
+
   await setSession(msg.waId, {
     state: 'EDITANDO_PALPITE_ESCOLHA_BOLAO',
     ctx: {
@@ -4282,12 +4350,55 @@ async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw:
   });
 }
 
+/**
+ * Registra/atualiza o palpite imediatamente quando o caller já tem
+ * placar + bolão definidos. Encapsula o "fluxo curto" (atalho de edição
+ * inline).
+ */
+async function registrarEdicaoDireta(
+  msg: IncomingMessage,
+  usuarioId: string,
+  bolaoId: string,
+  nomeBolao: string,
+  rodadaId: string,
+  p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number },
+) {
+  void bolaoId;
+  try {
+    const r = await palpiteService.registrarPalpiteEmRodada({
+      usuarioId,
+      rodadaId,
+      timeCasa: p.timeCasa,
+      timeVisitante: p.timeVisitante,
+      golsCasa: p.golsCasa,
+      golsVisitante: p.golsVisitante,
+    });
+    await resetSession(msg.waId);
+    const novoStr = `*${r.jogoTimeCasa} ${p.golsCasa} × ${p.golsVisitante} ${r.jogoTimeVisitante}*`;
+    const texto = r.anterior
+      ? `✅ Palpite atualizado no *${nomeBolao}*!\n` +
+        `Era: *${r.jogoTimeCasa} ${r.anterior.golsCasa} × ${r.anterior.golsVisitante} ${r.jogoTimeVisitante}*\n` +
+        `Agora: ${novoStr}`
+      : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(não tinha palpite anterior pra esse jogo)_`;
+    await sendText({ to: msg.waId, text: texto });
+  } catch (err) {
+    const m = (err as Error).message;
+    const amigavel = m.includes('ja comecou') || m.includes('ja iniciou')
+      ? `❌ Esse jogo já começou — palpite trava no kickoff.`
+      : m.includes('jogo nao encontrado')
+      ? `❌ Não achei o jogo *${p.timeCasa} x ${p.timeVisitante}* no bolão *${nomeBolao}*. Manda *próximos jogos* pra ver os times exatos.`
+      : `❌ ${m}`;
+    await sendText({ to: msg.waId, text: amigavel });
+  }
+}
+
 async function iniciarEdicaoPalpite(
   msg: IncomingMessage,
   bolaoId: string,
   nomeBolao: string,
   rodadaId: string,
 ) {
+  void bolaoId;
   await setSession(msg.waId, {
     state: 'EDITANDO_PALPITE_NOVO_PLACAR',
     ctx: { bolaoId, nomeBolao, rodadaId },
@@ -4295,7 +4406,7 @@ async function iniciarEdicaoPalpite(
   await sendText({
     to: msg.waId,
     text:
-      `✏️ Manda o palpite *novo* (mesmo formato de sempre): \`Time1 NxN Time2\`\n\n` +
+      `✏️ Manda o palpite *novo* — formato: \`Time1 NxN Time2\` (também aceito linguagem natural tipo "Brasil 2 a 1 Marrocos").\n\n` +
       `_Vou substituir o palpite anterior pelo novo no bolão *${nomeBolao}*. Ou *cancelar*._`,
   });
 }
@@ -4329,7 +4440,13 @@ async function handleEscolhendoBolaoEditarPalpite(
     await sendText({ to: msg.waId, text: '❌ Esse bolão não tem rodada aberta.' });
     return;
   }
-  void usuarioId;
+  // v3.7.0: se o user já tinha mandado placar inline ("corrigir Brasil 3x1"),
+  // aplicamos direto após ele escolher o bolão.
+  const palpiteInline = session.ctx?.palpiteInline;
+  if (palpiteInline) {
+    await registrarEdicaoDireta(msg, usuarioId, escolhido.id, escolhido.nome, rodada.id, palpiteInline);
+    return;
+  }
   await iniciarEdicaoPalpite(msg, escolhido.id, escolhido.nome, rodada.id);
 }
 
@@ -4346,35 +4463,71 @@ async function handleEditandoPalpiteNovoPlacar(
     return;
   }
 
-  // Tenta parsear como palpite inline
+  // v3.7.0: 3 níveis de extração — regex inline → multi-palpite regex → LLM.
+  // O LLM é fallback final pra "muda meu palpite pra 3 a 1 pro Brasil",
+  // "errei o brasil, queria 2x1", etc.
+  let palpite: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number } | null = null;
+
   const parsed = parseIntencao(msg.text);
-  if (parsed.intencao !== Intencao.PALPITE_INLINE || !parsed.palpite) {
+  if (parsed.intencao === Intencao.PALPITE_INLINE && parsed.palpite) {
+    palpite = parsed.palpite;
+  }
+
+  if (!palpite) {
+    const multi = parseMultiplePalpites(msg.text);
+    if (multi.length > 0) palpite = multi[0];
+  }
+
+  if (!palpite) {
+    // LLM fallback — passa lista de jogos da rodada como contexto pra ele
+    // mapear nomes parciais ("Brasil" → o jogo do Brasil na rodada).
+    const rodada = await prisma.rodada.findUnique({
+      where: { id: rodadaId },
+      include: { jogos: true },
+    });
+    if (rodada && rodada.jogos.length > 0) {
+      const extraidos = await extrairPalpites(
+        msg.text,
+        rodada.jogos.map((j) => ({ timeCasa: j.timeCasa, timeVisitante: j.timeVisitante })),
+      );
+      if (extraidos.length > 0) palpite = extraidos[0];
+    }
+  }
+
+  if (!palpite) {
     await sendText({
       to: msg.waId,
-      text: '🤔 Não entendi o palpite. Formato: `Brasil 2x1 Marrocos`. Ou *cancelar*.',
+      text:
+        '🤔 Não entendi o palpite. Formato: `Brasil 2x1 Marrocos` (ou em linguagem natural, tipo "Brasil 2 a 1 Marrocos"). Ou *cancelar*.',
     });
     return;
   }
-  const p = parsed.palpite;
+
   try {
-    await palpiteService.registrarPalpiteEmRodada({
+    const r = await palpiteService.registrarPalpiteEmRodada({
       usuarioId,
       rodadaId,
-      timeCasa: p.timeCasa,
-      timeVisitante: p.timeVisitante,
-      golsCasa: p.golsCasa,
-      golsVisitante: p.golsVisitante,
+      timeCasa: palpite.timeCasa,
+      timeVisitante: palpite.timeVisitante,
+      golsCasa: palpite.golsCasa,
+      golsVisitante: palpite.golsVisitante,
     });
     await resetSession(msg.waId);
-    await sendText({
-      to: msg.waId,
-      text: `✅ Palpite atualizado no *${nomeBolao}*: *${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}*`,
-    });
+    const novoStr = `*${r.jogoTimeCasa} ${palpite.golsCasa} × ${palpite.golsVisitante} ${r.jogoTimeVisitante}*`;
+    const texto = r.anterior
+      ? `✅ Palpite atualizado no *${nomeBolao}*!\n` +
+        `Era: *${r.jogoTimeCasa} ${r.anterior.golsCasa} × ${r.anterior.golsVisitante} ${r.jogoTimeVisitante}*\n` +
+        `Agora: ${novoStr}`
+      : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(você ainda não tinha palpite pra esse jogo)_`;
+    await sendText({ to: msg.waId, text: texto });
   } catch (err) {
-    await sendText({
-      to: msg.waId,
-      text: `❌ ${(err as Error).message}\n\nTenta outro palpite ou *cancelar*.`,
-    });
+    const m = (err as Error).message;
+    const amigavel = m.includes('ja comecou') || m.includes('ja iniciou')
+      ? `❌ Esse jogo já começou — palpite trava no kickoff.\n\nTenta outro jogo ou *cancelar*.`
+      : m.includes('jogo nao encontrado')
+      ? `❌ Não achei esse jogo no bolão. Manda *próximos jogos* pra ver os times exatos. Ou *cancelar*.`
+      : `❌ ${m}\n\nTenta outro palpite ou *cancelar*.`;
+    await sendText({ to: msg.waId, text: amigavel });
   }
 }
 

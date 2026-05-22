@@ -567,13 +567,19 @@ const QUANDO_COMECA_PATTERNS: RegExp[] = [
 ];
 
 // ISSUE-011: EDITAR_PALPITE — "corrigir", "mudar", "alterar" palpite
-// Pode vir com placar: "corrigir Brasil 3x1". Capturamos o resto da frase em args.
+// v3.7.0: aceita placar inline: "corrigir Brasil 3x1 Marrocos", "mudar pra
+// Brasil 2x1 Marrocos", "atualizar Brasil 3 a 1". Quando vem placar junto,
+// o handler `handleEditarPalpite` extrai e aplica direto (atalho de 1 passo).
 const EDITAR_PALPITE_PATTERNS: RegExp[] = [
+  // Forma clássica: "corrigir palpite", "mudar palpite", etc
   /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu )?palpite/,
   /\b(?:quero|preciso|vou) (?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu |o |um )?palpite/,
   /\bcorrigir (?:o )?placar\b/,
   /^errei (?:o |meu )?palpite/,
   /\bpalpite errado\b/,
+  // v3.7.0: verbo de edição + placar embutido. Aceita "x", "×", " a ", " por ", "-".
+  // Exige número-separador-número pra evitar falsos positivos ("mudar de bolão").
+  /^(?:corrigir|mudar|alterar|atualizar|refazer)\s+(?:pra\s+|para\s+|p\/\s+|o\s+|meu\s+)?\S.*\d+\s*(?:[x×]|a|por|-)\s*\d+/i,
 ];
 
 // ISSUE-012: APAGAR_PALPITE — "apagar", "remover", "desfazer" palpite

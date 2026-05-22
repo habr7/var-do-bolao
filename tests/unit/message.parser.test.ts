@@ -547,6 +547,31 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
+    it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
+      expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"mudar pra Brasil 2x1 Marrocos" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('mudar pra Brasil 2x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"atualizar Brasil 3 a 1" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('atualizar Brasil 3 a 1').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"alterar Brasil 2 por 0" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('alterar Brasil 2 por 0').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"refazer Brasil 1-1" → EDITAR_PALPITE', () => {
+      expect(parseIntencao('refazer Brasil 1-1').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    // Casos falsos positivos que NÃO podem cair em EDITAR_PALPITE:
+    it('"mudar de bolão" NÃO → EDITAR_PALPITE (sem placar)', () => {
+      expect(parseIntencao('mudar de bolão').intencao).not.toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"atualizar minha senha" NÃO → EDITAR_PALPITE (sem placar)', () => {
+      expect(parseIntencao('atualizar minha senha').intencao).not.toBe(Intencao.EDITAR_PALPITE);
+    });
+  });
+
   describe('Sprint 2 — APAGAR_PALPITE (ISSUE-012)', () => {
     it('"apagar meu palpite" → APAGAR_PALPITE', () => {
       expect(parseIntencao('apagar meu palpite').intencao).toBe(Intencao.APAGAR_PALPITE);

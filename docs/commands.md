@@ -485,13 +485,40 @@ copa de 94?                         →  recusa cordial + redirect
 ## Editar e apagar palpite
 
 ### Editar (substituir placar)
+
+**Modo 2 passos** (clássico):
 ```
 corrigir palpite
 mudar palpite
 errei o palpite
 ```
-→ Bot pede o palpite novo. Só funciona se a rodada ainda estiver aberta.
-Usa bolão padrão se setado.
+→ Bot abre o fluxo, escolhe o bolão (se >1 e sem padrão), pede o placar novo.
+
+**Modo 1 passo** (v3.7.0 — placar inline):
+```
+corrigir Brasil 3x1 Marrocos
+mudar pra Brasil 2x1 Marrocos
+atualizar Brasil 3 a 1
+alterar Brasil 2 por 0
+refazer Brasil 1-1
+```
+→ Registra direto sem pedir mais nada (usa bolão padrão ou bolão único).
+
+**Linguagem natural** (v3.7.0 — LLM fallback): no fluxo de 2 passos, quando
+o bot pede o placar novo, aceita também "muda pra 3 a 1 pro Brasil",
+"errei o Brasil, queria 2x1 contra Marrocos", "empate em 2", etc. — LLM
+extrai usando a lista de jogos da rodada como contexto.
+
+**Confirmação inteligente** (v3.7.0): após editar, o bot mostra
+*"Era: **Brasil 2x1 Marrocos** → Agora: **Brasil 3x1 Marrocos**"* pra
+deixar claro o que mudou.
+
+**Trava por jogo** (v3.7.0): a edição é bloqueada se o jogo específico já
+começou (`dataHora ≤ agora` ou status ≠ AGENDADO). Mensagem: *"Esse jogo
+já começou — palpite trava no kickoff."*
+
+Funciona em rodada **ABERTA** com jogos ainda **AGENDADOS**. Usa bolão
+padrão se setado; senão pergunta qual bolão (se houver >1).
 
 ### Apagar
 ```
