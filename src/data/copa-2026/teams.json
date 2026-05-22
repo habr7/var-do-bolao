@@ -1,0 +1,440 @@
+{
+  "fonte": "openfootball/worldcup.json",
+  "fonteUrl": "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.teams.json",
+  "atualizadoEm": "2026-05-21T23:57:29.446Z",
+  "totalTimes": 48,
+  "times": [
+    {
+      "nome": "México",
+      "nomeIngles": "Mexico",
+      "fifaCode": "MEX",
+      "grupo": "A",
+      "confederacao": "CONCACAF",
+      "continente": "América do Norte",
+      "bandeira": "🇲🇽"
+    },
+    {
+      "nome": "África do Sul",
+      "nomeIngles": "South Africa",
+      "fifaCode": "RSA",
+      "grupo": "A",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇿🇦"
+    },
+    {
+      "nome": "Coreia do Sul",
+      "nomeIngles": "South Korea",
+      "fifaCode": "KOR",
+      "grupo": "A",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇰🇷"
+    },
+    {
+      "nome": "República Tcheca",
+      "nomeIngles": "Czech Republic",
+      "fifaCode": "CZE",
+      "grupo": "A",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇨🇿"
+    },
+    {
+      "nome": "Canadá",
+      "nomeIngles": "Canada",
+      "fifaCode": "CAN",
+      "grupo": "B",
+      "confederacao": "CONCACAF",
+      "continente": "América do Norte",
+      "bandeira": "🇨🇦"
+    },
+    {
+      "nome": "Bósnia e Herzegovina",
+      "nomeIngles": "Bosnia & Herzegovina",
+      "fifaCode": "BIH",
+      "grupo": "B",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇧🇦"
+    },
+    {
+      "nome": "Catar",
+      "nomeIngles": "Qatar",
+      "fifaCode": "QAT",
+      "grupo": "B",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇶🇦"
+    },
+    {
+      "nome": "Suíça",
+      "nomeIngles": "Switzerland",
+      "fifaCode": "SUI",
+      "grupo": "B",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇨🇭"
+    },
+    {
+      "nome": "Brasil",
+      "nomeIngles": "Brazil",
+      "fifaCode": "BRA",
+      "grupo": "C",
+      "confederacao": "CONMEBOL",
+      "continente": "América do Sul",
+      "bandeira": "🇧🇷"
+    },
+    {
+      "nome": "Marrocos",
+      "nomeIngles": "Morocco",
+      "fifaCode": "MAR",
+      "grupo": "C",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇲🇦"
+    },
+    {
+      "nome": "Haiti",
+      "nomeIngles": "Haiti",
+      "fifaCode": "HAI",
+      "grupo": "C",
+      "confederacao": "CONCACAF",
+      "continente": "América do Norte",
+      "bandeira": "🇭🇹"
+    },
+    {
+      "nome": "Escócia",
+      "nomeIngles": "Scotland",
+      "fifaCode": "SCO",
+      "grupo": "C",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🏴󠁧󠁢󠁳󠁣󠁴󠁿"
+    },
+    {
+      "nome": "Estados Unidos",
+      "nomeIngles": "USA",
+      "fifaCode": "USA",
+      "grupo": "D",
+      "confederacao": "CONCACAF",
+      "continente": "América do Norte",
+      "bandeira": "🇺🇸"
+    },
+    {
+      "nome": "Paraguai",
+      "nomeIngles": "Paraguay",
+      "fifaCode": "PAR",
+      "grupo": "D",
+      "confederacao": "CONMEBOL",
+      "continente": "América do Sul",
+      "bandeira": "🇵🇾"
+    },
+    {
+      "nome": "Austrália",
+      "nomeIngles": "Australia",
+      "fifaCode": "AUS",
+      "grupo": "D",
+      "confederacao": "AFC",
+      "continente": "Oceania",
+      "bandeira": "🇦🇺"
+    },
+    {
+      "nome": "Turquia",
+      "nomeIngles": "Turkey",
+      "fifaCode": "TUR",
+      "grupo": "D",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇹🇷"
+    },
+    {
+      "nome": "Alemanha",
+      "nomeIngles": "Germany",
+      "fifaCode": "GER",
+      "grupo": "E",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇩🇪"
+    },
+    {
+      "nome": "Curaçao",
+      "nomeIngles": "Curaçao",
+      "fifaCode": "CUW",
+      "grupo": "E",
+      "confederacao": "CONCACAF",
+      "continente": "América do Norte",
+      "bandeira": "🇨🇼"
+    },
+    {
+      "nome": "Cote d'Ivoire",
+      "nomeIngles": "Ivory Coast",
+      "fifaCode": "CIV",
+      "grupo": "E",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇨🇮"
+    },
+    {
+      "nome": "Equador",
+      "nomeIngles": "Ecuador",
+      "fifaCode": "ECU",
+      "grupo": "E",
+      "confederacao": "CONMEBOL",
+      "continente": "América do Sul",
+      "bandeira": "🇪🇨"
+    },
+    {
+      "nome": "Holanda",
+      "nomeIngles": "Netherlands",
+      "fifaCode": "NED",
+      "grupo": "F",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇳🇱"
+    },
+    {
+      "nome": "Japão",
+      "nomeIngles": "Japan",
+      "fifaCode": "JPN",
+      "grupo": "F",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇯🇵"
+    },
+    {
+      "nome": "Suécia",
+      "nomeIngles": "Sweden",
+      "fifaCode": "SWE",
+      "grupo": "F",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇸🇪"
+    },
+    {
+      "nome": "Tunísia",
+      "nomeIngles": "Tunisia",
+      "fifaCode": "TUN",
+      "grupo": "F",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇹🇳"
+    },
+    {
+      "nome": "Bélgica",
+      "nomeIngles": "Belgium",
+      "fifaCode": "BEL",
+      "grupo": "G",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇧🇪"
+    },
+    {
+      "nome": "Egito",
+      "nomeIngles": "Egypt",
+      "fifaCode": "EGY",
+      "grupo": "G",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇪🇬"
+    },
+    {
+      "nome": "IR Iran",
+      "nomeIngles": "Iran",
+      "fifaCode": "IRN",
+      "grupo": "G",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇮🇷"
+    },
+    {
+      "nome": "Nova Zelândia",
+      "nomeIngles": "New Zealand",
+      "fifaCode": "NZL",
+      "grupo": "G",
+      "confederacao": "OFC",
+      "continente": "Oceania",
+      "bandeira": "🇳🇿"
+    },
+    {
+      "nome": "Espanha",
+      "nomeIngles": "Spain",
+      "fifaCode": "ESP",
+      "grupo": "H",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇪🇸"
+    },
+    {
+      "nome": "Cabo Verde",
+      "nomeIngles": "Cape Verde",
+      "fifaCode": "CPV",
+      "grupo": "H",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇨🇻"
+    },
+    {
+      "nome": "Arábia Saudita",
+      "nomeIngles": "Saudi Arabia",
+      "fifaCode": "KSA",
+      "grupo": "H",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇸🇦"
+    },
+    {
+      "nome": "Uruguai",
+      "nomeIngles": "Uruguay",
+      "fifaCode": "URU",
+      "grupo": "H",
+      "confederacao": "CONMEBOL",
+      "continente": "América do Sul",
+      "bandeira": "🇺🇾"
+    },
+    {
+      "nome": "França",
+      "nomeIngles": "France",
+      "fifaCode": "FRA",
+      "grupo": "I",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇫🇷"
+    },
+    {
+      "nome": "Senegal",
+      "nomeIngles": "Senegal",
+      "fifaCode": "SEN",
+      "grupo": "I",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇸🇳"
+    },
+    {
+      "nome": "Iraque",
+      "nomeIngles": "Iraq",
+      "fifaCode": "IRQ",
+      "grupo": "I",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇮🇶"
+    },
+    {
+      "nome": "Noruega",
+      "nomeIngles": "Norway",
+      "fifaCode": "NOR",
+      "grupo": "I",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇳🇴"
+    },
+    {
+      "nome": "Argentina",
+      "nomeIngles": "Argentina",
+      "fifaCode": "ARG",
+      "grupo": "J",
+      "confederacao": "CONMEBOL",
+      "continente": "América do Sul",
+      "bandeira": "🇦🇷"
+    },
+    {
+      "nome": "Argélia",
+      "nomeIngles": "Algeria",
+      "fifaCode": "ALG",
+      "grupo": "J",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇩🇿"
+    },
+    {
+      "nome": "Áustria",
+      "nomeIngles": "Austria",
+      "fifaCode": "AUT",
+      "grupo": "J",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇦🇹"
+    },
+    {
+      "nome": "Jordânia",
+      "nomeIngles": "Jordan",
+      "fifaCode": "JOR",
+      "grupo": "J",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇯🇴"
+    },
+    {
+      "nome": "Portugal",
+      "nomeIngles": "Portugal",
+      "fifaCode": "POR",
+      "grupo": "K",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇵🇹"
+    },
+    {
+      "nome": "Congo DR",
+      "nomeIngles": "DR Congo",
+      "fifaCode": "COD",
+      "grupo": "K",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇨🇩"
+    },
+    {
+      "nome": "Uzbequistão",
+      "nomeIngles": "Uzbekistan",
+      "fifaCode": "UZB",
+      "grupo": "K",
+      "confederacao": "AFC",
+      "continente": "Ásia",
+      "bandeira": "🇺🇿"
+    },
+    {
+      "nome": "Colômbia",
+      "nomeIngles": "Colombia",
+      "fifaCode": "COL",
+      "grupo": "K",
+      "confederacao": "CONMEBOL",
+      "continente": "América do Sul",
+      "bandeira": "🇨🇴"
+    },
+    {
+      "nome": "Inglaterra",
+      "nomeIngles": "England",
+      "fifaCode": "ENG",
+      "grupo": "L",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"
+    },
+    {
+      "nome": "Croácia",
+      "nomeIngles": "Croatia",
+      "fifaCode": "CRO",
+      "grupo": "L",
+      "confederacao": "UEFA",
+      "continente": "Europa",
+      "bandeira": "🇭🇷"
+    },
+    {
+      "nome": "Gana",
+      "nomeIngles": "Ghana",
+      "fifaCode": "GHA",
+      "grupo": "L",
+      "confederacao": "CAF",
+      "continente": "África",
+      "bandeira": "🇬🇭"
+    },
+    {
+      "nome": "Panamá",
+      "nomeIngles": "Panama",
+      "fifaCode": "PAN",
+      "grupo": "L",
+      "confederacao": "CONCACAF",
+      "continente": "América do Norte",
+      "bandeira": "🇵🇦"
+    }
+  ]
+}

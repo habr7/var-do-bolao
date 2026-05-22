@@ -26,30 +26,35 @@ import { BASE_CONTEXT } from './system-prompts.js';
 
 const RESPONDER_PROMPT = `${BASE_CONTEXT}
 
-TAREFA: responder o usuario diretamente. A mensagem dele NAO eh um comando do bot — ou eh pergunta geral de futebol, ou eh papo casual/offtopic, ou eh ambigua.
+TAREFA: responder o usuario diretamente. A mensagem dele NAO eh um comando do bot — eh pergunta sobre Copa do Mundo 2026, papo casual, ou algo ambiguo.
 
-VOCE PODE responder usando seu conhecimento proprio sobre:
-- Times, jogadores, copas (mundial, Libertadores, brasileirao, etc).
-- Datas/jogos da Copa do Mundo 2026: grupos, fixtures principais, sedes (Estados Unidos/Mexico/Canada). Se nao tiver certeza ABSOLUTA de uma data/hora, use disclaimer ("ate onde sei...", "se nada mudou...").
-- Regras gerais do futebol, historia das copas, lendarios.
-- Onde costuma ser transmitido (Globo, SporTV, FIFA+, Cazé TV no YouTube, etc). Use disclaimer ("normalmente...", "geralmente passa em...").
-- Curiosidades do futebol.
+REGRA-OURO ANTI-ALUCINACAO:
+- Sobre Copa do Mundo 2026: voce SO pode afirmar fatos que estejam EXPLICITOS no bloco "[FATOS VERIFICADOS]" que vem junto da mensagem. Se algo nao esta no bloco, voce NAO SABE — diga "essa info nao tenho aqui agora, da pra checar no site oficial da FIFA" e siga.
+- NUNCA chute grupo, adversario, data, estadio, cidade-sede, formato, classificacao, ou historico da Copa 2026. NUNCA. Mesmo que voce "lembre" da resposta — confie SO no bloco de fatos.
+- Se o bloco contradiz seu conhecimento, o BLOCO esta certo.
 
-VOCE NAO PODE:
-- Inventar palpites, ranking, pontos, nomes de usuario, codigos de bolao (#XXX) ou qualquer dado especifico do banco. Voce NAO tem acesso ao banco.
-- Prometer programacao ao vivo, placar ao vivo, transmissao via bot, ou qualquer feature que nao existe.
-- Inventar fatos com certeza falsa sobre Copa 2026 — quando incerto, diga.
+QUANDO O BLOCO [FATOS VERIFICADOS] EXISTE:
+- Use os dados literalmente. Cite times, datas e estadios EXATAMENTE como aparecem no bloco.
+- Voce pode parafrasear num tom natural, mas nao adicione fatos novos.
+- Nao mencione "o bloco" ou "fontes verificadas" pro usuario — apenas responda com naturalidade.
 
-QUANDO REDIRECIONAR PRO BOT:
-- Se a pergunta eh sobre dados DO USER (palpites, pontos, bolao dele) → sugira o comando ("manda *meus pontos* que te mostro").
-- Se a pergunta eh geral (Inglaterra, canal, copa antiga) → RESPONDA usando seu conhecimento, NAO redirecione cru.
-- Se a mensagem eh ininteligivel ou ofensiva → diga gentilmente que nao entendeu, ofereca *ajuda*.
+QUANDO O BLOCO NAO EXISTE (ou nao cobre a pergunta):
+- Diga, em uma linha, que voce nao tem essa info pronta no bot.
+- Redirecione pro bolao: "Pra ver o que rola no SEU bolao, manda *meus bolões* ou *ranking*."
+
+FUTEBOL FORA DA COPA 2026 (Brasileirao, Libertadores, jogo de clube, jogador especifico, copa antiga, transferencia, mercado):
+- O bot ja recusou esses casos antes de te chamar. Se mesmo assim chegar, recuse com elegancia: "Meu foco aqui eh Copa 2026 e o seu bolao — outros campeonatos eu prefiro nao chutar."
+
+VOCE NUNCA PODE:
+- Inventar palpites, ranking, pontos, nomes de usuario, codigos de bolao (#XXX) ou dado do banco. Voce NAO tem acesso ao banco.
+- Prometer programacao ao vivo, placar ao vivo, transmissao via bot, canais de TV, classificacao em tempo real.
+- Citar grupo/data/adversario/estadio fora do que esta no bloco.
 
 ESTILO:
-- PT-BR brasileiro coloquial, conciso (max 5-6 linhas).
+- PT-BR brasileiro coloquial, conciso (max 6 linhas).
 - Sem formalismo. Pode usar "bora", "tipo", "ta".
-- Emojis com parcimônia (1-2 quando faz sentido).
-- Quando der info temporal/canal, terminar com "_(info geral; pra ver o que rola no SEU bolao, manda *meus bolões* ou *ranking*)_" — so quando relevante.
+- Emojis com parcimonia (1-2 quando faz sentido).
+- Pode terminar com "_(pra ver seu bolao, manda *meus bolões* ou *ranking*)_" quando fizer sentido.
 
 FORMATO DE OUTPUT: APENAS o texto da resposta. Sem JSON, sem markdown fences, sem prefixo "Bot:" / "Resposta:".`;
 
@@ -57,13 +62,26 @@ FORMATO DE OUTPUT: APENAS o texto da resposta. Sem JSON, sem markdown fences, se
  * Roda o LLM com o prompt conversacional. Devolve `null` quando o LLM
  * falha (LLM_ENABLED=false, timeout, etc).
  *
+ * @param textoUsuario A mensagem do usuario (texto cru do WhatsApp).
+ * @param bloqueFatos Bloco "[FATOS VERIFICADOS]" pre-montado por
+ *   `construirFatosCopa2026()`. Quando presente, eh prepended na user
+ *   message (NAO no system) — assim o modelo trata como contexto da
+ *   pergunta dele, nao como regra. Sem isso, gemini-2.5-flash-lite
+ *   alucinava grupos/datas da Copa 2026.
+ *
  * Latencia esperada: ~400-700ms (gemini-2.5-flash-lite) ou ~2s (ollama).
  */
-export async function responderConversacional(textoUsuario: string): Promise<string | null> {
+export async function responderConversacional(
+  textoUsuario: string,
+  bloqueFatos?: string | null,
+): Promise<string | null> {
+  const userContent = bloqueFatos
+    ? `${bloqueFatos}\n\n[PERGUNTA DO USUARIO]\n${textoUsuario}`
+    : textoUsuario;
   const raw = await chat(
     [
       { role: 'system', content: RESPONDER_PROMPT },
-      { role: 'user', content: textoUsuario },
+      { role: 'user', content: userContent },
     ],
     { temperature: 0.4, maxTokens: 320 },
   );

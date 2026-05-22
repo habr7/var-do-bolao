@@ -1,0 +1,11 @@
+{
+  "fonte": "openfootball/worldcup.json",
+  "fonteUrl": "https://github.com/openfootball/worldcup.json/tree/master/2026",
+  "atualizadoEm": "2026-05-21T23:57:29.446Z",
+  "arquivos": [
+    "matches.json",
+    "teams.json",
+    "stadiums.json"
+  ],
+  "observacao": "Snapshot baixado via npm run sync:copa-2026. Re-rode quando o openfootball publicar mudanças (mata-mata, datas)."
+}
