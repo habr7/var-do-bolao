@@ -96,6 +96,16 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/placar.*privado/);
   });
 
+  it('v3.10.0 — knowledge tem PROIBIÇÃO ABSOLUTA de confirmar registro (bug Valéria 22/05 11:23)', () => {
+    // O LLM mentiu "Entendi! Seus palpites foram registrados. Bora pra Copa 2026!"
+    // sem ter registrado nada. Knowledge deve PROIBIR esse comportamento.
+    expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('PROIBI');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/nunca.*(?:registrei|registrar|salvei|anotei)/);
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o tem.*ferramenta|n[ãa]o (?:tenho|posso).*registrar/);
+    // Referencia explícita ao caso real
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/val[eé]ria/);
+  });
+
   it('v3.9.0 — knowledge cobre tom pra novato/inseguro (caso Valéria 22/05)', () => {
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o entendo de futebol/);
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('acolhimento_novato');

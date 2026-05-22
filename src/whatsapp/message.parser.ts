@@ -105,6 +105,22 @@ export interface PalpiteInline {
 //   "Brasil 2 por 1 Marrocos"
 const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+)$/;
 
+// v3.10.0 — formato INVERTIDO: "NxN Time1 x Time2" (placar antes dos
+// times). Caso real Valéria 22/05: ela mandou 10 linhas nesse formato
+// e o parser canônico falhou em todas, caindo em smart-fallback que
+// inventou "Seus palpites foram registrados". Exemplos:
+//   "1x1 México x África do Sul"
+//   "2-1 Brasil x Marrocos"
+//   "1 a 0 BRA x ARG"
+// O separador entre os 2 times pode ser " x ", " X ", " vs ", " - ", " contra ".
+const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+?)\s+(?:[xX]|vs|contra|-)\s+(.+)$/;
+
+// v3.10.0 — detecta um "âncora" de placar (NxN) dentro de uma linha.
+// Usado pra: (1) tokenizar linhas com vários palpites concatenados sem
+// quebra de linha, (2) validar que um time parseado não tem placar
+// embutido (sinal de match ruim do regex canônico).
+const PLACAR_ANCHOR_REGEX = /(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)/g;
+
 // Mapa de numeros por extenso → digito. So 0-10 — placar maior que 10 eh
 // raro o suficiente pra forcar o usuario a digitar.
 const NUMEROS_EXTENSO: Record<string, string> = {
@@ -992,35 +1008,135 @@ export function parseIntencao(text: string): ParsedMessage {
  * Retorna `null` se nada bateu.
  */
 function tentarParsearPalpiteInline(linha: string): PalpiteInline | null {
+  // v3.10.0: validador anti-match-ruim. Se um time parseado contém placar
+  // embutido (ex: "1x1 México x África do Sul" sequestrado como timeCasa),
+  // descarta — sinal de regex pegando lixo de palpites concatenados.
+  const validar = (timeCasa: string, timeVisitante: string): boolean => {
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeCasa)) return false;
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeVisitante)) return false;
+    // Times absurdamente longos (>40 chars sem placar) são raros e
+    // geralmente sinal de match colando 2+ palpites
+    if (timeCasa.length > 40 || timeVisitante.length > 40) return false;
+    return true;
+  };
+
+  // 1) Canônico: "Time1 NxN Time2"
   const direto = linha.match(PALPITE_REGEX);
   if (direto) {
-    return {
-      timeCasa: direto[1].trim(),
-      golsCasa: parseInt(direto[2], 10),
-      golsVisitante: parseInt(direto[3], 10),
-      timeVisitante: direto[4].trim(),
-    };
+    const tc = direto[1].trim();
+    const tv = direto[4].trim();
+    if (validar(tc, tv)) {
+      return {
+        timeCasa: tc,
+        golsCasa: parseInt(direto[2], 10),
+        golsVisitante: parseInt(direto[3], 10),
+        timeVisitante: tv,
+      };
+    }
   }
 
-  // Substitui extenso no texto original (preserva case dos times)
-  // mas operando palavra a palavra de forma case-insensitive
+  // 2) v3.10.0 — INVERTIDO: "NxN Time1 x Time2" (caso real Valéria 22/05)
+  const invertido = linha.match(PALPITE_INVERTIDO_REGEX);
+  if (invertido) {
+    const tc = invertido[3].trim();
+    const tv = invertido[4].trim();
+    if (validar(tc, tv)) {
+      return {
+        timeCasa: tc,
+        golsCasa: parseInt(invertido[1], 10),
+        golsVisitante: parseInt(invertido[2], 10),
+        timeVisitante: tv,
+      };
+    }
+  }
+
+  // 3) Extenso ("dois a um") — tenta canônico + invertido com substituição
   const comDigitos = linha.replace(
     /\b(zero|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\b/gi,
     (m) => NUMEROS_EXTENSO[m.toLowerCase()] ?? m,
   );
   if (comDigitos !== linha) {
-    const segunda = comDigitos.match(PALPITE_REGEX);
-    if (segunda) {
-      return {
-        timeCasa: segunda[1].trim(),
-        golsCasa: parseInt(segunda[2], 10),
-        golsVisitante: parseInt(segunda[3], 10),
-        timeVisitante: segunda[4].trim(),
-      };
+    const seg = comDigitos.match(PALPITE_REGEX);
+    if (seg) {
+      const tc = seg[1].trim();
+      const tv = seg[4].trim();
+      if (validar(tc, tv)) {
+        return {
+          timeCasa: tc,
+          golsCasa: parseInt(seg[2], 10),
+          golsVisitante: parseInt(seg[3], 10),
+          timeVisitante: tv,
+        };
+      }
+    }
+    const segInv = comDigitos.match(PALPITE_INVERTIDO_REGEX);
+    if (segInv) {
+      const tc = segInv[3].trim();
+      const tv = segInv[4].trim();
+      if (validar(tc, tv)) {
+        return {
+          timeCasa: tc,
+          golsCasa: parseInt(segInv[1], 10),
+          golsVisitante: parseInt(segInv[2], 10),
+          timeVisitante: tv,
+        };
+      }
     }
   }
 
   return null;
+}
+
+/**
+ * v3.10.0 — Tokenizer: separa palpites concatenados sem quebra de linha.
+ * Caso real Valéria 22/05 (11:20): mandou 10 palpites no formato invertido
+ * separados só por espaços. PALPITE_REGEX casou o primeiro como
+ * `(time1="1x1 México x África do Sul", 1, 0, time2="Coreia do Sul x ...
+ *  Japão")` — sequestrando 9 outros palpites como "timeVisitante".
+ *
+ * Algoritmo: encontra TODOS os âncoras `NxN` na linha. Pra cada âncora,
+ * o trecho ANTES (até a âncora anterior ou início) é time1, e o trecho
+ * DEPOIS (até a próxima âncora ou fim) é... bom, é palpite-time2 +
+ * possivelmente próximo palpite-time1.
+ *
+ * Heurística adotada: se há 2+ âncoras, assume formato INVERTIDO
+ * (`N1xN1 T1a x T1b N2xN2 T2a x T2b ...`) — placar antes dos times.
+ * Caso da Valéria. O formato canônico com 2+ palpites em uma linha só
+ * (`T1a N1xN1 T1b T2a N2xN2 T2b`) é praticamente impossível porque
+ * times terminam grudados no próximo time sem separador claro.
+ */
+export function tokenizarPalpitesEmUmaLinha(linha: string): PalpiteInline[] {
+  const matches = [...linha.matchAll(PLACAR_ANCHOR_REGEX)];
+  if (matches.length < 2) return [];
+
+  const resultados: PalpiteInline[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const golsCasa = parseInt(m[1], 10);
+    const golsVisitante = parseInt(m[2], 10);
+    const inicioPlacar = m.index ?? 0;
+    const fimPlacar = inicioPlacar + m[0].length;
+    // Texto entre fim deste placar e início do próximo placar (ou fim
+    // da linha) = "Time1 x Time2" deste palpite
+    const fimTimes = i + 1 < matches.length ? (matches[i + 1].index ?? linha.length) : linha.length;
+    const blocoTimes = linha.slice(fimPlacar, fimTimes).trim();
+    // Separa "Time1 x Time2" pelo conector
+    const conector = blocoTimes.match(/^(.+?)\s+(?:[xX]|vs|contra|-)\s+(.+)$/);
+    if (!conector) continue;
+    const timeCasa = conector[1].trim();
+    const timeVisitante = conector[2].trim();
+    if (!timeCasa || !timeVisitante) continue;
+    // Anti-lixo: time não pode conter placar embutido
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeCasa)) continue;
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeVisitante)) continue;
+    if (timeCasa.length > 40 || timeVisitante.length > 40) continue;
+    resultados.push({ timeCasa, golsCasa, timeVisitante, golsVisitante });
+  }
+  return resultados;
 }
 
 /**
@@ -1050,10 +1166,24 @@ export function parseMultiplePalpitesDetalhado(text: string): {
   const ok: PalpiteInline[] = [];
   const descartadas: string[] = [];
   for (const line of lines) {
+    // v3.10.0 — primeiro tenta linha como UM palpite (canônico/invertido).
     const p = tentarParsearPalpiteInline(line);
     if (p) {
       ok.push(p);
-    } else if (line.length >= 5) {
+      continue;
+    }
+    // Se falhou E a linha tem 2+ âncoras NxN, é provável "palpites
+    // concatenados sem newline" (caso Valéria 11:20). Tokeniza.
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    const totalAnchors = (line.match(PLACAR_ANCHOR_REGEX) ?? []).length;
+    if (totalAnchors >= 2) {
+      const tokens = tokenizarPalpitesEmUmaLinha(line);
+      if (tokens.length > 0) {
+        ok.push(...tokens);
+        continue;
+      }
+    }
+    if (line.length >= 5) {
       descartadas.push(line);
     }
   }

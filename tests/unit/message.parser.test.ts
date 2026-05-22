@@ -1090,4 +1090,91 @@ Grêmio 1x2 Inter`;
   it('retorna array vazio se nenhum palpite', () => {
     expect(parseMultiplePalpites('oi tudo bem?')).toEqual([]);
   });
+
+  describe('v3.10.0 — formato invertido + tokenizer (caso Valéria 22/05)', () => {
+    it('parseia uma linha invertida "1x1 México x África do Sul"', () => {
+      const r = parseMultiplePalpites('1x1 México x África do Sul');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({
+        timeCasa: 'México',
+        timeVisitante: 'África do Sul',
+        golsCasa: 1,
+        golsVisitante: 1,
+      });
+    });
+
+    it('parseia várias linhas invertidas (Valéria 11:22, 10 palpites)', () => {
+      const text = `1x1 México x África do Sul
+1x0 Coreia do Sul x República Tcheca
+0x1 Canadá x Bósnia e Herzegovina
+1x2 Estados Unidos x Paraguai
+1x0 Catar x Suíça
+2x1 Brasil x Marrocos
+1x0 Haiti x Escócia
+0x1 Austrália x Turquia
+1x2 Alemanha x Curaçao
+1x2 Holanda x Japao`;
+      const r = parseMultiplePalpites(text);
+      expect(r).toHaveLength(10);
+      expect(r[0]).toMatchObject({ timeCasa: 'México', timeVisitante: 'África do Sul' });
+      expect(r[5]).toMatchObject({ timeCasa: 'Brasil', timeVisitante: 'Marrocos', golsCasa: 2, golsVisitante: 1 });
+      expect(r[9]).toMatchObject({ timeCasa: 'Holanda', timeVisitante: 'Japao' });
+    });
+
+    it('tokeniza palpites concatenados em UMA linha sem newline (Valéria 11:20)', () => {
+      const text =
+        '1x1 México x África do Sul 1x0 Coreia do Sul x República Tcheca 0x1 Canadá x Bósnia ' +
+        '1x2 Estados Unidos x Paraguai 1x0 Catar x Suíça 2x1 Brasil x Marrocos';
+      const r = parseMultiplePalpites(text);
+      expect(r.length).toBeGreaterThanOrEqual(5);
+      // Confere que Brasil x Marrocos (último do trecho) foi capturado certo
+      const brasil = r.find((p) => p.timeCasa === 'Brasil');
+      expect(brasil).toBeDefined();
+      expect(brasil?.timeVisitante).toBe('Marrocos');
+      expect(brasil?.golsCasa).toBe(2);
+      expect(brasil?.golsVisitante).toBe(1);
+    });
+
+    it('NÃO captura "1x1 México x África do Sul" como UM palpite com timeCasa contendo placar', () => {
+      // Bug raiz: PALPITE_REGEX casaria timeCasa="1x1 México x África do Sul"
+      // e timeVisitante seria todo o resto. Validador anti-lixo deve descartar.
+      const r = parseMultiplePalpites(
+        '1x1 México x África do Sul 1x0 Coreia do Sul x República Tcheca',
+      );
+      // Não pode existir um palpite cujo time tenha "1x" embutido
+      for (const p of r) {
+        expect(p.timeCasa).not.toMatch(/\d+\s*[xX-]\s*\d+/);
+        expect(p.timeVisitante).not.toMatch(/\d+\s*[xX-]\s*\d+/);
+      }
+    });
+
+    it('formato canônico continua funcionando (anti-regressão)', () => {
+      const text = `Flamengo 2x1 Palmeiras
+Corinthians 0x0 São Paulo`;
+      const r = parseMultiplePalpites(text);
+      expect(r).toHaveLength(2);
+      expect(r[0].timeCasa).toBe('Flamengo');
+    });
+
+    it('mistura formato canônico e invertido', () => {
+      const text = `Brasil 2x1 Marrocos
+1x0 Argentina x Peru`;
+      const r = parseMultiplePalpites(text);
+      expect(r).toHaveLength(2);
+      expect(r[0].timeCasa).toBe('Brasil');
+      expect(r[1]).toMatchObject({ timeCasa: 'Argentina', timeVisitante: 'Peru', golsCasa: 1, golsVisitante: 0 });
+    });
+
+    it('separador "vs" funciona no invertido', () => {
+      const r = parseMultiplePalpites('2-1 Brasil vs Argentina');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'Brasil', timeVisitante: 'Argentina', golsCasa: 2, golsVisitante: 1 });
+    });
+
+    it('separador "a" funciona no invertido', () => {
+      const r = parseMultiplePalpites('2 a 1 Brasil x Argentina');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'Brasil', timeVisitante: 'Argentina', golsCasa: 2, golsVisitante: 1 });
+    });
+  });
 });

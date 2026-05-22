@@ -31,6 +31,7 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
+import { parecePalpiteMasNaoEntendi } from './palpite.heuristics.js';
 import {
   construirFatosCopa2026,
   descreverGround,
@@ -313,6 +314,31 @@ async function handleIdle(
         llmConfianca: outcomeLLM.confianca,
       });
     }
+  }
+
+  // v3.10.0 — PRÉ-CHECK CRÍTICO ANTI-MENTIRA DO LLM (caso Valéria 22/05):
+  // se a mensagem parece um lote de palpites (2+ âncoras "NxN") mas nada
+  // de palpite válido foi extraído, NÃO chama LLM — em smart-fallback ele
+  // pode dizer "Entendi, palpites registrados!" sem nada ter sido salvo.
+  // Em vez disso, responde mensagem específica explicando o formato.
+  if (parecePalpiteMasNaoEntendi(msg.text)) {
+    void incContador('msg.parece_palpite_nao_entendi');
+    console.warn(
+      `[parece-palpite] waId=${msg.waId} bloqueando smart-fallback LLM pra evitar mentira de "registrei palpites". text=${JSON.stringify(msg.text.slice(0, 200))}`,
+    );
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Parece que você quis mandar palpites, mas não consegui entender o formato.\n\n` +
+        `*Formato aceito*:\n` +
+        `• \`Brasil 2x1 Marrocos\` (placar ENTRE os times)\n` +
+        `• \`Brasil 2 a 1 Marrocos\`\n` +
+        `• \`1x1 México x África do Sul\` (placar antes dos times também funciona)\n\n` +
+        `Pode mandar *vários palpites* de uma vez, *um por linha*:\n` +
+        `\`\`\`\nBrasil 2x1 Marrocos\nFrança 1x0 Argentina\n\`\`\`\n\n` +
+        `Manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais dos times.`,
+    });
+    return;
   }
 
   // Smart fallback: em vez de devolver "nao entendi" direto, tenta uma
