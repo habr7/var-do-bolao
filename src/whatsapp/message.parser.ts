@@ -24,6 +24,7 @@ export enum Intencao {
   MEUS_PONTOS = 'MEUS_PONTOS',
   JOGOS_HOJE = 'JOGOS_HOJE',
   PROXIMOS_JOGOS = 'PROXIMOS_JOGOS', // jogos que ainda nao rolaram + status de palpite
+  MAIS_JOGOS = 'MAIS_JOGOS',         // proximo lote de 10 jogos (paginacao de PROXIMOS_JOGOS)
   MEU_PALPITE = 'MEU_PALPITE',
   ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
@@ -197,6 +198,25 @@ const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   /\bme mostra os jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
   /\bmostra(?:r)? os jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
   /\bver os jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+];
+
+// v3.5.0 — "mais jogos" pagina o próximo lote de 10 jogos. Disparado
+// depois que o user já viu uma lista de PROXIMOS_JOGOS e quer continuar.
+// Mantemos separado de PROXIMOS_JOGOS pra o handler saber se reseta
+// offset (próximos jogos = topo) ou avança (mais jogos = lote seguinte).
+const MAIS_JOGOS_PATTERNS: RegExp[] = [
+  /\bmais (?:uns? )?jogos?\b/,
+  /\bmais (?:uns? )?palpites?\b/,
+  /\bproximos? 10 jogos?\b/,
+  /\bproximos? dez jogos?\b/,
+  /\boutros? jogos?\b/,
+  /\btem mais jogos?\b/,
+  /\bquero (?:ver )?mais\b/,
+  /\bmostra(?:r)? mais\b/,
+  /\bcontinuar palpitando\b/,
+  /\bcontinua(?:r)?(?: a)? palpitar\b/,
+  /\bver os proximos\b/,
+  /\bver mais\b/,
 ];
 
 // Sprint 4 (Bug VPS 18/05) — "Pergunta geral sobre futebol".
@@ -547,13 +567,19 @@ const QUANDO_COMECA_PATTERNS: RegExp[] = [
 ];
 
 // ISSUE-011: EDITAR_PALPITE — "corrigir", "mudar", "alterar" palpite
-// Pode vir com placar: "corrigir Brasil 3x1". Capturamos o resto da frase em args.
+// v3.7.0: aceita placar inline: "corrigir Brasil 3x1 Marrocos", "mudar pra
+// Brasil 2x1 Marrocos", "atualizar Brasil 3 a 1". Quando vem placar junto,
+// o handler `handleEditarPalpite` extrai e aplica direto (atalho de 1 passo).
 const EDITAR_PALPITE_PATTERNS: RegExp[] = [
+  // Forma clássica: "corrigir palpite", "mudar palpite", etc
   /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu )?palpite/,
   /\b(?:quero|preciso|vou) (?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu |o |um )?palpite/,
   /\bcorrigir (?:o )?placar\b/,
   /^errei (?:o |meu )?palpite/,
   /\bpalpite errado\b/,
+  // v3.7.0: verbo de edição + placar embutido. Aceita "x", "×", " a ", " por ", "-".
+  // Exige número-separador-número pra evitar falsos positivos ("mudar de bolão").
+  /^(?:corrigir|mudar|alterar|atualizar|refazer)\s+(?:pra\s+|para\s+|p\/\s+|o\s+|meu\s+)?\S.*\d+\s*(?:[x×]|a|por|-)\s*\d+/i,
 ];
 
 // ISSUE-012: APAGAR_PALPITE — "apagar", "remover", "desfazer" palpite
@@ -680,6 +706,9 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.MEU_PALPITE, padroes: MEU_PALPITE_PATTERNS },
   // PALPITES_AMBIGUO so casa "palpites" sozinho — quando nada acima bateu
   { intencao: Intencao.PALPITES_AMBIGUO, padroes: PALPITES_AMBIGUO_PATTERNS },
+  // MAIS_JOGOS antes de PROXIMOS_JOGOS — "mais jogos" é mais específico
+  // (paginação). "próximos jogos" cai em PROXIMOS_JOGOS e reseta offset.
+  { intencao: Intencao.MAIS_JOGOS, padroes: MAIS_JOGOS_PATTERNS },
   { intencao: Intencao.PROXIMOS_JOGOS, padroes: PROXIMOS_JOGOS_PATTERNS },
   { intencao: Intencao.MEUS_PONTOS, padroes: MEUS_PONTOS_PATTERNS },
   { intencao: Intencao.MEUS_BOLOES, padroes: MEUS_BOLOES_PATTERNS },

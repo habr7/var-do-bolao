@@ -44,7 +44,8 @@ INTENCOES:
 - RANKING: ver classificacao. Ex: "ranking", "tabela", "quem ta na frente", "quem ta ganhando".
 - MEUS_PONTOS: quer saber a propria pontuacao. Ex: "quantos pontos eu fiz?", "meu placar", "minha posicao".
 - JOGOS_HOJE: o que tem hoje. Ex: "tem jogo hoje?", "agenda", "que jogo vai rolar?".
-- PROXIMOS_JOGOS: jogos futuros, especialmente os que faltam palpitar. Ex: "proximos jogos", "quais eu ainda nao palpitei?", "o que falta palpitar?", "quero palpitar".
+- PROXIMOS_JOGOS: jogos futuros, especialmente os que faltam palpitar. Ex: "proximos jogos", "quais eu ainda nao palpitei?", "o que falta palpitar?", "quero palpitar". Reseta paginacao pro topo.
+- MAIS_JOGOS: usuario ja viu uma lista e quer ver o PROXIMO lote. Ex: "mais jogos", "mais palpites", "outros jogos", "tem mais jogos?", "ver mais", "proximos 10", "quero continuar palpitando". Distinto de PROXIMOS_JOGOS: PROXIMOS_JOGOS comeca do topo, MAIS_JOGOS avanca o offset salvo.
 - MEU_PALPITE: ver palpites JA dados. Ex: "meus palpites", "o que eu chutei?", "quais palpites dei?".
 - ABRIR_RODADA: admin quer abrir/iniciar uma rodada. Ex: "abrir rodada", "como inicio a rodada", "começar bolão".
 - COMO_CONVIDAR: admin quer compartilhar bolao. Ex: "como convido", "manda o convite", "pegar o ID do bolão".

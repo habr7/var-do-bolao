@@ -232,11 +232,39 @@ o que ainda nao palpitei?
 lista de jogos
 mostra os jogos
 ```
-→ Só lista bolões **ATIVOS**. Se o usuário só tem bolões encerrados, o bot
+→ Mostra um lote de até **10 jogos cronológicos** abertos da rodada, com ✅/⚪
+de palpite + rodapé honesto: *"Mostrando jogos 1–10 de 72 da rodada. Palpites
+seus neste lote: 4/10. Faltam 68 palpite(s) no bolão. Manda **mais jogos**
+pra ver os próximos 10."* (v3.5.0). Reseta paginação a cada chamada.
+
+Só lista bolões **ATIVOS**. Se o usuário só tem bolões encerrados, o bot
 detecta o caso e responde com mensagem **auto-diagnóstica** ("Você tem N
 bolão(ões) encerrado(s). Manda *ranking* pra ver o resultado final ou
 *meus palpites* pra ver o histórico.") — em vez do genérico "não participa
 de nenhum bolão" que contradizia a notificação anterior do bot.
+
+### Mais jogos (paginação — v3.5.0)
+```
+mais jogos
+mais palpites
+próximos 10
+outros jogos
+tem mais jogos?
+quero ver mais
+continuar palpitando
+```
+→ Avança o ponteiro em +10 e mostra o próximo lote da rodada. Cada bolão tem
+seu próprio offset (Redis, TTL 60min). Quando estoura o total, volta pro topo
+com aviso *"Você já tinha visto até o fim — voltei pro topo da lista pra
+continuar."*
+
+**Cutucada automática**: depois que o usuário palpita em todos os jogos do
+lote visível, o bot manda follow-up oferecendo o próximo lote (idempotente:
+1x por bolão a cada 30min).
+
+💡 **Multi-palpite**: a janela aberta após "próximos jogos" aceita várias
+linhas / vírgula numa mensagem só. Ex: *"Brasil 2x1 Marrocos, México 1x1
+África do Sul"*.
 
 ### Jogos hoje
 ```
@@ -457,13 +485,40 @@ copa de 94?                         →  recusa cordial + redirect
 ## Editar e apagar palpite
 
 ### Editar (substituir placar)
+
+**Modo 2 passos** (clássico):
 ```
 corrigir palpite
 mudar palpite
 errei o palpite
 ```
-→ Bot pede o palpite novo. Só funciona se a rodada ainda estiver aberta.
-Usa bolão padrão se setado.
+→ Bot abre o fluxo, escolhe o bolão (se >1 e sem padrão), pede o placar novo.
+
+**Modo 1 passo** (v3.7.0 — placar inline):
+```
+corrigir Brasil 3x1 Marrocos
+mudar pra Brasil 2x1 Marrocos
+atualizar Brasil 3 a 1
+alterar Brasil 2 por 0
+refazer Brasil 1-1
+```
+→ Registra direto sem pedir mais nada (usa bolão padrão ou bolão único).
+
+**Linguagem natural** (v3.7.0 — LLM fallback): no fluxo de 2 passos, quando
+o bot pede o placar novo, aceita também "muda pra 3 a 1 pro Brasil",
+"errei o Brasil, queria 2x1 contra Marrocos", "empate em 2", etc. — LLM
+extrai usando a lista de jogos da rodada como contexto.
+
+**Confirmação inteligente** (v3.7.0): após editar, o bot mostra
+*"Era: **Brasil 2x1 Marrocos** → Agora: **Brasil 3x1 Marrocos**"* pra
+deixar claro o que mudou.
+
+**Trava por jogo** (v3.7.0): a edição é bloqueada se o jogo específico já
+começou (`dataHora ≤ agora` ou status ≠ AGENDADO). Mensagem: *"Esse jogo
+já começou — palpite trava no kickoff."*
+
+Funciona em rodada **ABERTA** com jogos ainda **AGENDADOS**. Usa bolão
+padrão se setado; senão pergunta qual bolão (se houver >1).
 
 ### Apagar
 ```

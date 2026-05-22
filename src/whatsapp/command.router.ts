@@ -16,9 +16,13 @@ import {
   abrirJanelaPalpiteLivre,
   janelaPalpiteLivreAtiva,
   fecharJanelaPalpiteLivre,
+  setProximosJogosOffset,
+  getProximosJogosOffset,
+  resetProximosJogosOffset,
   type Session,
 } from './session.manager.js';
 import { env } from '../config/env.js';
+import { redis } from '../config/redis.js';
 import * as bolaoService from '../modules/bolao/bolao.service.js';
 // PIX desativado nesta fase — ver handleCriandoBolaoSenha mais abaixo.
 // import * as pagamentoService from '../modules/pagamento/pagamento.service.js';
@@ -428,6 +432,10 @@ async function dispatchIntencao(
     case Intencao.JOGOS_HOJE:
     case Intencao.PROXIMOS_JOGOS:
       await handleProximosJogos(msg, usuarioId);
+      return true;
+
+    case Intencao.MAIS_JOGOS:
+      await handleMaisJogos(msg, usuarioId);
       return true;
 
     case Intencao.ABRIR_RODADA:
@@ -1587,6 +1595,11 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
   }
 
   await sendText({ to: msg.waId, text: resposta });
+
+  // v3.5.0: oferece mais jogos se fechou o lote
+  if (registrados > 0) {
+    await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
+  }
 }
 
 // ============================================================
@@ -2082,6 +2095,11 @@ async function registrarPalpitesConfirmados(
   let resposta = `${confirmacao()} ${registrados} palpite(s) registrado(s) no *${bolaoNome}*!`;
   if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
   await sendText({ to: msg.waId, text: resposta });
+
+  // v3.5.0: se o user fechou todos os jogos do lote visível, oferece mais
+  if (registrados > 0) {
+    await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
+  }
 }
 
 /**
@@ -3378,7 +3396,49 @@ async function handleConfirmandoRecusarNomeado(
  * bolao pra nao estourar 4kb do WhatsApp. Se nao houver rodada aberta
  * em lugar nenhum, explica que nao tem jogo aberto pra palpite agora.
  */
+const PROXIMOS_JOGOS_LOTE = 10;
+
+/**
+ * Handler do PROXIMOS_JOGOS — reseta paginação (offset = 0) e mostra o
+ * 1º lote de 10 jogos abertos da rodada de cada bolão ativo. Usado
+ * também quando user manda "jogos hoje".
+ *
+ * Pra paginar (lotes 11-20, 21-30, etc) o user manda "mais jogos" →
+ * cai em `handleMaisJogos` que avança o offset salvo no Redis.
+ */
 async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
+  await mostrarProximosJogos(msg, usuarioId, { resetOffset: true });
+}
+
+/**
+ * Handler do MAIS_JOGOS (v3.5.0) — avança a paginação em +10 por bolão.
+ * Se for a 1ª vez (sem offset salvo), comporta-se como PROXIMOS_JOGOS.
+ */
+async function handleMaisJogos(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.MAIS_JOGOS');
+  await mostrarProximosJogos(msg, usuarioId, { resetOffset: false, avancar: true });
+}
+
+/**
+ * Núcleo compartilhado entre PROXIMOS_JOGOS e MAIS_JOGOS.
+ *
+ * Por bolão:
+ *  - Busca TODOS os jogos abertos da rodada (sem `take`) — precisa do
+ *    total pra mostrar contador honesto e detectar fim do scroll.
+ *  - Aplica offset (persistido em Redis por bolão) + slice de 10.
+ *  - Conta palpites do user no lote visível + na rodada inteira.
+ *  - Persiste o offset usado.
+ *
+ * Decisões:
+ *  - `resetOffset: true` (PROXIMOS_JOGOS) sempre começa do 0.
+ *  - `avancar: true` (MAIS_JOGOS) soma +10 ao offset anterior. Se isso
+ *    estourar o total da rodada, volta pro topo e avisa.
+ */
+async function mostrarProximosJogos(
+  msg: IncomingMessage,
+  usuarioId: string,
+  opts: { resetOffset?: boolean; avancar?: boolean } = {},
+) {
   const boloes = await bolaoService.listarBoloesAtivosDoUsuario(usuarioId);
   if (boloes.length === 0) {
     // HOTFIX 17/05: detecta caso "so tem encerrados" pra nao contradizer
@@ -3407,31 +3467,56 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
 
   const agora = new Date();
   const partes: string[] = [];
+  let algumLoteVoltouAoTopo = false;
 
   for (const b of boloes) {
-    // Pega a rodada mais recente ABERTA pra esse bolao (caso geral em
-    // Copa: uma rodada so com varios jogos espalhados ao longo da fase).
     const rodada = await prisma.rodada.findFirst({
       where: { bolaoId: b.id, status: 'ABERTA' },
       include: {
         jogos: {
           where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
           orderBy: { dataHora: 'asc' },
-          take: 10,
         },
       },
     });
 
     if (!rodada || rodada.jogos.length === 0) continue;
 
-    // Quais jogos o usuario ja palpitou?
     const palpite = await prisma.palpite.findUnique({
       where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
       include: { jogos: true },
     });
     const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
 
-    const linhas = rodada.jogos.map((j) => {
+    const totalRodada = rodada.jogos.length;
+    const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
+
+    // Resolver offset deste bolão
+    let offset: number;
+    if (opts.resetOffset) {
+      offset = 0;
+      await resetProximosJogosOffset(msg.waId, b.id);
+    } else if (opts.avancar) {
+      const atual = await getProximosJogosOffset(msg.waId, b.id);
+      offset = atual + PROXIMOS_JOGOS_LOTE;
+      if (offset >= totalRodada) {
+        // Estourou: volta pro topo e sinaliza
+        offset = 0;
+        algumLoteVoltouAoTopo = true;
+      }
+    } else {
+      offset = await getProximosJogosOffset(msg.waId, b.id);
+      if (offset >= totalRodada) offset = 0;
+    }
+
+    const lote = rodada.jogos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
+    if (lote.length === 0) continue;
+
+    const palpitadosNoLote = lote.filter((j) => palpitadosIds.has(j.id)).length;
+    const pendentesRodada = totalRodada - palpitadosTotal;
+    const fimDoLote = offset + lote.length;
+
+    const linhas = lote.map((j) => {
       const data = j.dataHora.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
@@ -3442,12 +3527,26 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
       return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}`;
     });
 
-    const faltam = rodada.jogos.filter((j) => !palpitadosIds.has(j.id)).length;
-    partes.push(
-      `🏆 *${b.nome}*\n` +
-      linhas.join('\n') +
-      (faltam > 0 ? `\n_Faltam *${faltam}* palpite(s) — manda no formato \`Time1 NxN Time2\` pra registrar._` : '\n_Todos os palpites desta rodada já estão registrados! 🍀_'),
+    // Rodapé honesto: contador + indicação se há mais jogos
+    const temMais = fimDoLote < totalRodada;
+    const rodape: string[] = [];
+    rodape.push(
+      `📊 Mostrando jogos *${offset + 1}–${fimDoLote}* de *${totalRodada}* da rodada. ` +
+        `Palpites seus neste lote: *${palpitadosNoLote}/${lote.length}*. ` +
+        `Faltam *${pendentesRodada}* palpite(s) no bolão.`,
     );
+    if (temMais) {
+      rodape.push(`➡️ Manda *mais jogos* pra ver os próximos ${Math.min(PROXIMOS_JOGOS_LOTE, totalRodada - fimDoLote)}.`);
+    } else if (pendentesRodada === 0) {
+      rodape.push(`🎉 Você já palpitou em *todos* os ${totalRodada} jogos abertos. Bolão fechado pelo seu lado!`);
+    } else {
+      rodape.push(`🔁 Fim da lista. Manda *próximos jogos* pra voltar ao topo.`);
+    }
+
+    partes.push(`🏆 *${b.nome}*\n${linhas.join('\n')}\n\n${rodape.join('\n')}`);
+
+    // Persiste o offset usado pra próxima chamada de "mais jogos"
+    await setProximosJogosOffset(msg.waId, b.id, offset);
   }
 
   if (partes.length === 0) {
@@ -3460,14 +3559,99 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
+  const aviso = algumLoteVoltouAoTopo
+    ? '\n\n_(Você já tinha visto até o fim — voltei pro topo da lista pra continuar)_'
+    : '';
+
   await sendText({
     to: msg.waId,
-    text: `📅 *Próximos jogos:*\n\n${partes.join('\n\n')}\n\n_✅ = você já palpitou • ⚪ = falta palpitar_\n\n💡 _Pode mandar palpites de qualquer formato: "Brasil 2x1 Marrocos", "Brasil 2 a 1 Marrocos", ou ate "2 a zero pra Brasil contra Marrocos"._`,
+    text:
+      `📅 *Próximos jogos:*\n\n${partes.join('\n\n')}` +
+      aviso +
+      `\n\n_✅ = você já palpitou • ⚪ = falta palpitar_\n\n` +
+      `💡 _Pode mandar *vários palpites de uma vez*, separados por vírgula ou em linhas diferentes._\n` +
+      `_Ex: "Brasil 2x1 Marrocos, México 1x1 África do Sul" — registra ambos numa tacada._`,
   });
 
   // Abre janela de palpite livre — proximas msgs em IDLE serao
   // testadas via LLM extrator mesmo se nao casarem regex.
   await abrirJanelaPalpiteLivre(msg.waId);
+}
+
+/**
+ * Cutucada inline (v3.5.0) — chamada após registrar palpite. Se o
+ * usuário acabou de completar TODOS os jogos do último lote visto E
+ * ainda há jogos pendentes na rodada, oferece o próximo lote.
+ *
+ * Idempotente via flag Redis (`pj_oferta:{waId}:{bolaoId}`) com TTL
+ * curto — não cutuca duas vezes seguidas pelo mesmo evento.
+ *
+ * Não cutuca quando:
+ *  - Offset = 0 e ninguém tinha visto lista ainda (palpite avulso fora do fluxo).
+ *  - Já palpitou em tudo da rodada (manda parabens completo via outro caminho).
+ *  - Falha em ler dados (silencioso — não trava o fluxo principal).
+ */
+async function talvezOferecerMaisJogos(
+  msg: IncomingMessage,
+  usuarioId: string,
+  rodadaId: string,
+): Promise<void> {
+  try {
+    const agora = new Date();
+    const rodada = await prisma.rodada.findUnique({
+      where: { id: rodadaId },
+      include: {
+        jogos: {
+          where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+          orderBy: { dataHora: 'asc' },
+        },
+      },
+    });
+    if (!rodada || rodada.jogos.length === 0) return;
+    const bolaoId = rodada.bolaoId;
+
+    // Só oferta se houve `próximos jogos` antes (offset salvo).
+    const offsetSalvo = await getProximosJogosOffset(msg.waId, bolaoId);
+
+    const palpite = await prisma.palpite.findUnique({
+      where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
+      include: { jogos: true },
+    });
+    const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
+
+    const totalRodada = rodada.jogos.length;
+    const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
+    const pendentes = totalRodada - palpitadosTotal;
+
+    // Já palpitou em tudo? Sem mais oferta.
+    if (pendentes === 0) return;
+
+    // Lote em foco: do offset salvo até offset+10
+    const lote = rodada.jogos.slice(offsetSalvo, offsetSalvo + PROXIMOS_JOGOS_LOTE);
+    if (lote.length === 0) return;
+
+    const palpitadosNoLote = lote.filter((j) => palpitadosIds.has(j.id)).length;
+    // Só cutuca quando o lote inteiro está completo
+    if (palpitadosNoLote < lote.length) return;
+
+    // Idempotência: não cutuca de novo nas próximas 30 min pelo mesmo bolão
+    const flagKey = `pj_oferta:${msg.waId}:${bolaoId}`;
+    const flag = await redis.get(flagKey);
+    if (flag) return;
+    await redis.setex(flagKey, 30 * 60, '1');
+
+    const proximoLote = Math.min(PROXIMOS_JOGOS_LOTE, pendentes);
+    await sendText({
+      to: msg.waId,
+      text:
+        `🔥 Fechou esses ${lote.length} 👏 Tá em dia com os palpites do lote!\n\n` +
+        `📋 Ainda tem *${pendentes}* jogo(s) abertos no bolão pra você palpitar (libera até pouco antes do kickoff de cada um).\n\n` +
+        `➡️ Manda *mais jogos* pra ver os próximos ${proximoLote}.`,
+    });
+  } catch (err) {
+    // Não trava o fluxo principal se algo falhar aqui
+    console.warn('[talvezOferecerMaisJogos] erro silencioso:', err);
+  }
 }
 
 // ============================================================
@@ -4060,9 +4244,39 @@ async function handleConfirmandoRemocaoParticipante(
 
 // ============================================================
 // Sprint 2 — ISSUE-011: editar palpite
+// v3.7.0 — aceita placar inline ("corrigir Brasil 3x1"), LLM fallback,
+// mostra palpite anterior na confirmação, valida jogo individual.
 // ============================================================
+
+/**
+ * Tira o prefixo de comando ("corrigir palpite", "mudar", "errei o
+ * palpite", etc) pra deixar SÓ o que sobrou — provavelmente o placar
+ * novo. Ex: "corrigir Brasil 3x1 Marrocos" → "Brasil 3x1 Marrocos".
+ * Se não sobrou nada relevante, retorna string vazia.
+ */
+function extrairPlacarInlineDoComando(raw: string): string {
+  const prefixos = [
+    /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+(?:meu\s+|o\s+|um\s+)?palpite\s*/i,
+    /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+(?:o\s+)?placar\s*/i,
+    /^errei\s+(?:o\s+|meu\s+)?palpite\s*/i,
+    /^(?:quero|preciso|vou)\s+(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+(?:meu\s+|o\s+|um\s+)?palpite\s*/i,
+    // Apenas o verbo + nome de time/placar: "corrigir Brasil 3x1"
+    /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer)\s+/i,
+  ];
+  let resto = raw.trim();
+  for (const re of prefixos) {
+    const m = re.exec(resto);
+    if (m) {
+      resto = resto.slice(m[0].length).trim();
+      break;
+    }
+  }
+  // Remove conectores comuns ("pra", "para", "para:", ":", "→")
+  resto = resto.replace(/^(?:pra|para|p\/|:|→|->)\s+/i, '').trim();
+  return resto;
+}
+
 async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw: string) {
-  void raw;
   const boloesAbertos = await listarBoloesComRodadaAberta(usuarioId);
   if (boloesAbertos.length === 0) {
     await sendText({
@@ -4071,18 +4285,56 @@ async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw:
     });
     return;
   }
-  // Roteia pelo bolão padrão se setado
+
+  // v3.7.0: extrai placar inline se o usuário mandou junto do comando
+  // ("corrigir Brasil 3x1 Marrocos", "mudar palpite pra Brasil 2x1 Marrocos")
+  const restoTexto = extrairPlacarInlineDoComando(raw);
+  let placarInline: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number } | null = null;
+  if (restoTexto.length > 0) {
+    const parsed = parseIntencao(restoTexto);
+    if (parsed.intencao === Intencao.PALPITE_INLINE && parsed.palpite) {
+      placarInline = parsed.palpite;
+    }
+  }
+
+  // Resolve qual bolão usar (padrão > único > escolha)
   const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
   const padraoMatch = boloesAbertos.find((b) => b.bolaoId === padraoId);
-  if (padraoMatch) {
-    await iniciarEdicaoPalpite(msg, padraoMatch.bolaoId, padraoMatch.nome, padraoMatch.rodadaId);
+  const bolaoAlvo = padraoMatch ?? (boloesAbertos.length === 1 ? boloesAbertos[0] : null);
+
+  // Atalho: placar inline + bolão resolvido → registra direto
+  if (placarInline && bolaoAlvo) {
+    await registrarEdicaoDireta(msg, usuarioId, bolaoAlvo.bolaoId, bolaoAlvo.nome, bolaoAlvo.rodadaId, placarInline);
     return;
   }
-  if (boloesAbertos.length === 1) {
-    const b = boloesAbertos[0];
-    await iniciarEdicaoPalpite(msg, b.bolaoId, b.nome, b.rodadaId);
+
+  // Vários bolões e placar inline: guardar o placar e pedir só pra escolher bolão
+  if (placarInline && !bolaoAlvo) {
+    await setSession(msg.waId, {
+      state: 'EDITANDO_PALPITE_ESCOLHA_BOLAO',
+      ctx: {
+        boloesParaEscolher: boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome })),
+        palpiteInline: placarInline,
+      },
+    });
+    const lista = formatarBoloesNumerados(
+      boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
+    );
+    await sendText({
+      to: msg.waId,
+      text:
+        `✏️ Em qual bolão você quer atualizar pra *${placarInline.timeCasa} ${placarInline.golsCasa} × ${placarInline.golsVisitante} ${placarInline.timeVisitante}*?\n\n` +
+        `${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
     return;
   }
+
+  // Sem placar inline: comportamento clássico (pede placar)
+  if (bolaoAlvo) {
+    await iniciarEdicaoPalpite(msg, bolaoAlvo.bolaoId, bolaoAlvo.nome, bolaoAlvo.rodadaId);
+    return;
+  }
+
   await setSession(msg.waId, {
     state: 'EDITANDO_PALPITE_ESCOLHA_BOLAO',
     ctx: {
@@ -4098,12 +4350,55 @@ async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw:
   });
 }
 
+/**
+ * Registra/atualiza o palpite imediatamente quando o caller já tem
+ * placar + bolão definidos. Encapsula o "fluxo curto" (atalho de edição
+ * inline).
+ */
+async function registrarEdicaoDireta(
+  msg: IncomingMessage,
+  usuarioId: string,
+  bolaoId: string,
+  nomeBolao: string,
+  rodadaId: string,
+  p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number },
+) {
+  void bolaoId;
+  try {
+    const r = await palpiteService.registrarPalpiteEmRodada({
+      usuarioId,
+      rodadaId,
+      timeCasa: p.timeCasa,
+      timeVisitante: p.timeVisitante,
+      golsCasa: p.golsCasa,
+      golsVisitante: p.golsVisitante,
+    });
+    await resetSession(msg.waId);
+    const novoStr = `*${r.jogoTimeCasa} ${p.golsCasa} × ${p.golsVisitante} ${r.jogoTimeVisitante}*`;
+    const texto = r.anterior
+      ? `✅ Palpite atualizado no *${nomeBolao}*!\n` +
+        `Era: *${r.jogoTimeCasa} ${r.anterior.golsCasa} × ${r.anterior.golsVisitante} ${r.jogoTimeVisitante}*\n` +
+        `Agora: ${novoStr}`
+      : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(não tinha palpite anterior pra esse jogo)_`;
+    await sendText({ to: msg.waId, text: texto });
+  } catch (err) {
+    const m = (err as Error).message;
+    const amigavel = m.includes('ja comecou') || m.includes('ja iniciou')
+      ? `❌ Esse jogo já começou — palpite trava no kickoff.`
+      : m.includes('jogo nao encontrado')
+      ? `❌ Não achei o jogo *${p.timeCasa} x ${p.timeVisitante}* no bolão *${nomeBolao}*. Manda *próximos jogos* pra ver os times exatos.`
+      : `❌ ${m}`;
+    await sendText({ to: msg.waId, text: amigavel });
+  }
+}
+
 async function iniciarEdicaoPalpite(
   msg: IncomingMessage,
   bolaoId: string,
   nomeBolao: string,
   rodadaId: string,
 ) {
+  void bolaoId;
   await setSession(msg.waId, {
     state: 'EDITANDO_PALPITE_NOVO_PLACAR',
     ctx: { bolaoId, nomeBolao, rodadaId },
@@ -4111,7 +4406,7 @@ async function iniciarEdicaoPalpite(
   await sendText({
     to: msg.waId,
     text:
-      `✏️ Manda o palpite *novo* (mesmo formato de sempre): \`Time1 NxN Time2\`\n\n` +
+      `✏️ Manda o palpite *novo* — formato: \`Time1 NxN Time2\` (também aceito linguagem natural tipo "Brasil 2 a 1 Marrocos").\n\n` +
       `_Vou substituir o palpite anterior pelo novo no bolão *${nomeBolao}*. Ou *cancelar*._`,
   });
 }
@@ -4145,7 +4440,13 @@ async function handleEscolhendoBolaoEditarPalpite(
     await sendText({ to: msg.waId, text: '❌ Esse bolão não tem rodada aberta.' });
     return;
   }
-  void usuarioId;
+  // v3.7.0: se o user já tinha mandado placar inline ("corrigir Brasil 3x1"),
+  // aplicamos direto após ele escolher o bolão.
+  const palpiteInline = session.ctx?.palpiteInline;
+  if (palpiteInline) {
+    await registrarEdicaoDireta(msg, usuarioId, escolhido.id, escolhido.nome, rodada.id, palpiteInline);
+    return;
+  }
   await iniciarEdicaoPalpite(msg, escolhido.id, escolhido.nome, rodada.id);
 }
 
@@ -4162,35 +4463,71 @@ async function handleEditandoPalpiteNovoPlacar(
     return;
   }
 
-  // Tenta parsear como palpite inline
+  // v3.7.0: 3 níveis de extração — regex inline → multi-palpite regex → LLM.
+  // O LLM é fallback final pra "muda meu palpite pra 3 a 1 pro Brasil",
+  // "errei o brasil, queria 2x1", etc.
+  let palpite: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number } | null = null;
+
   const parsed = parseIntencao(msg.text);
-  if (parsed.intencao !== Intencao.PALPITE_INLINE || !parsed.palpite) {
+  if (parsed.intencao === Intencao.PALPITE_INLINE && parsed.palpite) {
+    palpite = parsed.palpite;
+  }
+
+  if (!palpite) {
+    const multi = parseMultiplePalpites(msg.text);
+    if (multi.length > 0) palpite = multi[0];
+  }
+
+  if (!palpite) {
+    // LLM fallback — passa lista de jogos da rodada como contexto pra ele
+    // mapear nomes parciais ("Brasil" → o jogo do Brasil na rodada).
+    const rodada = await prisma.rodada.findUnique({
+      where: { id: rodadaId },
+      include: { jogos: true },
+    });
+    if (rodada && rodada.jogos.length > 0) {
+      const extraidos = await extrairPalpites(
+        msg.text,
+        rodada.jogos.map((j) => ({ timeCasa: j.timeCasa, timeVisitante: j.timeVisitante })),
+      );
+      if (extraidos.length > 0) palpite = extraidos[0];
+    }
+  }
+
+  if (!palpite) {
     await sendText({
       to: msg.waId,
-      text: '🤔 Não entendi o palpite. Formato: `Brasil 2x1 Marrocos`. Ou *cancelar*.',
+      text:
+        '🤔 Não entendi o palpite. Formato: `Brasil 2x1 Marrocos` (ou em linguagem natural, tipo "Brasil 2 a 1 Marrocos"). Ou *cancelar*.',
     });
     return;
   }
-  const p = parsed.palpite;
+
   try {
-    await palpiteService.registrarPalpiteEmRodada({
+    const r = await palpiteService.registrarPalpiteEmRodada({
       usuarioId,
       rodadaId,
-      timeCasa: p.timeCasa,
-      timeVisitante: p.timeVisitante,
-      golsCasa: p.golsCasa,
-      golsVisitante: p.golsVisitante,
+      timeCasa: palpite.timeCasa,
+      timeVisitante: palpite.timeVisitante,
+      golsCasa: palpite.golsCasa,
+      golsVisitante: palpite.golsVisitante,
     });
     await resetSession(msg.waId);
-    await sendText({
-      to: msg.waId,
-      text: `✅ Palpite atualizado no *${nomeBolao}*: *${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}*`,
-    });
+    const novoStr = `*${r.jogoTimeCasa} ${palpite.golsCasa} × ${palpite.golsVisitante} ${r.jogoTimeVisitante}*`;
+    const texto = r.anterior
+      ? `✅ Palpite atualizado no *${nomeBolao}*!\n` +
+        `Era: *${r.jogoTimeCasa} ${r.anterior.golsCasa} × ${r.anterior.golsVisitante} ${r.jogoTimeVisitante}*\n` +
+        `Agora: ${novoStr}`
+      : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(você ainda não tinha palpite pra esse jogo)_`;
+    await sendText({ to: msg.waId, text: texto });
   } catch (err) {
-    await sendText({
-      to: msg.waId,
-      text: `❌ ${(err as Error).message}\n\nTenta outro palpite ou *cancelar*.`,
-    });
+    const m = (err as Error).message;
+    const amigavel = m.includes('ja comecou') || m.includes('ja iniciou')
+      ? `❌ Esse jogo já começou — palpite trava no kickoff.\n\nTenta outro jogo ou *cancelar*.`
+      : m.includes('jogo nao encontrado')
+      ? `❌ Não achei esse jogo no bolão. Manda *próximos jogos* pra ver os times exatos. Ou *cancelar*.`
+      : `❌ ${m}\n\nTenta outro palpite ou *cancelar*.`;
+    await sendText({ to: msg.waId, text: amigavel });
   }
 }
 

@@ -12,10 +12,32 @@ interface RegistrarPalpiteInput {
 }
 
 /**
+ * Resultado do registro/edição de palpite. `anterior` vem preenchido
+ * quando o palpite JÁ existia e foi substituído (UPDATE no upsert) —
+ * caller usa pra dar UX "era X, virou Y" em edições. Quando é palpite
+ * novo (CREATE), `anterior` vem null.
+ */
+export interface RegistrarPalpiteResult {
+  jogoId: string;
+  rodadaId: string;
+  jogoTimeCasa: string;
+  jogoTimeVisitante: string;
+  anterior: { golsCasa: number; golsVisitante: number } | null;
+}
+
+/**
  * Registra um palpite dentro de uma rodada ja conhecida (chamada pelo
  * fluxo PALPITANDO do router, onde a FSM guarda o rodadaId).
+ *
+ * v3.7.0: agora também rejeita palpite em jogo individual que já começou
+ * ou já foi disputado — antes só checava a `rodada.dataFechamento`,
+ * o que na Copa (rodada única com 72 jogos) deixava editar palpite
+ * de jogo que já tinha rolado. E devolve o `anterior` (placar antigo
+ * substituído) pra caller mostrar a substituição.
  */
-export async function registrarPalpiteEmRodada(input: RegistrarPalpiteInput) {
+export async function registrarPalpiteEmRodada(
+  input: RegistrarPalpiteInput,
+): Promise<RegistrarPalpiteResult> {
   const rodada = await prisma.rodada.findUnique({
     where: { id: input.rodadaId },
     include: { jogos: true, bolao: true },
@@ -35,10 +57,33 @@ export async function registrarPalpiteEmRodada(input: RegistrarPalpiteInput) {
   const jogo = encontrarJogo(rodada.jogos, input.timeCasa, input.timeVisitante);
   if (!jogo) throw new Error(`jogo nao encontrado: ${input.timeCasa} x ${input.timeVisitante}`);
 
+  // v3.7.0: trava palpite em jogo que já começou / acabou. Tolerância de
+  // 0min — assim que o relógio bate o kickoff (jogo.dataHora), trava.
+  // Status AGENDADO continua liberado; AO_VIVO/FINALIZADO/ADIADO/CANCELADO travam.
+  if (jogo.status !== 'AGENDADO') {
+    throw new Error(`jogo ${input.timeCasa} x ${input.timeVisitante} ja iniciou/terminou`);
+  }
+  if (new Date() >= jogo.dataHora) {
+    throw new Error(`jogo ${input.timeCasa} x ${input.timeVisitante} ja comecou`);
+  }
+
+  // Busca palpite anterior PRA ESTE JOGO antes do upsert — pra devolver
+  // ao caller (UX "era X, virou Y" em edições).
+  const palpiteAtual = await palpiteRepo.buscarPalpitesUsuarioRodada(input.usuarioId, rodada.id);
+  const palpiteJogoAnterior = palpiteAtual?.jogos.find((pj) => pj.jogoId === jogo.id) ?? null;
+
   const palpite = await palpiteRepo.getOrCreatePalpite(input.usuarioId, rodada.id);
   await palpiteRepo.registrarPalpiteJogo(palpite.id, jogo.id, input.golsCasa, input.golsVisitante);
 
-  return { jogoId: jogo.id, rodadaId: rodada.id };
+  return {
+    jogoId: jogo.id,
+    rodadaId: rodada.id,
+    jogoTimeCasa: jogo.timeCasa,
+    jogoTimeVisitante: jogo.timeVisitante,
+    anterior: palpiteJogoAnterior
+      ? { golsCasa: palpiteJogoAnterior.golsCasa, golsVisitante: palpiteJogoAnterior.golsVisitante }
+      : null,
+  };
 }
 
 export async function statusPalpitesRodada(usuarioId: string, rodadaId: string) {

@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.4.0
-**Última atualização:** 2026-05-22 (grounding da Copa 2026 — `src/llm/copa.ground.ts` + `src/modules/copa-2026/` + `src/data/copa-2026/*.json`; corrige alucinação de grupo/datas no PERGUNTA_GERAL_FUTEBOL)
+**Versão do documento:** 3.7.0
+**Última atualização:** 2026-05-22 (edição de palpite robusta: placar inline em 1 passo "corrigir Brasil 3x1", LLM fallback no fluxo de edição, validação por jogo individual no `palpite.service`, confirmação "era X, virou Y")
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -188,8 +188,9 @@ var_do_bolao/
 │   │   ├── intent.classifier.ts     # Classifica mensagem em Intencao (JSON)
 │   │   ├── palpite.extractor.ts     # Extrai placares de NL ("Brasil perde de 1 a 0")
 │   │   ├── bolao.matcher.ts         # Escolhe bolão da lista + interpretar sim/nao
-│   │   ├── conversational.responder.ts  # Smart-fallback (resposta livre, sem inventar)
-│   │   └── copa.ground.ts           # Grounding Copa 2026: detecta entidade + monta bloco [FATOS VERIFICADOS] do JSON oficial; recusa fora-de-escopo
+│   │   ├── conversational.responder.ts  # Smart-fallback (resposta livre, sem inventar) — system prompt embute KNOWLEDGE_PRODUTO
+│   │   ├── copa.ground.ts           # Grounding Copa 2026: detecta entidade + monta bloco [FATOS VERIFICADOS] do JSON oficial; recusa fora-de-escopo
+│   │   └── knowledge.produto.ts     # Knowledge base do produto (v3.6.0): pontuação, multi-palpite, editar/apagar, ranking, comandos, escopo, privacidade — injetado SEMPRE no system prompt do responderConversacional
 │   │
 │   ├── modules/                     # Lógica de negócio (Repository + Service)
 │   │   ├── bolao/
@@ -461,6 +462,56 @@ e contados via métricas `llm.conversational.ground.*`):
 | `AMBIGUO` | Não detectou nada específico, mas LLM ainda recebe contexto geral | Visão geral (como fallback) |
 | `FORA_DE_COPA` | Libertadores, Brasileirão, clube, jogador, copa antiga | `null` (recusa antes da LLM via `respostaForaDeEscopo()`) |
 
+### 6.7 Knowledge base do produto (`src/llm/knowledge.produto.ts`) — v3.6.0
+
+**Por que existe**: até v3.5.x o `responderConversacional` não tinha
+fato nenhum sobre o produto no system prompt. Quando o user perguntava
+*"posso mandar vários palpites de uma vez?"*, *"dá pra editar palpite?"*,
+*"como funciona o desempate do ranking?"*, *"é grátis?"* — a LLM chutava
+de cabeça (ou dizia "não sei"). Como o `conversational.responder` é o
+smart-fallback de TUDO que regex/classifier não capturaram (smart-fallback
+IDLE + handler de `PERGUNTA_GERAL_FUTEBOL`), o impacto era grande.
+
+**Solução**: arquivo dedicado `knowledge.produto.ts` exporta a constante
+`KNOWLEDGE_PRODUTO` — texto compacto (~1500 chars / ~500 tokens) com
+fatos verificáveis do produto:
+
+- **Pontuação** (10/7/5/3/0) com exemplos de cada categoria
+- **Prazo de palpite**: trava no kickoff de cada jogo (Copa) / 1º jogo da rodada (geral)
+- **Multi-palpite**: vários numa mensagem, separados por vírgula ou linhas
+- **Editar/apagar** palpite com comandos exatos (`corrigir palpite`, `apagar palpite`)
+- **Ranking**: ordem por pontos, atualiza por hora, desempate por nº de palpites + ordem de entrada
+- **Multi-bolão + bolão padrão**
+- **Admin / convite / ID curto (#ABCD12)** — NÃO usa senha
+- **Custo grátis**, sem premium nem propaganda paga
+- **Escopo**: só Copa 2026; NÃO cobre Brasileirão/Libertadores/etc, NÃO mostra placar ao vivo nem TV
+- **Lista de comandos rápidos** (próximos jogos, mais jogos, regras, etc.)
+- **Privacidade**: palpite é privado
+
+**Onde é injetado**: no system message do `responderConversacional`,
+acoplado ao final do `RESPONDER_PROMPT` (com cabeçalho `[REGRAS DO BOT]`
+e marcador `[FIM DAS REGRAS DO BOT]`). Sempre presente — sem detector,
+sem condicional. Custo extra: ~500 tokens por chamada conversacional
+(que é uma fração das mensagens — só as que não casam regex/intent
+dedicada).
+
+**Regra-ouro adicionada ao prompt**: "Sobre o BOT/BOLAO: voce SO pode
+afirmar regras que estejam em [REGRAS DO BOT] abaixo. Se a pergunta não
+tem resposta lá, diga 'essa eu não sei te responder direito — manda
+*ajuda* pra ver as opções' e siga." Análogo à regra anti-alucinação da
+Copa 2026, mas pro produto.
+
+**Como evitar drift**: `tests/unit/knowledge.produto.test.ts` (14
+testes) checa que o knowledge bate com `PONTUACAO_PADRAO` (10/7/5/3/0)
+e cobre cada uma das áreas acima — se alguém mudar a pontuação no código
+e esquecer do knowledge, o teste quebra. Toda mudança de regra do
+produto precisa atualizar o knowledge + os testes correspondentes.
+
+**O que NÃO está aqui**:
+- Dados dinâmicos (palpites/ranking/pontos do user) — vêm do banco via comandos
+- Dados da Copa 2026 — vêm via `copa.ground.ts` (RAG do JSON oficial)
+- Texto de boas-vindas / mensagens fixas — em `regras.text.ts`
+
 ---
 
 ## 7. Intents (`src/whatsapp/message.parser.ts`)
@@ -477,7 +528,8 @@ e contados via métricas `llm.conversational.ground.*`):
 | `MEUS_PONTOS` | "meus pontos", "minha pontuação" | mostra pontos + pergunta se quer ver palpites |
 | `MEU_PALPITE` | "meus palpites", "o que palpitei" | mostra histórico (após confirmação) |
 | `JOGOS_HOJE` | "jogos hoje", "agenda" | jogos do dia |
-| `PROXIMOS_JOGOS` | "próximos jogos", "quero palpitar", "bora dar palpites" | lista jogos abertos + abre janela palpite livre |
+| `PROXIMOS_JOGOS` | "próximos jogos", "quero palpitar", "bora dar palpites" | Mostra lote de até **10 jogos cronológicos** abertos da rodada de cada bolão ativo. Reseta paginação (offset=0). Rodapé honesto com contador "X–Y de Z, faltam W no bolão". Abre janela palpite livre (5min). |
+| `MAIS_JOGOS` (v3.5.0) | "mais jogos", "mais palpites", "próximos 10", "outros jogos", "tem mais jogos?", "ver mais", "continuar palpitando" | Avança paginação em +10 a partir do offset salvo em Redis (TTL 60min). Quando estoura o total, volta pro topo com aviso. Usado pra paginar lotes da rodada de Copa (72 jogos da fase de grupos). |
 | `PALPITE_INLINE` | "Brasil 2x1 Marrocos" e variantes (extenso, preposição, "perde de") | fluxo de confirmação inline |
 | `ABRIR_RODADA` | "abrir rodada", "começar bolão" | status das rodadas do admin |
 | `COMO_CONVIDAR` | "como convido", "manda o convite" | gera link wa.me clicável |
@@ -491,7 +543,7 @@ e contados via métricas `llm.conversational.ground.*`):
 | `INFO_PRECO` | "quanto custa", "é grátis", "tem que pagar" | "🆓 É grátis" (ISSUE-010) |
 | `COMO_PALPITAR` | "como dou palpite", "formato do palpite" | exemplos + dica próximos jogos (ISSUE-017) |
 | `QUANDO_COMECA` | "quando começa", "quando termina", "que dia abre rodada" | data próxima rodada (usa bolão padrão) (ISSUE-018) |
-| `EDITAR_PALPITE` | "corrigir palpite", "errei palpite", "mudar palpite" | fluxo edita palpite se rodada aberta (ISSUE-011) |
+| `EDITAR_PALPITE` | "corrigir palpite", "mudar palpite", "errei palpite" + **(v3.7.0)** placar inline "corrigir Brasil 3x1 Marrocos" / "mudar pra Brasil 2x1" / "atualizar Brasil 3 a 1" / "alterar Brasil 2 por 0" | Fluxo: (1) detecta placar inline → atalho de 1 passo (registra direto, mostra "era X, virou Y"); (2) sem placar → pede placar no estado FSM. Fluxo de placar aceita regex + multi-palpite + LLM fallback. Valida jogo individual (recusa se já começou). |
 | `APAGAR_PALPITE` | "apagar palpite", "desfazer palpite", "remover palpite" | fluxo deleta PalpiteJogo (ISSUE-012) |
 | `DEFINIR_BOLAO_PADRAO` | "bolão padrão", "meu bolão principal" | seta `Usuario.bolaoPadraoId` (ISSUE-016) |
 | `RENOMEAR_BOLAO` | "renomear bolão", "mudar nome do bolão" | admin renomeia + notifica participantes (ISSUE-020) |
@@ -1127,6 +1179,9 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 3.1.3 | 2026-05-18 | Hotfixes UX pós-feedback Jeni: (a) `RANKING` intent agora aceita frases naturais como "Quero ver o ranking", "Ver o ranking", "me mostra a tabela" via padrões regex novos + `extrairNomeBolaoDoRanking` que faz strip robusto pra não usar a frase inteira como nome do bolão; (b) Nova intent `AGRADECIMENTO` ("obrigada/o", "valeu", "vlw", "brigado/a", "thanks", "tmj") com handler curto e amigável randomizado — não reabre o menu como SAUDACAO fazia; (c) ISSUE-015 (auto-apply multi-bolão) agora passa por confirmação `CONFIRMANDO_PALPITE_MULTI_BOLAO` com preview dos N bolões antes de registrar. Removido dead code `registrarPalpiteInline`. 342 tests (era 322), 85 cenários (era 75). |
 | 3.2.1 | 2026-05-18 | Hotfix 4 bugs Humberto: (1) "Pontuação" sozinho ia pra RANKING("pontuacao") — MEUS_PONTOS_PATTERNS ampliado. (2) "Ajuda" mostrava texto legado com `!comandos` — `formatAjuda` reescrito. (3) "Bolao teste oficial" virava CRIAR_BOLAO espúrio — fuzzy match contextual antes de iniciar criação + LLM prompt restritivo. (4) "Proximos jogos" no CRIANDO_BOLAO_NOME virava nome — FSM escape novo. 384 tests, 106 cenários. |
 | 3.3.0 | 2026-05-18 | Nova intent `PERGUNTA_GERAL_FUTEBOL` + LLM responder reescrito. Bug reportado da VPS: usuário perguntava "Quais próximos jogos da Inglaterra?" — bot respondia "não faz parte de nenhum bolão". Fix: nova intent + regex negative lookahead + handler dedicado + responder prompt autorizado a usar conhecimento geral. 397 tests, 116 cenários. |
+| **3.7.0** | **2026-05-22** | **Edição de palpite robusta: inline em 1 passo, LLM fallback, validação por jogo, "era X virou Y".** Auditoria do fluxo `EDITAR_PALPITE` (ISSUE-011 da v3.1) identificou 4 gaps: (1) `corrigir Brasil 3x1` perdia o placar inline e exigia 2 passos; (2) "muda meu palpite pra 3 a 1 pro Brasil" caía no fallback do smart porque regex falhava; (3) `palpite.service:registrarPalpiteEmRodada` só checava `rodada.dataFechamento` mas na Copa cada jogo tem kickoff próprio — user podia editar palpite de jogo que já tinha começado; (4) confirmação genérica "palpite atualizado" sem mostrar de qual valor pra qual. **Fix**: (a) novo helper `extrairPlacarInlineDoComando` strip de "corrigir/mudar/etc." e tenta `parseIntencao` no resto — atalho de 1 passo aceita "corrigir Brasil 3x1 Marrocos" / "mudar pra Brasil 2x1" / "atualizar Brasil 3 a 1" / "alterar Brasil 2 por 0" / "refazer Brasil 1-1". (b) `handleEditandoPalpiteNovoPlacar` ganhou cadeia regex → `parseMultiplePalpites` → LLM `extrairPalpites` com lista de jogos da rodada como contexto. (c) `palpite.service` agora rejeita palpite se `jogo.dataHora <= now()` ou `jogo.status !== 'AGENDADO'` — mensagem amigável "esse jogo já começou". (d) Retorna `RegistrarPalpiteResult` com `anterior` (placar antigo) — handlers usam pra mostrar "Era *Brasil 2x1 Marrocos*, virou *Brasil 3x1 Marrocos*". (e) Novo `palpiteInline` em `ConversaContext` pra guardar placar entre escolha de bolão e registro. (f) Novos patterns regex em `EDITAR_PALPITE_PATTERNS` exigindo placar embutido (N x N / N a N / N por N / N-N) pra evitar falsos positivos como "mudar de bolão" / "atualizar senha". Mensagens de erro amigáveis pra "jogo já começou" e "jogo não encontrado". **468 tests (era 461), 7 novos cobrindo placar inline (5 positivos) + 2 anti-falso-positivo.** |
+| **3.6.0** | **2026-05-22** | **Knowledge base do produto no LLM conversacional — fim das dúvidas mal respondidas sobre o bolão.** Sintoma reportado: usuário perguntou "posso mandar vários palpites de uma vez?" e o bot não soube responder corretamente. Diagnóstico: o `responderConversacional` (smart-fallback do IDLE + handler de PERGUNTA_GERAL_FUTEBOL) não tinha fato nenhum sobre o produto no system prompt — LLM chutava ou dizia "não sei". **Fix**: novo arquivo `src/llm/knowledge.produto.ts` exporta `KNOWLEDGE_PRODUTO` (~1500 chars) com bullets verificáveis: pontuação 10/7/5/3/0 com exemplos, prazo de palpite (até kickoff de cada jogo), MULTI-PALPITE (várias por mensagem com vírgula/linhas), editar/apagar palpite + comandos exatos, ranking + critério de desempate, multi-bolão + bolão padrão, admin/convite/ID curto (não senha), custo grátis, escopo Copa 2026 + lista do que NÃO cobre, comandos rápidos, privacidade. Injetado SEMPRE no system prompt do `responderConversacional` (sem detector — robustez supera economia de ~500 tokens). `RESPONDER_PROMPT` ganhou seção "DUAS FONTES DE FATOS" diferenciando [REGRAS DO BOT] (produto) de [FATOS VERIFICADOS] (Copa 2026). Regra-ouro anti-alucinação ampliada pra cobrir regras do produto. Novo `tests/unit/knowledge.produto.test.ts` com 14 testes anti-drift (bate o knowledge contra `PONTUACAO_PADRAO` do código + verifica cobertura de cada área). **461 tests (era 447), 14 novos.** |
+| **3.5.0** | **2026-05-22** | **Paginação honesta de PROXIMOS_JOGOS + nova intent MAIS_JOGOS.** Bug reportado (Joao Arruda, 21/05): bot mostrou 10 jogos com o rótulo "Todos os palpites desta rodada já estão registrados! 🍀" depois que ele palpitou nos 10 — **falso**, porque a rodada da fase de grupos tem 72 jogos e ele só viu os 10 mais cedo (filtro `take: 10` no `command.router.ts:3414`). **Fix**: (1) `handleProximosJogos` removeu o `take` da query, busca toda a rodada e faz slice no JS com offset persistido no Redis (`pj_offset:{waId}:{bolaoId}`, TTL 60min). (2) Nova intent `MAIS_JOGOS` com 12 padrões regex ("mais jogos", "mais palpites", "próximos 10", "outros jogos", "tem mais jogos?", "ver mais", "continuar palpitando", etc.) — handler avança offset +10, volta pro topo quando estoura. (3) Mensagem reescrita com **contador honesto**: "Mostrando jogos X–Y de Z. Palpites seus neste lote: N/lote. Faltam W palpite(s) no bolão." (4) **Cutucada inline automática** (`talvezOferecerMaisJogos`): após registrar palpite, se o user fechou todos os jogos do último lote visto E ainda há pendentes na rodada, bot oferece o próximo lote ("Fechou esses 10 👏 Ainda tem X jogos abertos. Manda *mais jogos*"). Idempotente via flag Redis (`pj_oferta:`, TTL 30min). (5) Dica de multi-palpite enfatizada: "Pode mandar VÁRIOS palpites de uma vez separados por vírgula". (6) Patterns `MAIS_JOGOS` colocados antes de `PROXIMOS_JOGOS` no `INTENT_RULES` pra ter precedência. **447 tests (era 438), 9 novos cobrindo todos os patterns de `MAIS_JOGOS` + garantia de precedência sobre `PROXIMOS_JOGOS`.** |
 | **3.4.0** | **2026-05-22** | **Grounding da Copa 2026 — fim da alucinação em perguntas gerais de futebol.** Bug reportado da VPS em 21/05: usuário perguntou "Quais próximos jogos da Inglaterra?" e bot respondeu "Inglaterra tá no grupo C da Copa 2026, junto com EUA, Irã e uma equipe que ainda vai se classificar" — tudo errado (Inglaterra está no Grupo L com Croácia/Gana/Panamá; Grupo C é Brasil/Marrocos/Haiti/Escócia). Gemini-flash-lite alucinava porque o prompt 3.3.0 autorizava "conhecimento próprio + disclaimer". **Fix**: (1) Novo snapshot canônico em `src/data/copa-2026/` com 4 JSONs do openfootball/worldcup.json (matches.json — 104 jogos grupos+mata-mata; teams.json — 48 seleções com bandeira/código FIFA; stadiums.json — 16 estádios; metadata.json). (2) Novo módulo `src/modules/copa-2026/` com API consultada por código: `getGrupoDoTime`, `getComposicaoGrupo`, `getProximosJogosDoTime`, `getEstadios`, `normalizarNomeTime` (dicionário PT↔EN+aliases). (3) Novo `src/llm/copa.ground.ts` — detector regex/dict pré-LLM monta bloco `[FATOS VERIFICADOS]` injetado na user message; recusa fora-de-escopo (Libertadores/Brasileirão/clube/jogador) ANTES de chamar Gemini via `respostaForaDeEscopo()`. (4) `RESPONDER_PROMPT` reescrito com regra-ouro anti-alucinação: "só pode afirmar fatos da Copa 2026 que estejam no bloco". (5) `responderConversacional` ganhou 2º param `bloqueFatos?`. (6) `handlePerguntaGeralFutebol` agora chama o grounding antes da LLM. (7) Novo `scripts/sync-copa-2026.mjs` (npm run sync:copa-2026) — baixa do GitHub do openfootball, regenera os 4 JSONs + o legacy `fifa-2026-fixtures.json`. **438 tests (era 400), 38 novos testes em `copa-2026.test.ts` (23) + `copa-ground.test.ts` (15) cobrindo bug original, todos os 12 grupos, fora-de-escopo, normalização PT/EN/alias.** |
 | **3.3.1** | **2026-05-18** | **Hotfix Gemini 503 + timeout apertado.** Após deploy do 3.3.0 na VPS, usuário recebeu mensagem fallback "assistente fora do ar" mesmo com o caminho LLM correto — porque o **Gemini 2.5 Flash Lite estava retornando HTTP 503 ("This model is currently experiencing high demand")** com frequência alta no Google. Diagnóstico via novo `scripts/test-conversational.ts`. **Fix:** (1) `chatGemini` agora faz **retry automático com backoff** (400ms, 1200ms) em status retryable: HTTP 503, 429, 408, timeouts (até 3 tentativas total). (2) `LLM_TIMEOUT_MS` default subiu de **5000→8000ms** — Gemini sob carga responde em 4-7s; 5s causava abort prematuro. (3) Logs ANTES silenciosos quando `LLM_ENABLED=false` ou `GEMINI_API_KEY` vazia agora geram `[llm] gemini SKIP` — diagnóstico de config errado fica óbvio. (4) Mensagem fallback no `handlePerguntaGeralFutebol` reescrita pra explicar congestionamento momentâneo + sugerir retry. (5) Fallback automático pra Ollama Cloud continua funcionando — se VPS tiver `LLM_API_KEY` real da Ollama configurada, perguntas que falham no Gemini caem nele transparentemente. **400 tests (era 397), 116 cenários, novo `scripts/test-conversational.ts` pra smoke test do fluxo completo.** (este documento) |
 | 3.2.0 | 2026-05-18 | **Expansão de cordialidade + histórico persistente.** **4 novos intents de cordialidade**: `DESPEDIDA` (tchau/flw/abraço/fui), `CUMPRIMENTO_CASUAL` (tudo bem?/blz?/como vai?), `CONCORDANCIA_CASUAL` (ok/beleza/show/perfeito — só em IDLE; em CONFIRMANDO_* o FSM pega antes), `RISADA` (kkk/rsrs/hahaha/😂). Cada um com handler dedicado e variantes randomizadas — não reabrem menu. **Nova tabela Prisma `MensagemNaoEntendida`** substitui a antiga lista Redis (TTL 30d) por persistência indefinida queryable via SQL. Captura também casos `low_confidence` (LLM tentou classificar mas ficou < 0.55) com `llmIntent` + `llmConfianca` — ouro pra descobrir variantes que merecem virar regex. `classificarIntencao` mudou de retornar `Intencao\|null` para `ClassificationOutcome` com `intencao` + `intencaoTentada` + `confianca`. LGPD: `whatsappId` nunca em claro — só hash sha256-16; FK `usuarioId` com `ON DELETE SET NULL`; job mensal de limpeza derruba registros antigos via `MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS` (default 180). **377 tests (era 342), 102 cenários (era 85).** (este documento) |

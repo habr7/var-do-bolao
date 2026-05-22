@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**438+ tests** distribuídos em `tests/unit/`. Cobre:
+**468+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -38,6 +38,7 @@ npm test
 | `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
 | `copa-2026.test.ts` | **(v3.4.0)** Dados oficiais da Copa: 48 seleções em 12 grupos, composição correta (Inglaterra/L, Brasil/C, etc.), normalização PT/EN/aliases (EUA, canarinha, albiceleste, BRA), `getProximosJogosDoTime` |
 | `copa-ground.test.ts` | **(v3.4.0)** Grounding `construirFatosCopa2026`: bug original ("Inglaterra grupo L, não C"), motivos TIME/GRUPO/DATA/ESTADIO_SEDE/GERAL_COPA, recusa fora-de-escopo (Libertadores/Brasileirão/Flamengo/Vinicius Jr/Real Madrid/Copa de 94) |
+| `knowledge.produto.test.ts` | **(v3.6.0)** Knowledge base do produto: bate pontuação contra `PONTUACAO_PADRAO` (anti-drift), garante que cobre multi-palpite, editar/apagar, prazo, ranking+desempate, multi-bolão+padrão, admin+convite+ID curto, grátis, escopo Copa 2026, privacidade, lista de comandos. 14 testes. |
 
 Tempo: ~5s. Não toca rede nem DB.
 
