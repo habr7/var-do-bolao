@@ -4,8 +4,8 @@
 > cada usuário. Não depende de grupos. Sistema é DM-only e híbrido **regex → LLM**
 > para entender mensagens em português coloquial.
 
-**Versão do documento:** 3.3.1
-**Última atualização:** 2026-05-18 (retry automático no Gemini 503/429 + timeout 5s→8s + logs LLM mais explícitos)
+**Versão do documento:** 3.4.0
+**Última atualização:** 2026-05-22 (grounding da Copa 2026 — `src/llm/copa.ground.ts` + `src/modules/copa-2026/` + `src/data/copa-2026/*.json`; corrige alucinação de grupo/datas no PERGUNTA_GERAL_FUTEBOL)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -188,7 +188,8 @@ var_do_bolao/
 │   │   ├── intent.classifier.ts     # Classifica mensagem em Intencao (JSON)
 │   │   ├── palpite.extractor.ts     # Extrai placares de NL ("Brasil perde de 1 a 0")
 │   │   ├── bolao.matcher.ts         # Escolhe bolão da lista + interpretar sim/nao
-│   │   └── conversational.responder.ts  # Smart-fallback (resposta livre, sem inventar)
+│   │   ├── conversational.responder.ts  # Smart-fallback (resposta livre, sem inventar)
+│   │   └── copa.ground.ts           # Grounding Copa 2026: detecta entidade + monta bloco [FATOS VERIFICADOS] do JSON oficial; recusa fora-de-escopo
 │   │
 │   ├── modules/                     # Lógica de negócio (Repository + Service)
 │   │   ├── bolao/
@@ -203,7 +204,9 @@ var_do_bolao/
 │   │   │   ├── ranking.types.ts     # PONTUACAO_PADRAO (10/7/5/3/0)
 │   │   │   └── pontuacao.calc.ts    # função pura — testada isolada
 │   │   ├── resultado/               # adapter FIFA + fetcher
-│   │   └── notificacao/
+│   │   ├── notificacao/
+│   │   └── copa-2026/
+│   │       └── index.ts             # API consultada por código: getGrupoDoTime, getProximosJogosDoTime, getComposicaoGrupo, getEstadios, normalizarNomeTime (dicionário PT↔EN+aliases das 48 seleções)
 │   │
 │   ├── jobs/
 │   │   ├── index.ts                 # registerJobs() — agenda crons
@@ -221,6 +224,12 @@ var_do_bolao/
 │   │   └── result.card.ts
 │   │
 │   ├── data/                        # JSON local da Copa FIFA 2026
+│   │   ├── fifa-2026-fixtures.json  # legacy: 72 jogos da fase de grupos (formato consumido por fifa.fetcher.ts)
+│   │   └── copa-2026/               # novo (v3.4.0): snapshot canônico do openfootball/worldcup.json
+│   │       ├── matches.json         # 104 jogos (grupos + mata-mata até a final)
+│   │       ├── teams.json           # 48 seleções (nome PT, bandeira emoji, código FIFA, grupo, confederação)
+│   │       ├── stadiums.json        # 16 estádios (cidade, país, fuso, capacidade)
+│   │       └── metadata.json        # fonte + timestamp do snapshot
 │   │
 │   ├── types/global.d.ts
 │   │
@@ -236,7 +245,9 @@ var_do_bolao/
 │   ├── sim.ts                       # REPL local (npm run sim)
 │   ├── simulate-conversation.ts     # 55+ cenários determinísticos
 │   ├── seed-fifa-2026.ts            # Popula Rodada+Jogos da Copa
+│   ├── sync-copa-2026.mjs           # Baixa do openfootball/worldcup.json e regenera src/data/copa-2026/* + fifa-2026-fixtures.json (npm run sync:copa-2026)
 │   ├── test-gemini.ts               # Smoke test do Gemini real
+│   ├── test-conversational.ts       # Smoke test do conversacional + grounding
 │   └── init-evolution-db.sh         # Cria DB "evolution" no boot do Postgres
 │
 ├── tests/unit/                      # Vitest — 280+ tests
@@ -362,12 +373,13 @@ o regex não pega.
 | `palpite.extractor.extrairPalpites` | janela de palpite livre OR multi-palpite OR fluxo de palpite com texto NL | `PALPITE_EXTRACTOR_PROMPT` — entende "perde de", "ganha por", "empate em N" |
 | `bolao.matcher.escolherBolaoDaLista` | usuário responde escolha de bolão em texto livre ("o da firma") | `BOLAO_MATCHER_PROMPT` — primeiro tenta `parseEscolhaBolao` (índice/código/fuzzy), só cai no LLM se nada bater |
 | `bolao.matcher.interpretarSimNao` | confirmações sim/não em estados CONFIRMANDO_* | `SIM_NAO_PROMPT` |
-| `conversational.responder.responderConversacional` | tudo falhou — última tentativa antes do "não entendi" | Smart fallback: PT-BR curto, redireciona pros comandos certos, NUNCA inventa dados |
+| `conversational.responder.responderConversacional` | (a) handler do `PERGUNTA_GERAL_FUTEBOL` — sempre via grounding Copa 2026 (ver 6.6); (b) smart-fallback final em IDLE quando regex+classifier falham | `RESPONDER_PROMPT` reescrito em v3.4.0: proíbe afirmar fatos de Copa 2026 que não estejam no bloco `[FATOS VERIFICADOS]` injetado pelo caller. Assinatura ganhou 2º parâmetro `bloqueFatos?` que é prepended na user message. |
 
 ### 6.4 System prompts (centralizados em `system-prompts.ts`)
 
 - `BASE_CONTEXT` — quem é o bot, regras de pontuação resumidas, regras de "não inventar"
 - 4 prompts especializados compõem com BASE_CONTEXT
+- `RESPONDER_PROMPT` em `conversational.responder.ts` (não em system-prompts.ts) tem a regra-ouro anti-alucinação da Copa 2026 (v3.4.0)
 
 Tunar em um lugar só.
 
@@ -385,11 +397,69 @@ Contadores em Redis (via `src/utils/metrics.ts`):
 | `intent.<NOME>` | regex casou esta intent na camada 1 |
 | `llm.intent.classifier.{hit,miss}` | LLM classificador acertou/não |
 | `llm.conversational.{hit,miss}` | LLM smart fallback respondeu/não |
+| `llm.conversational.fora_escopo` | Grounding (`copa.ground.ts`) recusou pergunta fora de Copa 2026 ANTES de chamar LLM |
+| `llm.conversational.ground.{TIME,GRUPO,DATA,ESTADIO_SEDE,GERAL_COPA,AMBIGUO}` | Motivo do grounding — qual entidade foi detectada na pergunta |
 | `msg.nao_entendi` | caiu no "não entendi" final |
 
 Amostras de mensagens não roteadas: a partir de **v3.2.0** vão pra tabela
 Prisma `mensagens_nao_entendidas` (persistência indefinida até job mensal
 de limpeza). Antes ficavam em Redis com TTL 30d. Ver seção 17 pra detalhes.
+
+### 6.6 Grounding da Copa 2026 (`src/llm/copa.ground.ts`) — v3.4.0
+
+**Por que existe**: até v3.3.x, o `responderConversacional` autorizava o
+Gemini a responder perguntas sobre Copa 2026 "usando conhecimento próprio
++ disclaimer". Resultado típico em prod: usuário perguntou "quais
+próximos jogos da Inglaterra?" e bot respondeu **"Inglaterra tá no grupo
+C da Copa 2026, junto com EUA, Irã e uma equipe que ainda vai se
+classificar"** — tudo errado (Inglaterra está no Grupo L; o Grupo C é
+Brasil/Marrocos/Haiti/Escócia; Irã está no Grupo G; "equipe que vai se
+classificar" é nonsense pra fase de grupos). Gemini-flash-lite alucina.
+
+**Solução**: camada de "grounding" determinística que roda ANTES da LLM:
+
+1. `construirFatosCopa2026(texto)` extrai entidades da pergunta do
+   usuário (time/grupo/data/sede) usando regex + dicionário PT↔EN das
+   48 seleções (sem LLM, latência ~ms).
+2. Constrói um bloco `[FATOS VERIFICADOS — Copa 2026, fonte:
+   openfootball, atualizado em YYYY-MM-DD]` com os dados oficiais do
+   JSON em `src/data/copa-2026/`.
+3. O bloco é injetado na **user message** (não no system) — o modelo
+   passa a tratar os fatos como contexto da pergunta dele, e o
+   `RESPONDER_PROMPT` proíbe afirmar qualquer fato fora do bloco.
+4. Detecta também **fora-de-escopo** (Libertadores, Brasileirão, jogos
+   de clube, jogador específico, copas antigas) e recusa ANTES de
+   chamar a LLM, com mensagem cordial via `respostaForaDeEscopo()`.
+
+**Fonte de dados**: snapshot do
+[openfootball/worldcup.json](https://github.com/openfootball/worldcup.json/tree/master/2026)
+(domínio público, sem API key). Atualiza via `npm run sync:copa-2026` —
+script baixa os 4 JSONs oficiais e regenera `src/data/copa-2026/*` + o
+legacy `fifa-2026-fixtures.json`. Re-rodar quando openfootball publicar
+mudança (mata-mata após sorteio das chaves, ajustes de data/estádio).
+
+**Por que não FIFA.com direto**: fifa.com retorna HTTP 403 pra User-Agent
+de bot, é SPA Next.js (precisaria de Playwright = +200MB Chromium no
+container) e não tem API pública oficial (`api.fifa.com` é interno e
+instável). openfootball é a mesma fonte usada por jornalistas, gratuita,
+hospedada no GitHub, mantida pela comunidade.
+
+**Cobertura**: só Copa do Mundo 2026. Brasileirão, Libertadores,
+Champions, jogadores específicos e copas antigas são recusados com
+elegância — "Meu foco aqui é Copa 2026 e o seu bolão".
+
+**Motivos de classificação** (logados em `[handlePerguntaGeralFutebol]`
+e contados via métricas `llm.conversational.ground.*`):
+
+| Motivo | Quando dispara | Bloco gerado |
+|--------|----------------|---|
+| `TIME` | mensagem cita uma seleção da Copa | Grupo + adversários + próximos 3 jogos do time |
+| `GRUPO` | "grupo C", "grupo D", etc | Composição do grupo + 6 jogos da fase de grupos |
+| `DATA` | "quando começa", "qual a data da final", etc | Data de início, final, formato do torneio |
+| `ESTADIO_SEDE` | "sede", "cidade", "estádio", "onde", "país sede" | Lista de cidades por país (Canadá/EUA/México) |
+| `GERAL_COPA` | "copa 2026", "mundial", "world cup" sem entidade | Visão geral: 48 seleções, 12 grupos, 104 jogos, datas marco |
+| `AMBIGUO` | Não detectou nada específico, mas LLM ainda recebe contexto geral | Visão geral (como fallback) |
+| `FORA_DE_COPA` | Libertadores, Brasileirão, clube, jogador, copa antiga | `null` (recusa antes da LLM via `respostaForaDeEscopo()`) |
 
 ---
 
@@ -432,7 +502,7 @@ de limpeza). Antes ficavam em Redis com TTL 30d. Ver seção 17 pra detalhes.
 | `CUMPRIMENTO_CASUAL` | "tudo bem?", "blz?", "td certo?", "como vai?", "como ta?", "suave?", "firmeza?" | responde + sugere ações leves ("quer ver ranking ou palpitar?") |
 | `CONCORDANCIA_CASUAL` | "ok", "beleza", "blz", "show", "fechou", "perfeito", "top", "entendi", "saquei" | acknowledgement curto. Em `CONFIRMANDO_*` o FSM pega antes via `interpretarSimNao` (vira SIM); só dispara em IDLE. |
 | `RISADA` | "kkkk", "rsrs", "hahaha", "huehue", "😂", "🤣" | emoji curto, sem menu |
-| `PERGUNTA_GERAL_FUTEBOL` | "qual canal passa o Brasil?", "quais próximos jogos da Inglaterra?", "que horas joga X?", "quem ganhou copa de 94?", "em que grupo o Brasil está?", "jogos do Brasil", "onde assistir a final?" | Roda LLM conversacional autorizado a responder usando conhecimento próprio (times, copas, regras, transmissão genérica). NUNCA inventa dado do bolão do user. (Bug VPS 18/05) |
+| `PERGUNTA_GERAL_FUTEBOL` | "quais próximos jogos da Inglaterra?", "em que grupo o Brasil está?", "quando começa a Copa?", "quais cidades vai ser?", "qual o grupo C?" | Passa pelo **grounding Copa 2026** (`copa.ground.ts`): se for fora de escopo (Libertadores/Brasileirão/clube/jogador), recusa cordialmente antes da LLM. Se for sobre Copa 2026, monta bloco `[FATOS VERIFICADOS]` do JSON oficial e injeta na user message — LLM responde só com os fatos verificados. (v3.4.0 corrigiu alucinação de v3.3.0) |
 | `APROVAR` / `RECUSAR` | `!aprovar Nome` / `!recusar Nome` | ações admin explícitas |
 | `PENDENTES` | "pendentes", "tem pedido pra aprovar" | lista pedidos pendentes |
 | `CANCELAR` | "cancelar", "sair", "esquece" | reset FSM + menu |
@@ -652,6 +722,7 @@ camada precisa preservar**:
 | Multi-bolão auto-apply (ISSUE-015) **passa por confirmação** com preview dos bolões | `command.router.ts:handleConfirmandoPalpiteMultiBolao` | Antes registrava direto sem preview. Agora bot mostra "vai aplicar em N bolões" + sim/não/refazer. |
 | `AGRADECIMENTO` no topo de `INTENT_RULES` | `message.parser.ts` | Sem isso, "obrigada" caía em SAUDACAO (via LLM fallback) e bot reabria o menu — UX desconectada. |
 | **Pergunta geral de futebol NÃO vira comando do bolão** | `message.parser.ts:PROXIMOS_JOGOS_PATTERNS` (negative lookahead) + `PERGUNTA_GERAL_FUTEBOL_PATTERNS` + `conversational.responder.ts` (prompt reescrito) | Bug VPS 18/05: "Quais próximos jogos da Inglaterra?" virava `handleProximosJogos` do bolão do user, e "Qual canal passa o Brasil?" virava "não entendi". Patterns ambíguos como `\bproximos? jogos?\b` ganharam negative lookahead `(?!\s+d[aoe]\s+\w)` — não matcham quando seguidos por "da/do/de + entidade". LLM responder ganhou autorização explícita pra responder perguntas gerais de futebol usando conhecimento próprio. |
+| **Resposta sobre Copa 2026 não pode alucinar grupo/data/adversário/estádio** | `src/llm/copa.ground.ts` + `src/modules/copa-2026/` + `src/data/copa-2026/*.json` + `RESPONDER_PROMPT` em `conversational.responder.ts` | Bug VPS 21/05: Gemini afirmou "Inglaterra está no Grupo C com EUA e Irã" — falso (Grupo L com Croácia/Gana/Panamá). v3.4.0 transformou o caminho de PERGUNTA_GERAL_FUTEBOL em RAG: grounding determinístico monta `[FATOS VERIFICADOS]` do JSON oficial (openfootball) antes da LLM, prompt proíbe afirmar qualquer fato fora do bloco. Fora-de-escopo (Libertadores/Brasileirão/clube/jogador) é recusado antes da LLM. |
 | **Nome de bolão sozinho NÃO vira CRIAR_BOLAO** | `command.router.ts:tentarOferecerMenuContextualPorNomeBolao` + `system-prompts.ts` (prompt restritivo) | Bug Humberto 18/05: "Bolao teste oficial" virou CRIAR_BOLAO no LLM classifier (sem verbo). Antes do dispatch de CRIAR_BOLAO, fuzzy-match com bolões que o user participa → menu contextual ("você já participa, quer ranking/meus palpites/etc?"). Prompt LLM agora exige verbo de ação. |
 | **FSM escape em `CRIANDO_BOLAO_NOME` e `CRIANDO_BOLAO_SENHA`** | `command.router.ts:tentarFsmEscapeCriandoBolao` | Bug Humberto 18/05: user no estado de criação mandou "Proximos jogos" tentando ver agenda — virou nome do bolão. Agora `parseIntencao` roda no input; se bate intent forte (PROXIMOS_JOGOS/RANKING/MEUS_BOLOES/AJUDA/etc), auto-cancela criação + reprocessa via `handleIncomingMessage`. |
 
@@ -1056,5 +1127,6 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 | 3.1.3 | 2026-05-18 | Hotfixes UX pós-feedback Jeni: (a) `RANKING` intent agora aceita frases naturais como "Quero ver o ranking", "Ver o ranking", "me mostra a tabela" via padrões regex novos + `extrairNomeBolaoDoRanking` que faz strip robusto pra não usar a frase inteira como nome do bolão; (b) Nova intent `AGRADECIMENTO` ("obrigada/o", "valeu", "vlw", "brigado/a", "thanks", "tmj") com handler curto e amigável randomizado — não reabre o menu como SAUDACAO fazia; (c) ISSUE-015 (auto-apply multi-bolão) agora passa por confirmação `CONFIRMANDO_PALPITE_MULTI_BOLAO` com preview dos N bolões antes de registrar. Removido dead code `registrarPalpiteInline`. 342 tests (era 322), 85 cenários (era 75). |
 | 3.2.1 | 2026-05-18 | Hotfix 4 bugs Humberto: (1) "Pontuação" sozinho ia pra RANKING("pontuacao") — MEUS_PONTOS_PATTERNS ampliado. (2) "Ajuda" mostrava texto legado com `!comandos` — `formatAjuda` reescrito. (3) "Bolao teste oficial" virava CRIAR_BOLAO espúrio — fuzzy match contextual antes de iniciar criação + LLM prompt restritivo. (4) "Proximos jogos" no CRIANDO_BOLAO_NOME virava nome — FSM escape novo. 384 tests, 106 cenários. |
 | 3.3.0 | 2026-05-18 | Nova intent `PERGUNTA_GERAL_FUTEBOL` + LLM responder reescrito. Bug reportado da VPS: usuário perguntava "Quais próximos jogos da Inglaterra?" — bot respondia "não faz parte de nenhum bolão". Fix: nova intent + regex negative lookahead + handler dedicado + responder prompt autorizado a usar conhecimento geral. 397 tests, 116 cenários. |
+| **3.4.0** | **2026-05-22** | **Grounding da Copa 2026 — fim da alucinação em perguntas gerais de futebol.** Bug reportado da VPS em 21/05: usuário perguntou "Quais próximos jogos da Inglaterra?" e bot respondeu "Inglaterra tá no grupo C da Copa 2026, junto com EUA, Irã e uma equipe que ainda vai se classificar" — tudo errado (Inglaterra está no Grupo L com Croácia/Gana/Panamá; Grupo C é Brasil/Marrocos/Haiti/Escócia). Gemini-flash-lite alucinava porque o prompt 3.3.0 autorizava "conhecimento próprio + disclaimer". **Fix**: (1) Novo snapshot canônico em `src/data/copa-2026/` com 4 JSONs do openfootball/worldcup.json (matches.json — 104 jogos grupos+mata-mata; teams.json — 48 seleções com bandeira/código FIFA; stadiums.json — 16 estádios; metadata.json). (2) Novo módulo `src/modules/copa-2026/` com API consultada por código: `getGrupoDoTime`, `getComposicaoGrupo`, `getProximosJogosDoTime`, `getEstadios`, `normalizarNomeTime` (dicionário PT↔EN+aliases). (3) Novo `src/llm/copa.ground.ts` — detector regex/dict pré-LLM monta bloco `[FATOS VERIFICADOS]` injetado na user message; recusa fora-de-escopo (Libertadores/Brasileirão/clube/jogador) ANTES de chamar Gemini via `respostaForaDeEscopo()`. (4) `RESPONDER_PROMPT` reescrito com regra-ouro anti-alucinação: "só pode afirmar fatos da Copa 2026 que estejam no bloco". (5) `responderConversacional` ganhou 2º param `bloqueFatos?`. (6) `handlePerguntaGeralFutebol` agora chama o grounding antes da LLM. (7) Novo `scripts/sync-copa-2026.mjs` (npm run sync:copa-2026) — baixa do GitHub do openfootball, regenera os 4 JSONs + o legacy `fifa-2026-fixtures.json`. **438 tests (era 400), 38 novos testes em `copa-2026.test.ts` (23) + `copa-ground.test.ts` (15) cobrindo bug original, todos os 12 grupos, fora-de-escopo, normalização PT/EN/alias.** |
 | **3.3.1** | **2026-05-18** | **Hotfix Gemini 503 + timeout apertado.** Após deploy do 3.3.0 na VPS, usuário recebeu mensagem fallback "assistente fora do ar" mesmo com o caminho LLM correto — porque o **Gemini 2.5 Flash Lite estava retornando HTTP 503 ("This model is currently experiencing high demand")** com frequência alta no Google. Diagnóstico via novo `scripts/test-conversational.ts`. **Fix:** (1) `chatGemini` agora faz **retry automático com backoff** (400ms, 1200ms) em status retryable: HTTP 503, 429, 408, timeouts (até 3 tentativas total). (2) `LLM_TIMEOUT_MS` default subiu de **5000→8000ms** — Gemini sob carga responde em 4-7s; 5s causava abort prematuro. (3) Logs ANTES silenciosos quando `LLM_ENABLED=false` ou `GEMINI_API_KEY` vazia agora geram `[llm] gemini SKIP` — diagnóstico de config errado fica óbvio. (4) Mensagem fallback no `handlePerguntaGeralFutebol` reescrita pra explicar congestionamento momentâneo + sugerir retry. (5) Fallback automático pra Ollama Cloud continua funcionando — se VPS tiver `LLM_API_KEY` real da Ollama configurada, perguntas que falham no Gemini caem nele transparentemente. **400 tests (era 397), 116 cenários, novo `scripts/test-conversational.ts` pra smoke test do fluxo completo.** (este documento) |
 | 3.2.0 | 2026-05-18 | **Expansão de cordialidade + histórico persistente.** **4 novos intents de cordialidade**: `DESPEDIDA` (tchau/flw/abraço/fui), `CUMPRIMENTO_CASUAL` (tudo bem?/blz?/como vai?), `CONCORDANCIA_CASUAL` (ok/beleza/show/perfeito — só em IDLE; em CONFIRMANDO_* o FSM pega antes), `RISADA` (kkk/rsrs/hahaha/😂). Cada um com handler dedicado e variantes randomizadas — não reabrem menu. **Nova tabela Prisma `MensagemNaoEntendida`** substitui a antiga lista Redis (TTL 30d) por persistência indefinida queryable via SQL. Captura também casos `low_confidence` (LLM tentou classificar mas ficou < 0.55) com `llmIntent` + `llmConfianca` — ouro pra descobrir variantes que merecem virar regex. `classificarIntencao` mudou de retornar `Intencao\|null` para `ClassificationOutcome` com `intencao` + `intencaoTentada` + `confianca`. LGPD: `whatsappId` nunca em claro — só hash sha256-16; FK `usuarioId` com `ON DELETE SET NULL`; job mensal de limpeza derruba registros antigos via `MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS` (default 180). **377 tests (era 342), 102 cenários (era 85).** (este documento) |

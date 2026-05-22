@@ -27,6 +27,11 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
+import {
+  construirFatosCopa2026,
+  descreverGround,
+  respostaForaDeEscopo,
+} from '../llm/copa.ground.js';
 import { extrairPalpites } from '../llm/palpite.extractor.js';
 import { escolherBolaoDaLista, interpretarSimNao } from '../llm/bolao.matcher.js';
 import { prisma } from '../config/database.js';
@@ -819,7 +824,22 @@ async function handleRisada(msg: IncomingMessage) {
  */
 async function handlePerguntaGeralFutebol(msg: IncomingMessage) {
   void incContador('intent.PERGUNTA_GERAL_FUTEBOL');
-  const resposta = await responderConversacional(msg.text);
+
+  // Grounding: extrai entidades da pergunta e monta bloco [FATOS VERIFICADOS]
+  // a partir do JSON oficial (openfootball, src/data/copa-2026/).
+  // Se for futebol fora da Copa 2026 (Brasileirao, Libertadores, jogador
+  // especifico), recusa com elegancia ANTES de chamar a LLM.
+  const fatos = construirFatosCopa2026(msg.text);
+  console.log(`[handlePerguntaGeralFutebol] waId=${msg.waId} ${descreverGround(fatos)}`);
+
+  if (!fatos.dentroDoEscopo) {
+    void incContador('llm.conversational.fora_escopo');
+    await sendText({ to: msg.waId, text: respostaForaDeEscopo() });
+    return;
+  }
+
+  void incContador(`llm.conversational.ground.${fatos.motivo}`);
+  const resposta = await responderConversacional(msg.text, fatos.bloco);
   if (resposta) {
     void incContador('llm.conversational.hit');
     await sendText({ to: msg.waId, text: resposta });

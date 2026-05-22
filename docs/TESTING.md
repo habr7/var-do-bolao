@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**400+ tests** distribuídos em `tests/unit/`. Cobre:
+**438+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -36,6 +36,8 @@ npm test
 | `password.test.ts` | bcrypt hash + compare |
 | `validators.test.ts` | placar, normalizeTeamName, **validarPlacar absurdo (ISSUE-013)** |
 | `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
+| `copa-2026.test.ts` | **(v3.4.0)** Dados oficiais da Copa: 48 seleções em 12 grupos, composição correta (Inglaterra/L, Brasil/C, etc.), normalização PT/EN/aliases (EUA, canarinha, albiceleste, BRA), `getProximosJogosDoTime` |
+| `copa-ground.test.ts` | **(v3.4.0)** Grounding `construirFatosCopa2026`: bug original ("Inglaterra grupo L, não C"), motivos TIME/GRUPO/DATA/ESTADIO_SEDE/GERAL_COPA, recusa fora-de-escopo (Libertadores/Brasileirão/Flamengo/Vinicius Jr/Real Madrid/Copa de 94) |
 
 Tempo: ~5s. Não toca rede nem DB.
 
@@ -257,6 +259,30 @@ Roda 3 testes contra a API real:
 
 Esperado: latência ~400-800ms cada. Se der HTTP 429 = cota grátis estourou
 (reset diário). Se der 200 = Gemini OK.
+
+### 5.0 Sync de dados oficiais da Copa 2026 (`scripts/sync-copa-2026.mjs`)
+
+Adicionado em v3.4.0 — baixa os 4 JSONs oficiais do openfootball/worldcup.json
+e regenera `src/data/copa-2026/*` + o legacy `src/data/fifa-2026-fixtures.json`:
+
+```cmd
+npm run sync:copa-2026
+```
+
+Saída esperada:
+```
+🌐 Baixando dados do openfootball/worldcup.json (2026)...
+✅ teams.json — 48 seleções
+✅ stadiums.json — 16 estádios
+✅ matches.json — 104 jogos
+✅ metadata.json
+✅ src/data/fifa-2026-fixtures.json (legacy) — 72 jogos da fase de grupos
+```
+
+**Quando rodar**: depois que o openfootball publicar mudanças (sorteio do
+mata-mata, ajustes de data/estádio). Rodar manualmente antes do mata-mata;
+diariamente durante a Copa via cron se necessário. **Sem API key**, só
+fetch HTTP do GitHub raw.
 
 ### 5.1 Smoke test conversacional (`scripts/test-conversational.ts`)
 

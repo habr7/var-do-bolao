@@ -1,0 +1,152 @@
+{
+  "fonte": "openfootball/worldcup.json",
+  "fonteUrl": "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.stadiums.json",
+  "atualizadoEm": "2026-05-21T23:57:29.446Z",
+  "totalEstadios": 16,
+  "estadios": [
+    {
+      "nome": "BC Place",
+      "cidade": "Vancouver",
+      "pais": "Canadá",
+      "paisCodigo": "ca",
+      "fuso": "UTC-7",
+      "capacidade": 54000,
+      "coords": "49°16'36\"N 123°6'43\"W"
+    },
+    {
+      "nome": "Lumen Field",
+      "cidade": "Seattle",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-7",
+      "capacidade": 69000,
+      "coords": "47°35'43\"N 122°19'54\"W"
+    },
+    {
+      "nome": "Levi's Stadium",
+      "cidade": "San Francisco Bay Area (Santa Clara)",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-7",
+      "capacidade": 71000,
+      "coords": "37.403°N 121.970°W"
+    },
+    {
+      "nome": "SoFi Stadium",
+      "cidade": "Los Angeles (Inglewood)",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-7",
+      "capacidade": 70000,
+      "coords": "33.953°N 118.339°W"
+    },
+    {
+      "nome": "Estadio Akron",
+      "cidade": "Guadalajara (Zapopan)",
+      "pais": "México",
+      "paisCodigo": "mx",
+      "fuso": "UTC-6",
+      "capacidade": 48000,
+      "coords": "20°40'54\"N 103°27'46\"W"
+    },
+    {
+      "nome": "Estadio Azteca",
+      "cidade": "Mexico City",
+      "pais": "México",
+      "paisCodigo": "mx",
+      "fuso": "UTC-6",
+      "capacidade": 83000,
+      "coords": "19°18'11\"N 99°09'02\"W"
+    },
+    {
+      "nome": "Estadio BBVA",
+      "cidade": "Monterrey (Guadalupe)",
+      "pais": "México",
+      "paisCodigo": "mx",
+      "fuso": "UTC-6",
+      "capacidade": 53500,
+      "coords": "25°40'9\"N 100°14'40\"W"
+    },
+    {
+      "nome": "NRG Stadium",
+      "cidade": "Houston",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-5",
+      "capacidade": 72000,
+      "coords": "29°41'5\"N 95°24'39\"W"
+    },
+    {
+      "nome": "AT&T Stadium",
+      "cidade": "Dallas (Arlington)",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-5",
+      "capacidade": 94000,
+      "coords": "32°44'52\"N 97°5'34\"W"
+    },
+    {
+      "nome": "Arrowhead Stadium",
+      "cidade": "Kansas City",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-5",
+      "capacidade": 73000,
+      "coords": "39°2'56\"N 94°29'2\"W"
+    },
+    {
+      "nome": "Mercedes-Benz Stadium",
+      "cidade": "Atlanta",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-4",
+      "capacidade": 75000,
+      "coords": "33°45'20\"N 84°24'00\"W"
+    },
+    {
+      "nome": "Hard Rock Stadium",
+      "cidade": "Miami (Miami Gardens)",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-4",
+      "capacidade": 65000,
+      "coords": "25°57'29\"N 80°14'20\"W"
+    },
+    {
+      "nome": "BMO Field",
+      "cidade": "Toronto",
+      "pais": "Canadá",
+      "paisCodigo": "ca",
+      "fuso": "UTC-4",
+      "capacidade": 45000,
+      "coords": "43°38'0\"N 79°25'07\"W"
+    },
+    {
+      "nome": "Gillette Stadium",
+      "cidade": "Boston (Foxborough)",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-4",
+      "capacidade": 65000,
+      "coords": "42.091°N 71.264°W"
+    },
+    {
+      "nome": "Lincoln Financial Field",
+      "cidade": "Philadelphia",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-4",
+      "capacidade": 69000,
+      "coords": "39°54'3\"N 75°10'3\"W"
+    },
+    {
+      "nome": "MetLife Stadium",
+      "cidade": "New York/New Jersey (East Rutherford)",
+      "pais": "Estados Unidos",
+      "paisCodigo": "us",
+      "fuso": "UTC-4",
+      "capacidade": 82500,
+      "coords": "40°48'48.7\"N 74°4'27.7\"W"
+    }
+  ]
+}

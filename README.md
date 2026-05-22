@@ -138,7 +138,9 @@ scripts/
 ├── sim.ts                       REPL local
 ├── simulate-conversation.ts     55+ cenários determinísticos
 ├── seed-fifa-2026.ts            popula Copa
-└── test-gemini.ts               smoke test API real
+├── sync-copa-2026.mjs           baixa dados oficiais do openfootball + regenera src/data/copa-2026/*
+├── test-gemini.ts               smoke test API real
+└── test-conversational.ts       smoke test do conversacional+grounding
 
 prisma/schema.prisma  Usuario, Bolao, Pagamento, Solicitacao, Rodada, Jogo, Palpite
 ```
@@ -259,6 +261,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.4.0** (2026-05-22) — Grounding da Copa 2026 — fim da alucinação. Bug VPS 21/05: bot afirmou "Inglaterra está no Grupo C com EUA e Irã" — tudo errado (Inglaterra/Grupo L com Croácia/Gana/Panamá). Gemini-flash-lite alucinava porque o prompt 3.3.0 autorizava "conhecimento próprio + disclaimer". Agora perguntas sobre Copa 2026 (PERGUNTA_GERAL_FUTEBOL) passam por um grounding determinístico (`src/llm/copa.ground.ts`) que monta `[FATOS VERIFICADOS]` do JSON oficial (openfootball, `src/data/copa-2026/`) antes da LLM, e o prompt proíbe afirmar fatos fora do bloco. Fora-de-escopo (Libertadores/Brasileirão/clube/jogador) é recusado com elegância antes da LLM. Novo `npm run sync:copa-2026` baixa do GitHub do openfootball. 438 tests (38 novos cobrindo o módulo e o grounding).
 - **v3.3.1** (2026-05-18) — Hotfix Gemini sob carga: retry automático em HTTP 503/429/408 + timeout default 5s→8s. Após deploy do 3.3.0 na VPS, usuário via "assistente fora do ar" pois Gemini 2.5 Flash Lite estava sobrecarregado no Google. Logs antes silenciosos agora geram `[llm] gemini SKIP` quando config errada. Novo `scripts/test-conversational.ts` pra smoke test. 400 tests.
 - **v3.3.0** (2026-05-18) — Nova intent `PERGUNTA_GERAL_FUTEBOL` + LLM responder reescrito. Usuário VPS perguntava "Quais próximos jogos da Inglaterra?" e bot respondia "não faz parte de nenhum bolão". Agora perguntas gerais sobre futebol (times/canais/grupos da copa) são roteadas pra LLM conversacional autorizado a responder com conhecimento próprio. Regex `\bproximos? jogos?\b` ganhou negative lookahead pra não matchar "X da [time]". 397 tests, 116 cenários.
 - **v3.2.1** (2026-05-18) — Hotfix 4 bugs Humberto: (1) "Pontuação" sozinho ia pra RANKING("pontuacao") — patterns ampliados em MEUS_PONTOS (pontos/pontuacao/score/quanto pontuei); (2) "Ajuda" mostrava texto legado com `!comandos` — `formatAjuda` reescrito; (3) Nome de bolão sozinho ("Bolao teste oficial") virava CRIAR_BOLAO espúrio — fuzzy match contextual antes de iniciar criação + LLM prompt restritivo; (4) "Proximos jogos" no estado CRIANDO_BOLAO_NOME virava nome do bolão — FSM escape detecta intent forte e auto-cancela criação. 384 tests, 106 cenários.
