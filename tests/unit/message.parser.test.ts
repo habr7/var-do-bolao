@@ -547,6 +547,58 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.8.0 — PROGRESSO_PALPITES', () => {
+    it('"quem palpitou?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem palpitou?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quem ja palpitou" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem ja palpitou').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quem ainda nao palpitou?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem ainda nao palpitou?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"Mais gente registrou palpites?" (caso da Jeni 22/05) → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('Mais gente registrou palpites?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"Quero ver se as pessoas que entraram registram algum palpite" (caso da Jeni 22/05) → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('Quero ver se as pessoas que entraram registram algum palpite').intencao).toBe(
+        Intencao.PROGRESSO_PALPITES,
+      );
+    });
+    it('"progresso do bolão" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('progresso do bolão').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quem ta atrasado?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem ta atrasado?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quanto cada um palpitou?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quanto cada um palpitou?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    // Falsos positivos críticos: não pode virar MEU_PALPITE
+    it('"quem palpitou" NÃO cai em MEU_PALPITE (que é "MEUS palpites")', () => {
+      expect(parseIntencao('quem palpitou').intencao).not.toBe(Intencao.MEU_PALPITE);
+    });
+  });
+
+  describe('v3.8.0 — CUTUCAR_PENDENTES', () => {
+    it('"cutucar pendentes" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('cutucar pendentes').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    it('"cobrar palpites" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('cobrar palpites').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    it('"lembrar quem nao palpitou" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('lembrar quem nao palpitou').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    it('"chamar pendentes" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('chamar pendentes').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    // Precedência sobre PROGRESSO_PALPITES (mais específico)
+    it('"cutucar pendentes" NÃO cai em PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('cutucar pendentes').intencao).not.toBe(Intencao.PROGRESSO_PALPITES);
+    });
+  });
+
   describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
     it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
       expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);

@@ -482,6 +482,48 @@ copa de 94?                         →  recusa cordial + redirect
 
 ---
 
+## Progresso do bolão e cutucada (v3.8.0)
+
+### Quem palpitou / quem falta — qualquer participante
+```
+quem palpitou?
+quem ainda nao palpitou?
+mais gente registrou palpites?
+progresso do bolão
+quem ta atrasado?
+quanto cada um palpitou?
+status do bolão
+```
+→ Bot mostra, por bolão ativo:
+- `✅ Já palpitaram (N):` — lista com `Nome 👑 — X/Y palpites` (ordem decrescente por X)
+- `⚪ Ainda não palpitaram (M):` — só nomes (ordem alfabética)
+- Se o user é admin do bolão E há pendentes, sugere `cutucar pendentes`.
+
+> ⚠️ **Privacidade preservada**: o bot mostra apenas a *quantidade* de palpites de cada
+> pessoa (X de Y). O placar individual continua privado — ninguém vê o palpite do outro.
+
+### Cutucar pendentes — só admin
+```
+cutucar pendentes
+cobrar palpites
+lembrar quem não palpitou
+chamar pendentes
+pingar pendentes
+```
+→ Bot manda DM pra cada participante que ainda tem 0 palpites na rodada aberta:
+
+> 🏁 *Jeniffer* (admin do bolão *Bolão das Girls*) pediu pra te lembrar de palpitar!
+> Você ainda tem palpites pendentes. Manda *próximos jogos* pra ver o que falta. 🍀
+
+→ Bot confirma pro admin: `✅ Cutuquei 11 pendente(s) do *Bolão das Girls*.`
+
+**Idempotência**: 1 cutuque por bolão a cada 30 minutos (flag Redis
+`cutucar_admin:{bolaoId}`). Se admin tentar 2x seguidas, bot avisa
+"Já cutuquei há pouco. Aguarda uns minutos."
+
+Se admin tem >1 bolão e nenhum padrão setado, bot pede pra definir um
+padrão primeiro com `definir bolão padrão`.
+
 ## Editar e apagar palpite
 
 ### Editar (substituir placar)

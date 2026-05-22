@@ -89,6 +89,26 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('meus bolões');
   });
 
+  it('v3.8.0 — cobre comandos progresso do bolão + cutucar pendentes', () => {
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('progresso do bolão');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('cutucar pendentes');
+    // cita que placar continua privado
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/placar.*privado/);
+  });
+
+  it('v3.8.0 — tem legenda de emoji (resolve "por que Fulano tem emoji?")', () => {
+    expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('LEGENDA DE EMOJI');
+    // 👑 e a explicação dele
+    expect(KNOWLEDGE_PRODUTO).toContain('👑');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/admin do bol[ãa]o/);
+    // ⭐ pra bolão padrão
+    expect(KNOWLEDGE_PRODUTO).toContain('⭐');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/bol[ãa]o padr[ãa]o/);
+    // Esclarece que outros emojis no nome são parte do cadastro do user
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/parte do nome/);
+    expect(KNOWLEDGE_PRODUTO).toContain('🍀');
+  });
+
   it('tamanho cabe num system prompt sem inflar custo (estimativa <1500 tokens ~= <6000 chars)', () => {
     expect(KNOWLEDGE_PRODUTO.length).toBeLessThan(6000);
     expect(KNOWLEDGE_PRODUTO.length).toBeGreaterThan(800); // não pode estar vazio/superficial

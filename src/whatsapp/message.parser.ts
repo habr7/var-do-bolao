@@ -25,6 +25,8 @@ export enum Intencao {
   JOGOS_HOJE = 'JOGOS_HOJE',
   PROXIMOS_JOGOS = 'PROXIMOS_JOGOS', // jogos que ainda nao rolaram + status de palpite
   MAIS_JOGOS = 'MAIS_JOGOS',         // proximo lote de 10 jogos (paginacao de PROXIMOS_JOGOS)
+  PROGRESSO_PALPITES = 'PROGRESSO_PALPITES', // v3.8.0 — quem ja palpitou / quem falta no bolao (visivel pra todos)
+  CUTUCAR_PENDENTES = 'CUTUCAR_PENDENTES',   // v3.8.0 — admin manda DM pra quem ainda nao palpitou
   MEU_PALPITE = 'MEU_PALPITE',
   ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
@@ -566,6 +568,44 @@ const QUANDO_COMECA_PATTERNS: RegExp[] = [
   /\bdata (?:da|do) (?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
 ];
 
+// v3.8.0 — PROGRESSO_PALPITES: visibilidade pra qualquer participante do
+// estado dos palpites na rodada atual ("quem palpitou", "quem falta",
+// "progresso", "mais gente registrou"). Antes esses casos caíam no
+// smart-fallback, que recusava (knowledge da v3.6.0 corretamente disse
+// "não sei" porque o produto não tinha essa feature). Agora tem.
+const PROGRESSO_PALPITES_PATTERNS: RegExp[] = [
+  /\bquem (?:ja )?palpitou\b/,
+  /\bquem (?:ainda )?(?:nao|n[ãa]o) (?:palpitou|palpit[ae]i|registrou)\b/,
+  /\bquem (?:registrou|fez|deu) (?:o )?palpite/,
+  /\bquem (?:ja )?(?:fechou|terminou) (?:os )?palpites?/,
+  /\bquem (?:ta|est[áa]) atrasad[oa]/,
+  /\bquem (?:ta|est[áa]) (?:em dia|fechado)/,
+  /\b(?:mais )?gente (?:ja )?(?:registrou|palpitou|fez) palpites?/,
+  /\bquantos? palpit(?:aram|ou)\b/,
+  /\bprogresso (?:do |dos )?(?:bol[ãa]o|palpites|participantes)/,
+  /\bstatus (?:do |dos )?(?:bol[ãa]o|palpites|participantes)/,
+  /\bpalpites? (?:do |dos )?participantes\b/,
+  /\bpalpites? (?:do |de cada um|por participante)\b/,
+  /\bquanto cada (?:um|pessoa) (?:ja )?palpitou\b/,
+  /\bver se (?:as |os )?(?:pessoas|participantes|amig[oa]s|gente).{0,40}(?:registr|palpit)/,
+  /\bver quem (?:ja )?(?:ta participando|engajou|entrou no bolao)/,
+];
+
+// v3.8.0 — CUTUCAR_PENDENTES: admin manda DM pra todo mundo que ainda
+// não palpitou no bolão dele. Reaproveita a lógica de send-reminders mas
+// sob demanda (sem esperar cron). Identifica o admin no texto da DM.
+const CUTUCAR_PENDENTES_PATTERNS: RegExp[] = [
+  /\bcutucar pendentes?\b/,
+  /\bcutucar (?:quem|os) (?:nao|n[ãa]o) palpitou\b/,
+  /\bcutucar (?:os )?atrasad[oa]s\b/,
+  /\blembrar pendentes?\b/,
+  /\blembrar (?:quem|os) (?:nao|n[ãa]o) palpitou\b/,
+  /\bcobrar (?:os )?palpites?\b/,
+  /\bchamar pendentes?\b/,
+  /\bpingar pendentes?\b/,
+  /\bavisar (?:quem|os) (?:nao|n[ãa]o) palpitou\b/,
+];
+
 // ISSUE-011: EDITAR_PALPITE — "corrigir", "mudar", "alterar" palpite
 // v3.7.0: aceita placar inline: "corrigir Brasil 3x1 Marrocos", "mudar pra
 // Brasil 2x1 Marrocos", "atualizar Brasil 3 a 1". Quando vem placar junto,
@@ -702,6 +742,10 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },
   { intencao: Intencao.SAIR_BOLAO, padroes: SAIR_BOLAO_PATTERNS },
   { intencao: Intencao.QUEM_PARTICIPA, padroes: QUEM_PARTICIPA_PATTERNS },
+  // v3.8.0: CUTUCAR_PENDENTES e PROGRESSO_PALPITES antes de MEU_PALPITE
+  // — "quem palpitou" não pode virar MEU_PALPITE (que é "MEUS palpites")
+  { intencao: Intencao.CUTUCAR_PENDENTES, padroes: CUTUCAR_PENDENTES_PATTERNS },
+  { intencao: Intencao.PROGRESSO_PALPITES, padroes: PROGRESSO_PALPITES_PATTERNS },
   // MEU_PALPITE (mais especifico) antes do PALPITES_AMBIGUO
   { intencao: Intencao.MEU_PALPITE, padroes: MEU_PALPITE_PATTERNS },
   // PALPITES_AMBIGUO so casa "palpites" sozinho — quando nada acima bateu

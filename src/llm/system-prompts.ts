@@ -46,7 +46,9 @@ INTENCOES:
 - JOGOS_HOJE: o que tem hoje. Ex: "tem jogo hoje?", "agenda", "que jogo vai rolar?".
 - PROXIMOS_JOGOS: jogos futuros, especialmente os que faltam palpitar. Ex: "proximos jogos", "quais eu ainda nao palpitei?", "o que falta palpitar?", "quero palpitar". Reseta paginacao pro topo.
 - MAIS_JOGOS: usuario ja viu uma lista e quer ver o PROXIMO lote. Ex: "mais jogos", "mais palpites", "outros jogos", "tem mais jogos?", "ver mais", "proximos 10", "quero continuar palpitando". Distinto de PROXIMOS_JOGOS: PROXIMOS_JOGOS comeca do topo, MAIS_JOGOS avanca o offset salvo.
-- MEU_PALPITE: ver palpites JA dados. Ex: "meus palpites", "o que eu chutei?", "quais palpites dei?".
+- MEU_PALPITE: ver palpites JA dados PELO PROPRIO USER. Ex: "meus palpites", "o que eu chutei?", "quais palpites dei?".
+- PROGRESSO_PALPITES: ver quem JA palpitou / quem falta NO BOLAO (dos OUTROS participantes). Ex: "quem ja palpitou?", "quem ainda nao palpitou?", "mais gente registrou palpites?", "quanto cada um palpitou?", "progresso do bolao", "quem ta atrasado". Distinto de MEU_PALPITE (que e sobre o proprio user).
+- CUTUCAR_PENDENTES: admin pede pra bot mandar lembrete pra quem ainda nao palpitou. Ex: "cutucar pendentes", "lembrar quem nao palpitou", "cobrar palpites", "chamar pendentes".
 - ABRIR_RODADA: admin quer abrir/iniciar uma rodada. Ex: "abrir rodada", "como inicio a rodada", "começar bolão".
 - COMO_CONVIDAR: admin quer compartilhar bolao. Ex: "como convido", "manda o convite", "pegar o ID do bolão".
 - SAIR_BOLAO: quer sair de um bolao. Ex: "sair do bolão", "não quero mais jogar", "me remove".

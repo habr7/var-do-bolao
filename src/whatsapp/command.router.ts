@@ -454,6 +454,15 @@ async function dispatchIntencao(
       await handleQuemParticipa(msg, usuarioId);
       return true;
 
+    // v3.8.0 — progresso dos palpites (qualquer participante) + cutucar (admin)
+    case Intencao.PROGRESSO_PALPITES:
+      await handleProgressoPalpites(msg, usuarioId);
+      return true;
+
+    case Intencao.CUTUCAR_PENDENTES:
+      await handleCutucarPendentes(msg, usuarioId);
+      return true;
+
     case Intencao.REGRAS:
       await sendText({ to: msg.waId, text: regrasTexto() });
       return true;
@@ -2508,6 +2517,267 @@ async function enviarListaParticipantes(msg: IncomingMessage, bolaoId: string, n
     to: msg.waId,
     text: `🏆 *Quem está no ${nomeBolao}* (${participacoes.length}):\n\n${lista}`,
   });
+}
+
+// ============================================================
+// v3.8.0 — Progresso de palpites no bolão (qualquer participante)
+// ============================================================
+/**
+ * Mostra, pro user, quem palpitou e quem ainda não palpitou em CADA
+ * bolão ativo dele. Diferente de MEU_PALPITE (sobre o próprio user),
+ * este é sobre TODOS os participantes — útil pra admin cobrar e pra
+ * participantes verem que não estão sozinhos.
+ *
+ * Não é sensível: a contagem de palpites por pessoa não revela o
+ * conteúdo dos palpites (que continua privado). Só "quantos jogos
+ * cada um já palpitou".
+ *
+ * Reaproveita a lógica que já está em send-reminders.job.ts:28 e
+ * send-palpite-call.job.ts:103 (jaPalpitou = Set de usuarioIds), mas
+ * sob demanda pelo user (não cron).
+ */
+async function handleProgressoPalpites(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.PROGRESSO_PALPITES');
+  const boloes = await bolaoService.listarBoloesAtivosDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '📭 Você não tem bolões ativos pra ver o progresso.',
+    });
+    return;
+  }
+
+  const agora = new Date();
+  const partes: string[] = [];
+
+  for (const b of boloes) {
+    const rodada = await prisma.rodada.findFirst({
+      where: { bolaoId: b.id, status: 'ABERTA' },
+      include: {
+        jogos: {
+          where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+        },
+        palpites: {
+          include: {
+            usuario: { select: { id: true, nome: true } },
+            jogos: { select: { jogoId: true } },
+          },
+        },
+        bolao: {
+          include: {
+            participacoes: { include: { usuario: { select: { id: true, nome: true } } } },
+          },
+        },
+      },
+    });
+
+    if (!rodada || rodada.jogos.length === 0) continue;
+
+    const totalJogosAbertos = rodada.jogos.length;
+    const adminId = rodada.bolao.adminId;
+
+    // Mapa usuarioId → quantos jogos da rodada ele palpitou (só jogos abertos)
+    const jogosAbertosIds = new Set(rodada.jogos.map((j) => j.id));
+    const palpitesPorUsuario = new Map<string, number>();
+    for (const p of rodada.palpites) {
+      const cnt = p.jogos.filter((pj) => jogosAbertosIds.has(pj.jogoId)).length;
+      palpitesPorUsuario.set(p.usuarioId, cnt);
+    }
+
+    const participantes = rodada.bolao.participacoes.map((part) => ({
+      id: part.usuarioId,
+      nome: part.usuario.nome,
+      ehAdmin: part.usuarioId === adminId,
+      palpitouQtd: palpitesPorUsuario.get(part.usuarioId) ?? 0,
+    }));
+
+    const comPalpite = participantes.filter((p) => p.palpitouQtd > 0);
+    const semPalpite = participantes.filter((p) => p.palpitouQtd === 0);
+
+    // Ordena: palpitantes por qtd desc; pendentes por nome
+    comPalpite.sort((a, b) => b.palpitouQtd - a.palpitouQtd || a.nome.localeCompare(b.nome));
+    semPalpite.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    const linhasCom = comPalpite
+      .map((p) => {
+        const adm = p.ehAdmin ? ' 👑' : '';
+        const fechou = p.palpitouQtd >= totalJogosAbertos ? ' ✅' : '';
+        return `• ${p.nome}${adm} — ${p.palpitouQtd}/${totalJogosAbertos} palpites${fechou}`;
+      })
+      .join('\n');
+
+    const linhasSem = semPalpite
+      .map((p) => `• ${p.nome}${p.ehAdmin ? ' 👑' : ''}`)
+      .join('\n');
+
+    const blocos: string[] = [
+      `🏆 *${b.nome}* — Fase de Grupos`,
+      `📊 ${participantes.length} participantes / ${totalJogosAbertos} jogos abertos`,
+    ];
+    if (comPalpite.length > 0) {
+      blocos.push(`✅ *Já palpitaram (${comPalpite.length}):*\n${linhasCom}`);
+    }
+    if (semPalpite.length > 0) {
+      blocos.push(`⚪ *Ainda não palpitaram (${semPalpite.length}):*\n${linhasSem}`);
+    }
+
+    // Convite pra ação só se o user é admin do bolão E tem pendentes
+    if (usuarioId === adminId && semPalpite.length > 0) {
+      blocos.push(`💬 _Pra cutucar quem não palpitou, manda *cutucar pendentes* — eu mando DM pra cada uma citando você._`);
+    }
+
+    partes.push(blocos.join('\n\n'));
+  }
+
+  if (partes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '⚽ Não tem rodada aberta com jogos pendentes nos seus bolões agora.\n\n' +
+        'Manda *próximos jogos* quando abrir uma nova rodada.',
+    });
+    return;
+  }
+
+  await sendText({
+    to: msg.waId,
+    text: `${partes.join('\n\n━━━━━━━━━━\n\n')}\n\n_(O placar do palpite de cada um continua privado — só mostro a quantidade.)_`,
+  });
+}
+
+// ============================================================
+// v3.8.0 — Cutucar pendentes (admin only)
+// ============================================================
+/**
+ * Admin do bolão pede pra bot mandar DM pra cada participante que ainda
+ * não palpitou. Cada DM identifica o admin como quem pediu, pra dar
+ * accountability (não é mensagem anônima do bot).
+ *
+ * Idempotência: flag Redis `cutucar_admin:{bolaoId}` com TTL de 30 min —
+ * admin não pode spammar.
+ *
+ * Reaproveita exatamente a lógica de listagem do
+ * `handleProgressoPalpites`, mas além de listar, manda DM.
+ */
+async function handleCutucarPendentes(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.CUTUCAR_PENDENTES');
+
+  const adminados = await bolaoService.listarBoloesQueAdministra(usuarioId);
+  if (adminados.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '🤷 Esse comando é só pra *admin* do bolão. Você não administra nenhum bolão ativo no momento.\n\n' +
+        'Pra ver quem palpitou no bolão que você participa, manda *progresso do bolão*.',
+    });
+    return;
+  }
+
+  // Se admin de mais de 1, pega bolão padrão se setado; senão pergunta
+  let bolaoAlvo: { id: string; nome: string } | null = null;
+  if (adminados.length === 1) {
+    bolaoAlvo = { id: adminados[0].id, nome: adminados[0].nome };
+  } else {
+    const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+    const padrao = adminados.find((b) => b.id === padraoId);
+    if (padrao) {
+      bolaoAlvo = { id: padrao.id, nome: padrao.nome };
+    }
+  }
+
+  if (!bolaoAlvo) {
+    // Múltiplos bolões adminados sem padrão — UX simples: pede pra
+    // mandar "cutucar pendentes do <nome>". Não vale a complexidade de
+    // FSM novo só pra esse caso raro (admin com >1 bolão sem padrão).
+    const nomes = adminados.map((b) => `• ${b.nome}`).join('\n');
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Você é admin de mais de um bolão:\n\n${nomes}\n\n` +
+        `Define um como padrão com *definir bolão padrão* e tenta de novo, ou manda *cutucar pendentes do <nome>* (em breve).`,
+    });
+    return;
+  }
+
+  // Idempotência: 1x a cada 30min por bolão
+  const flagKey = `cutucar_admin:${bolaoAlvo.id}`;
+  const flag = await redis.get(flagKey);
+  if (flag) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `⏱️ Já cutuquei os pendentes do *${bolaoAlvo.nome}* há pouco. ` +
+        `Aguarda uns minutos pra não encher a caixa da galera. 🙏`,
+    });
+    return;
+  }
+
+  const agora = new Date();
+  const rodada = await prisma.rodada.findFirst({
+    where: { bolaoId: bolaoAlvo.id, status: 'ABERTA' },
+    include: {
+      jogos: {
+        where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+      },
+      palpites: { select: { usuarioId: true, jogos: { select: { jogoId: true } } } },
+      bolao: { include: { participacoes: { include: { usuario: true } } } },
+    },
+  });
+
+  if (!rodada || rodada.jogos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: `📭 Não tem rodada aberta no *${bolaoAlvo.nome}* — nada pra cutucar.`,
+    });
+    return;
+  }
+
+  // Pendentes = participantes com 0 palpites em jogos abertos (excluindo o próprio admin)
+  const jogosAbertosIds = new Set(rodada.jogos.map((j) => j.id));
+  const palpitesPorUsuario = new Map<string, number>();
+  for (const p of rodada.palpites) {
+    const cnt = p.jogos.filter((pj) => jogosAbertosIds.has(pj.jogoId)).length;
+    palpitesPorUsuario.set(p.usuarioId, cnt);
+  }
+
+  const adminNome = rodada.bolao.participacoes.find((p) => p.usuarioId === usuarioId)?.usuario.nome ?? 'O admin';
+  const pendentes = rodada.bolao.participacoes.filter((p) => {
+    if (p.usuarioId === usuarioId) return false; // não cutuca o próprio admin
+    return (palpitesPorUsuario.get(p.usuarioId) ?? 0) === 0;
+  });
+
+  if (pendentes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: `🎉 Ninguém pendente no *${bolaoAlvo.nome}*! Todo mundo já palpitou. 🍀`,
+    });
+    return;
+  }
+
+  // Marca a flag ANTES de mandar — se o batch falhar no meio, evita reenvio em loop
+  await redis.setex(flagKey, 30 * 60, '1');
+
+  const textoDm =
+    `🏁 *${adminNome}* (admin do bolão *${bolaoAlvo.nome}*) pediu pra te lembrar de palpitar!\n\n` +
+    `Você ainda tem palpites pendentes. Manda *próximos jogos* pra ver o que falta. 🍀`;
+
+  let enviados = 0;
+  let falhas = 0;
+  for (const p of pendentes) {
+    try {
+      await sendText({ to: p.usuario.whatsappId, text: textoDm });
+      enviados++;
+    } catch (err) {
+      falhas++;
+      console.warn(`[cutucar-pendentes] falha pra ${p.usuario.nome}:`, err);
+    }
+  }
+
+  const resumo =
+    `✅ Cutuquei *${enviados}* pendente(s) do *${bolaoAlvo.nome}*` +
+    (falhas > 0 ? ` (${falhas} falha(s))` : '') +
+    `.\n\n_(Próximo cutuque liberado em 30 min)_`;
+  await sendText({ to: msg.waId, text: resumo });
 }
 
 // ============================================================
