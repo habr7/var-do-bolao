@@ -123,6 +123,11 @@ Vários de uma vez, um por linha — eu mostro preview e você confirma.
 • *bolão padrão* — define qual usar por default
 Comandos como ranking, meus pontos passam a usar ele direto.
 
+🍀 *Tá perdido(a)?* (novato no bolão):
+• *dicas* — dicas pra montar palpite (placares comuns, estratégia)
+• *como funciona* — visão geral do bot
+• Se não entende de futebol, manda isso mesmo — eu explico que não precisa entender 😉
+
 🚪 *Sair*:
 • *sair do bolão* — sai (palpites ficam no histórico)
 • *cancelar* — aborta qualquer fluxo em andamento

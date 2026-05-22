@@ -89,6 +89,46 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('meus bolões');
   });
 
+  it('v3.8.0 — cobre comandos progresso do bolão + cutucar pendentes', () => {
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('progresso do bolão');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('cutucar pendentes');
+    // cita que placar continua privado
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/placar.*privado/);
+  });
+
+  it('v3.10.0 — knowledge tem PROIBIÇÃO ABSOLUTA de confirmar registro (bug Valéria 22/05 11:23)', () => {
+    // O LLM mentiu "Entendi! Seus palpites foram registrados. Bora pra Copa 2026!"
+    // sem ter registrado nada. Knowledge deve PROIBIR esse comportamento.
+    expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('PROIBI');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/nunca.*(?:registrei|registrar|salvei|anotei)/);
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o tem.*ferramenta|n[ãa]o (?:tenho|posso).*registrar/);
+    // Referencia explícita ao caso real
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/val[eé]ria/);
+  });
+
+  it('v3.9.0 — knowledge cobre tom pra novato/inseguro (caso Valéria 22/05)', () => {
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o entendo de futebol/);
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('acolhimento_novato');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('dicas_palpite');
+    // Cita placares comuns como fato histórico
+    expect(KNOWLEDGE_PRODUTO).toMatch(/1x0|2x1/);
+    // Proíbe LLM de dar palpite/predição
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o.*dica de aposta|n[ãa]o.*predi[cç][ãa]o/);
+  });
+
+  it('v3.8.0 — tem legenda de emoji (resolve "por que Fulano tem emoji?")', () => {
+    expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('LEGENDA DE EMOJI');
+    // 👑 e a explicação dele
+    expect(KNOWLEDGE_PRODUTO).toContain('👑');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/admin do bol[ãa]o/);
+    // ⭐ pra bolão padrão
+    expect(KNOWLEDGE_PRODUTO).toContain('⭐');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/bol[ãa]o padr[ãa]o/);
+    // Esclarece que outros emojis no nome são parte do cadastro do user
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/parte do nome/);
+    expect(KNOWLEDGE_PRODUTO).toContain('🍀');
+  });
+
   it('tamanho cabe num system prompt sem inflar custo (estimativa <1500 tokens ~= <6000 chars)', () => {
     expect(KNOWLEDGE_PRODUTO.length).toBeLessThan(6000);
     expect(KNOWLEDGE_PRODUTO.length).toBeGreaterThan(800); // não pode estar vazio/superficial

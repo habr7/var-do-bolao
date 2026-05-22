@@ -31,6 +31,7 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
+import { parecePalpiteMasNaoEntendi } from './palpite.heuristics.js';
 import {
   construirFatosCopa2026,
   descreverGround,
@@ -315,6 +316,31 @@ async function handleIdle(
     }
   }
 
+  // v3.10.0 — PRÉ-CHECK CRÍTICO ANTI-MENTIRA DO LLM (caso Valéria 22/05):
+  // se a mensagem parece um lote de palpites (2+ âncoras "NxN") mas nada
+  // de palpite válido foi extraído, NÃO chama LLM — em smart-fallback ele
+  // pode dizer "Entendi, palpites registrados!" sem nada ter sido salvo.
+  // Em vez disso, responde mensagem específica explicando o formato.
+  if (parecePalpiteMasNaoEntendi(msg.text)) {
+    void incContador('msg.parece_palpite_nao_entendi');
+    console.warn(
+      `[parece-palpite] waId=${msg.waId} bloqueando smart-fallback LLM pra evitar mentira de "registrei palpites". text=${JSON.stringify(msg.text.slice(0, 200))}`,
+    );
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Parece que você quis mandar palpites, mas não consegui entender o formato.\n\n` +
+        `*Formato aceito*:\n` +
+        `• \`Brasil 2x1 Marrocos\` (placar ENTRE os times)\n` +
+        `• \`Brasil 2 a 1 Marrocos\`\n` +
+        `• \`1x1 México x África do Sul\` (placar antes dos times também funciona)\n\n` +
+        `Pode mandar *vários palpites* de uma vez, *um por linha*:\n` +
+        `\`\`\`\nBrasil 2x1 Marrocos\nFrança 1x0 Argentina\n\`\`\`\n\n` +
+        `Manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais dos times.`,
+    });
+    return;
+  }
+
   // Smart fallback: em vez de devolver "nao entendi" direto, tenta uma
   // resposta conversacional via LLM com prompt que sabe redirecionar
   // pros comandos certos sem inventar dados. So se isso falhar, cai no
@@ -454,6 +480,15 @@ async function dispatchIntencao(
       await handleQuemParticipa(msg, usuarioId);
       return true;
 
+    // v3.8.0 — progresso dos palpites (qualquer participante) + cutucar (admin)
+    case Intencao.PROGRESSO_PALPITES:
+      await handleProgressoPalpites(msg, usuarioId);
+      return true;
+
+    case Intencao.CUTUCAR_PENDENTES:
+      await handleCutucarPendentes(msg, usuarioId);
+      return true;
+
     case Intencao.REGRAS:
       await sendText({ to: msg.waId, text: regrasTexto() });
       return true;
@@ -481,6 +516,15 @@ async function dispatchIntencao(
 
     case Intencao.COMO_PALPITAR:
       await handleComoPalpitar(msg, usuarioId);
+      return true;
+
+    // v3.9.0 — onboarding leve pra novato (caso Valéria 22/05)
+    case Intencao.DICAS_PALPITE:
+      await handleDicasPalpite(msg, usuarioId);
+      return true;
+
+    case Intencao.ACOLHIMENTO_NOVATO:
+      await handleAcolhimentoNovato(msg, usuarioId);
       return true;
 
     case Intencao.QUANDO_COMECA:
@@ -930,6 +974,98 @@ async function handleComoPalpitar(msg: IncomingMessage, usuarioId: string) {
     texto += `\n\nVocê ainda não está em nenhum bolão. Manda *entrar em bolão* pra começar.`;
   } else {
     texto += `\n\nManda *próximos jogos* pra ver os jogos abertos pra palpitar agora.`;
+  }
+
+  await sendText({ to: msg.waId, text: texto });
+}
+
+// ============================================================
+// v3.9.0 — DICAS_PALPITE: estratégia (não formato)
+// ============================================================
+/**
+ * Resposta determinística pra "tem dicas?", "como monto palpite?", "qual
+ * placar é mais comum?". NÃO dá dica de aposta (regras de aposta nem
+ * fazem sentido aqui — bolão é de pontos, não de dinheiro). Só dá:
+ *
+ * - Resumo da pontuação (10/7/5/3/0) — quem entende o sistema palpita melhor
+ * - Placares mais comuns em Copa do Mundo (fato histórico, não predição)
+ * - 4 dicas práticas de uso do bolão
+ *
+ * Pessoa real que motivou (Valéria 22/05): perguntou "você tem dicas de
+ * como montar os palpites?" e bot deu pitch do produto. Resposta atual
+ * é acolhedora e prática.
+ */
+async function handleDicasPalpite(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.DICAS_PALPITE');
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+
+  let texto =
+    `🎯 *Dicas pra montar palpite*\n\n` +
+    `O bolão é mais sobre diversão que sobre acerto perfeito — mas se quer estratégia, vamos lá:\n\n` +
+    `📊 *Como pontua* (manda *regras* pra ver completo):\n` +
+    `• Placar exato → *10 pts*\n` +
+    `• Diferença de gols certa → *7 pts*\n` +
+    `• Vencedor + 1 gol certo → *5 pts*\n` +
+    `• Só o vencedor → *3 pts*\n` +
+    `• Errou tudo → *0*\n\n` +
+    `⚽ *Placares mais comuns em Copa do Mundo*:\n` +
+    `\`1x0\`, \`2x1\`, \`2x0\`, \`1x1\`, \`0x0\`\n\n` +
+    `🧠 *Dicas práticas*:\n` +
+    `1. *Palpita em TODOS os jogos* — só pontua quem tem palpite registrado. Em branco vale zero.\n` +
+    `2. *Foco no vencedor*: acertar só quem ganha já dá 3 pts e é bem mais fácil que cravar placar exato.\n` +
+    `3. *Não sabe nada do jogo?* Vai no coração, na sorte, no time da casa. Gente que palpita \`1x0\` sempre costuma ir bem.\n` +
+    `4. *Dá pra editar* — manda *corrigir palpite* até o jogo começar. Mudou de ideia? Sem problema.`;
+
+  if (boloes.length === 0) {
+    texto += `\n\n*Bora começar?* Manda *entrar em bolão* pra entrar em algum. 🍀`;
+  } else {
+    texto += `\n\n*Bora?* Manda *próximos jogos* pra ver o que tá aberto pra palpitar. 🍀`;
+  }
+
+  await sendText({ to: msg.waId, text: texto });
+}
+
+// ============================================================
+// v3.9.0 — ACOLHIMENTO_NOVATO: validação emocional
+// ============================================================
+/**
+ * Responde a sinais de insegurança/vulnerabilidade: "nao entendo de
+ * futebol", "to perdida", "primeira vez", "nunca palpitei", "to com
+ * medo de errar".
+ *
+ * Pessoa real que motivou (Valéria 22/05): mandou "nao entendo de
+ * futebol" depois de pedir dicas. Bot caiu em fallback genérico (menu),
+ * perdendo oportunidade clara de engajamento.
+ *
+ * Tom: acolhedor, sem condescendência. Valida que palpitar no aleatório
+ * funciona. 3 passos básicos. CTAs leves (dicas, próximos jogos,
+ * regras) — não força a pessoa a já entrar em bolão.
+ */
+async function handleAcolhimentoNovato(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.ACOLHIMENTO_NOVATO');
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+
+  let texto =
+    `🍀 *Relaxa!* Não precisa entender nada de futebol pra palpitar.\n\n` +
+    `Sério — muita gente que ganha bolão é assim:\n` +
+    `• Chuta no aleatório 🎲\n` +
+    `• Vai no coração ❤️\n` +
+    `• Escolhe pela cor da camisa 👕\n` +
+    `• Palpita sempre \`1x0\` e ganha 😄\n\n` +
+    `⚽ *Como funciona aqui*:\n` +
+    `1. *Você palpita o placar* de cada jogo (ex: \`Brasil 2x1 Marrocos\`)\n` +
+    `2. *Ganha pontos* se acertar — placar exato vale 10, só o vencedor já vale 3\n` +
+    `3. *Errou? Sem stress* — cada jogo é uma chance nova, e dá pra editar palpite até o jogo começar\n\n` +
+    `✨ *Bora começar leve*:\n` +
+    `• *dicas* — dicas pra montar palpite\n` +
+    `• *regras* — pontuação completa`;
+
+  if (boloes.length === 0) {
+    texto += `\n• *entrar em bolão* — quando alguém te mandar um convite, é só clicar no link`;
+    texto += `\n\nE se ficar perdida, manda *ajuda* a qualquer momento. Tô aqui. 🍀`;
+  } else {
+    texto += `\n• *próximos jogos* — eu te mostro os jogos abertos`;
+    texto += `\n\nQuando for palpitar, manda assim: \`Brasil 2 a 1 Marrocos\`. Eu mostro um preview e você confirma — *nada vai pro bolão sem você dizer sim*. 🍀`;
   }
 
   await sendText({ to: msg.waId, text: texto });
@@ -2508,6 +2644,267 @@ async function enviarListaParticipantes(msg: IncomingMessage, bolaoId: string, n
     to: msg.waId,
     text: `🏆 *Quem está no ${nomeBolao}* (${participacoes.length}):\n\n${lista}`,
   });
+}
+
+// ============================================================
+// v3.8.0 — Progresso de palpites no bolão (qualquer participante)
+// ============================================================
+/**
+ * Mostra, pro user, quem palpitou e quem ainda não palpitou em CADA
+ * bolão ativo dele. Diferente de MEU_PALPITE (sobre o próprio user),
+ * este é sobre TODOS os participantes — útil pra admin cobrar e pra
+ * participantes verem que não estão sozinhos.
+ *
+ * Não é sensível: a contagem de palpites por pessoa não revela o
+ * conteúdo dos palpites (que continua privado). Só "quantos jogos
+ * cada um já palpitou".
+ *
+ * Reaproveita a lógica que já está em send-reminders.job.ts:28 e
+ * send-palpite-call.job.ts:103 (jaPalpitou = Set de usuarioIds), mas
+ * sob demanda pelo user (não cron).
+ */
+async function handleProgressoPalpites(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.PROGRESSO_PALPITES');
+  const boloes = await bolaoService.listarBoloesAtivosDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '📭 Você não tem bolões ativos pra ver o progresso.',
+    });
+    return;
+  }
+
+  const agora = new Date();
+  const partes: string[] = [];
+
+  for (const b of boloes) {
+    const rodada = await prisma.rodada.findFirst({
+      where: { bolaoId: b.id, status: 'ABERTA' },
+      include: {
+        jogos: {
+          where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+        },
+        palpites: {
+          include: {
+            usuario: { select: { id: true, nome: true } },
+            jogos: { select: { jogoId: true } },
+          },
+        },
+        bolao: {
+          include: {
+            participacoes: { include: { usuario: { select: { id: true, nome: true } } } },
+          },
+        },
+      },
+    });
+
+    if (!rodada || rodada.jogos.length === 0) continue;
+
+    const totalJogosAbertos = rodada.jogos.length;
+    const adminId = rodada.bolao.adminId;
+
+    // Mapa usuarioId → quantos jogos da rodada ele palpitou (só jogos abertos)
+    const jogosAbertosIds = new Set(rodada.jogos.map((j) => j.id));
+    const palpitesPorUsuario = new Map<string, number>();
+    for (const p of rodada.palpites) {
+      const cnt = p.jogos.filter((pj) => jogosAbertosIds.has(pj.jogoId)).length;
+      palpitesPorUsuario.set(p.usuarioId, cnt);
+    }
+
+    const participantes = rodada.bolao.participacoes.map((part) => ({
+      id: part.usuarioId,
+      nome: part.usuario.nome,
+      ehAdmin: part.usuarioId === adminId,
+      palpitouQtd: palpitesPorUsuario.get(part.usuarioId) ?? 0,
+    }));
+
+    const comPalpite = participantes.filter((p) => p.palpitouQtd > 0);
+    const semPalpite = participantes.filter((p) => p.palpitouQtd === 0);
+
+    // Ordena: palpitantes por qtd desc; pendentes por nome
+    comPalpite.sort((a, b) => b.palpitouQtd - a.palpitouQtd || a.nome.localeCompare(b.nome));
+    semPalpite.sort((a, b) => a.nome.localeCompare(b.nome));
+
+    const linhasCom = comPalpite
+      .map((p) => {
+        const adm = p.ehAdmin ? ' 👑' : '';
+        const fechou = p.palpitouQtd >= totalJogosAbertos ? ' ✅' : '';
+        return `• ${p.nome}${adm} — ${p.palpitouQtd}/${totalJogosAbertos} palpites${fechou}`;
+      })
+      .join('\n');
+
+    const linhasSem = semPalpite
+      .map((p) => `• ${p.nome}${p.ehAdmin ? ' 👑' : ''}`)
+      .join('\n');
+
+    const blocos: string[] = [
+      `🏆 *${b.nome}* — Fase de Grupos`,
+      `📊 ${participantes.length} participantes / ${totalJogosAbertos} jogos abertos`,
+    ];
+    if (comPalpite.length > 0) {
+      blocos.push(`✅ *Já palpitaram (${comPalpite.length}):*\n${linhasCom}`);
+    }
+    if (semPalpite.length > 0) {
+      blocos.push(`⚪ *Ainda não palpitaram (${semPalpite.length}):*\n${linhasSem}`);
+    }
+
+    // Convite pra ação só se o user é admin do bolão E tem pendentes
+    if (usuarioId === adminId && semPalpite.length > 0) {
+      blocos.push(`💬 _Pra cutucar quem não palpitou, manda *cutucar pendentes* — eu mando DM pra cada uma citando você._`);
+    }
+
+    partes.push(blocos.join('\n\n'));
+  }
+
+  if (partes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '⚽ Não tem rodada aberta com jogos pendentes nos seus bolões agora.\n\n' +
+        'Manda *próximos jogos* quando abrir uma nova rodada.',
+    });
+    return;
+  }
+
+  await sendText({
+    to: msg.waId,
+    text: `${partes.join('\n\n━━━━━━━━━━\n\n')}\n\n_(O placar do palpite de cada um continua privado — só mostro a quantidade.)_`,
+  });
+}
+
+// ============================================================
+// v3.8.0 — Cutucar pendentes (admin only)
+// ============================================================
+/**
+ * Admin do bolão pede pra bot mandar DM pra cada participante que ainda
+ * não palpitou. Cada DM identifica o admin como quem pediu, pra dar
+ * accountability (não é mensagem anônima do bot).
+ *
+ * Idempotência: flag Redis `cutucar_admin:{bolaoId}` com TTL de 30 min —
+ * admin não pode spammar.
+ *
+ * Reaproveita exatamente a lógica de listagem do
+ * `handleProgressoPalpites`, mas além de listar, manda DM.
+ */
+async function handleCutucarPendentes(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.CUTUCAR_PENDENTES');
+
+  const adminados = await bolaoService.listarBoloesQueAdministra(usuarioId);
+  if (adminados.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '🤷 Esse comando é só pra *admin* do bolão. Você não administra nenhum bolão ativo no momento.\n\n' +
+        'Pra ver quem palpitou no bolão que você participa, manda *progresso do bolão*.',
+    });
+    return;
+  }
+
+  // Se admin de mais de 1, pega bolão padrão se setado; senão pergunta
+  let bolaoAlvo: { id: string; nome: string } | null = null;
+  if (adminados.length === 1) {
+    bolaoAlvo = { id: adminados[0].id, nome: adminados[0].nome };
+  } else {
+    const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+    const padrao = adminados.find((b) => b.id === padraoId);
+    if (padrao) {
+      bolaoAlvo = { id: padrao.id, nome: padrao.nome };
+    }
+  }
+
+  if (!bolaoAlvo) {
+    // Múltiplos bolões adminados sem padrão — UX simples: pede pra
+    // mandar "cutucar pendentes do <nome>". Não vale a complexidade de
+    // FSM novo só pra esse caso raro (admin com >1 bolão sem padrão).
+    const nomes = adminados.map((b) => `• ${b.nome}`).join('\n');
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Você é admin de mais de um bolão:\n\n${nomes}\n\n` +
+        `Define um como padrão com *definir bolão padrão* e tenta de novo, ou manda *cutucar pendentes do <nome>* (em breve).`,
+    });
+    return;
+  }
+
+  // Idempotência: 1x a cada 30min por bolão
+  const flagKey = `cutucar_admin:${bolaoAlvo.id}`;
+  const flag = await redis.get(flagKey);
+  if (flag) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `⏱️ Já cutuquei os pendentes do *${bolaoAlvo.nome}* há pouco. ` +
+        `Aguarda uns minutos pra não encher a caixa da galera. 🙏`,
+    });
+    return;
+  }
+
+  const agora = new Date();
+  const rodada = await prisma.rodada.findFirst({
+    where: { bolaoId: bolaoAlvo.id, status: 'ABERTA' },
+    include: {
+      jogos: {
+        where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+      },
+      palpites: { select: { usuarioId: true, jogos: { select: { jogoId: true } } } },
+      bolao: { include: { participacoes: { include: { usuario: true } } } },
+    },
+  });
+
+  if (!rodada || rodada.jogos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: `📭 Não tem rodada aberta no *${bolaoAlvo.nome}* — nada pra cutucar.`,
+    });
+    return;
+  }
+
+  // Pendentes = participantes com 0 palpites em jogos abertos (excluindo o próprio admin)
+  const jogosAbertosIds = new Set(rodada.jogos.map((j) => j.id));
+  const palpitesPorUsuario = new Map<string, number>();
+  for (const p of rodada.palpites) {
+    const cnt = p.jogos.filter((pj) => jogosAbertosIds.has(pj.jogoId)).length;
+    palpitesPorUsuario.set(p.usuarioId, cnt);
+  }
+
+  const adminNome = rodada.bolao.participacoes.find((p) => p.usuarioId === usuarioId)?.usuario.nome ?? 'O admin';
+  const pendentes = rodada.bolao.participacoes.filter((p) => {
+    if (p.usuarioId === usuarioId) return false; // não cutuca o próprio admin
+    return (palpitesPorUsuario.get(p.usuarioId) ?? 0) === 0;
+  });
+
+  if (pendentes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: `🎉 Ninguém pendente no *${bolaoAlvo.nome}*! Todo mundo já palpitou. 🍀`,
+    });
+    return;
+  }
+
+  // Marca a flag ANTES de mandar — se o batch falhar no meio, evita reenvio em loop
+  await redis.setex(flagKey, 30 * 60, '1');
+
+  const textoDm =
+    `🏁 *${adminNome}* (admin do bolão *${bolaoAlvo.nome}*) pediu pra te lembrar de palpitar!\n\n` +
+    `Você ainda tem palpites pendentes. Manda *próximos jogos* pra ver o que falta. 🍀`;
+
+  let enviados = 0;
+  let falhas = 0;
+  for (const p of pendentes) {
+    try {
+      await sendText({ to: p.usuario.whatsappId, text: textoDm });
+      enviados++;
+    } catch (err) {
+      falhas++;
+      console.warn(`[cutucar-pendentes] falha pra ${p.usuario.nome}:`, err);
+    }
+  }
+
+  const resumo =
+    `✅ Cutuquei *${enviados}* pendente(s) do *${bolaoAlvo.nome}*` +
+    (falhas > 0 ? ` (${falhas} falha(s))` : '') +
+    `.\n\n_(Próximo cutuque liberado em 30 min)_`;
+  await sendText({ to: msg.waId, text: resumo });
 }
 
 // ============================================================

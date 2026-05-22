@@ -25,6 +25,10 @@ export enum Intencao {
   JOGOS_HOJE = 'JOGOS_HOJE',
   PROXIMOS_JOGOS = 'PROXIMOS_JOGOS', // jogos que ainda nao rolaram + status de palpite
   MAIS_JOGOS = 'MAIS_JOGOS',         // proximo lote de 10 jogos (paginacao de PROXIMOS_JOGOS)
+  PROGRESSO_PALPITES = 'PROGRESSO_PALPITES', // v3.8.0 — quem ja palpitou / quem falta no bolao (visivel pra todos)
+  CUTUCAR_PENDENTES = 'CUTUCAR_PENDENTES',   // v3.8.0 — admin manda DM pra quem ainda nao palpitou
+  DICAS_PALPITE = 'DICAS_PALPITE',           // v3.9.0 — "tem dicas?", "como monto palpite", "qual placar comum"
+  ACOLHIMENTO_NOVATO = 'ACOLHIMENTO_NOVATO', // v3.9.0 — "nao entendo de futebol", "to perdida", "primeira vez"
   MEU_PALPITE = 'MEU_PALPITE',
   ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
@@ -100,6 +104,22 @@ export interface PalpiteInline {
 //   "Brasil 2 a 1 Marrocos"
 //   "Brasil 2 por 1 Marrocos"
 const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+)$/;
+
+// v3.10.0 — formato INVERTIDO: "NxN Time1 x Time2" (placar antes dos
+// times). Caso real Valéria 22/05: ela mandou 10 linhas nesse formato
+// e o parser canônico falhou em todas, caindo em smart-fallback que
+// inventou "Seus palpites foram registrados". Exemplos:
+//   "1x1 México x África do Sul"
+//   "2-1 Brasil x Marrocos"
+//   "1 a 0 BRA x ARG"
+// O separador entre os 2 times pode ser " x ", " X ", " vs ", " - ", " contra ".
+const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+?)\s+(?:[xX]|vs|contra|-)\s+(.+)$/;
+
+// v3.10.0 — detecta um "âncora" de placar (NxN) dentro de uma linha.
+// Usado pra: (1) tokenizar linhas com vários palpites concatenados sem
+// quebra de linha, (2) validar que um time parseado não tem placar
+// embutido (sinal de match ruim do regex canônico).
+const PLACAR_ANCHOR_REGEX = /(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)/g;
 
 // Mapa de numeros por extenso → digito. So 0-10 — placar maior que 10 eh
 // raro o suficiente pra forcar o usuario a digitar.
@@ -543,6 +563,57 @@ const INFO_PRECO_PATTERNS: RegExp[] = [
   /\bcobra (?:alguma )?taxa\b/,
 ];
 
+// v3.9.0 — DICAS_PALPITE: usuario quer ESTRATEGIA pra montar palpite.
+// Distinto de COMO_PALPITAR (formato/sintaxe) e de INFO_PRODUTO (pitch).
+// Caso real Valeria 22/05: "voce tem dicas de como montar os palpites?"
+// caiu em INFO_PRODUTO porque "como" + "palpites" matchou heuristica errada.
+//
+// Resposta determinística: pontuação resumida + placares comuns em Copa +
+// 4 dicas práticas (palpita em tudo, foca em vencedor, vai no coração se
+// não souber, dá pra editar). NÃO dá dica de aposta (só de uso do bolão).
+const DICAS_PALPITE_PATTERNS: RegExp[] = [
+  /\btem (?:alguma )?dicas?\b/,
+  /\bdicas? (?:de |pra |para )?palpit(?:ar|e)/,
+  /\bdicas? (?:de |pra |para )?(?:montar|fazer|dar) palpite/,
+  /\b(?:tem |alguma )?dicas? (?:boas? )?pra (?:eu )?palpitar/,
+  /\bdica (?:de |para |pra )?bol[ãa]o/,
+  /\bcomo (?:eu )?(?:monto|montar) (?:um |o |os |meus? )?palpites?/,
+  /\bcomo (?:eu )?decid(?:o|ir) (?:o |um |meu )?(?:palpite|placar)/,
+  /\bcomo (?:eu )?escolh(?:o|er) (?:o |um |meu )?(?:palpite|placar|time)/,
+  /\bqual (?:o |eh o )?melhor (?:palpite|placar|chute)/,
+  /\bqual (?:o |eh o )?palpite (?:bom|melhor|certo|ideal)/,
+  /\bqual placar (?:eh |e )?(?:mais )?(?:comum|provavel|prov[áa]vel)/,
+  /\b(?:tem |existe |alguma )?estrat[eé]gia\b/,
+  /\b(?:tem |existe |algum )?segredo (?:de |pra |para )?palpit/,
+  /\bme ensina (?:a |como )?palpitar/,
+  /\bme d[áa] uma (?:dica|luz)/,
+];
+
+// v3.9.0 — ACOLHIMENTO_NOVATO: usuario expressa inseguranca/vulnerabilidade
+// ("nao entendo de futebol", "to perdida", "primeira vez", "vou errar
+// tudo"). Caso real Valeria 22/05: "nao entendo de futebol" caiu em
+// fallback genérico, perdendo oportunidade de engajamento.
+//
+// Resposta acolhedora: "relaxa, não precisa entender nada" + validação
+// (gente palpita no coração e ganha) + 3 passos básicos + CTAs leves.
+const ACOLHIMENTO_NOVATO_PATTERNS: RegExp[] = [
+  /\b(?:nao|n[ãa]o) (?:entendo|sei|manjo|saco) (?:nada |muito |bem )?(?:de |sobre )?futebol/,
+  /\b(?:nao|n[ãa]o) (?:conheco|conheço) (?:nada |muito )?(?:de |sobre )?futebol/,
+  /\b(?:nao|n[ãa]o) sou (?:muito )?(?:de |fa de |f[ãa] de )futebol/,
+  /\bfutebol (?:nao|n[ãa]o) (?:eh |e )?(?:meu |minha )?(?:forte|coisa|praia)/,
+  /\b(?:to|tou|estou) (?:meio |bem |totalmente )?perdid[ao]\b/,
+  /\b(?:eh|e|sou) (?:a |minha |meu |novo |nova )?(?:primeira vez|novat[oa])\b/,
+  /\bprimeira vez (?:que |aqui )?(?:palpit|jog|fa[cç]o|no bol)/,
+  /\bnunca (?:palpitei|joguei|fiz )(?:bol[ãa]o|isso)?/,
+  /\bnunca (?:fiz |participei )(?:de )?bol[ãa]o/,
+  /\b(?:to|tou|estou) (?:com )?medo de errar/,
+  /\b(?:vou|posso) errar tudo\b/,
+  /\b(?:nao|n[ãa]o) sei (?:qual|que) time/,
+  /\b(?:nao|n[ãa]o) sei (?:nem )?quem (?:joga|vai jogar|ta jogando)/,
+  /\bsou (?:leiga|leigo|iniciante|novata?o?) (?:em |de )?(?:futebol|bol[ãa]o)/,
+  /\b(?:nao|n[ãa]o) sei (?:nada )?(?:do |sobre )?(?:bol[ãa]o|isso)\b/,
+];
+
 // ISSUE-017: "como dou palpite", "como palpitar", "como faco palpite"
 // Distinto de PROXIMOS_JOGOS ("quero palpitar"): aqui o user quer SABER COMO,
 // nao iniciar o ato. PROXIMOS_JOGOS usa verbo de acao + obj; este usa "como" + verbo.
@@ -564,6 +635,44 @@ const QUANDO_COMECA_PATTERNS: RegExp[] = [
   /\b(?:qual|que) (?:dia|data|hora) (?:comeca|come[cç]a|inicia|termina|fecha|abre)\b/,
   /\bquando (?:eh|e) (?:a |o )?(?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
   /\bdata (?:da|do) (?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
+];
+
+// v3.8.0 — PROGRESSO_PALPITES: visibilidade pra qualquer participante do
+// estado dos palpites na rodada atual ("quem palpitou", "quem falta",
+// "progresso", "mais gente registrou"). Antes esses casos caíam no
+// smart-fallback, que recusava (knowledge da v3.6.0 corretamente disse
+// "não sei" porque o produto não tinha essa feature). Agora tem.
+const PROGRESSO_PALPITES_PATTERNS: RegExp[] = [
+  /\bquem (?:ja )?palpitou\b/,
+  /\bquem (?:ainda )?(?:nao|n[ãa]o) (?:palpitou|palpit[ae]i|registrou)\b/,
+  /\bquem (?:registrou|fez|deu) (?:o )?palpite/,
+  /\bquem (?:ja )?(?:fechou|terminou) (?:os )?palpites?/,
+  /\bquem (?:ta|est[áa]) atrasad[oa]/,
+  /\bquem (?:ta|est[áa]) (?:em dia|fechado)/,
+  /\b(?:mais )?gente (?:ja )?(?:registrou|palpitou|fez) palpites?/,
+  /\bquantos? palpit(?:aram|ou)\b/,
+  /\bprogresso (?:do |dos )?(?:bol[ãa]o|palpites|participantes)/,
+  /\bstatus (?:do |dos )?(?:bol[ãa]o|palpites|participantes)/,
+  /\bpalpites? (?:do |dos )?participantes\b/,
+  /\bpalpites? (?:do |de cada um|por participante)\b/,
+  /\bquanto cada (?:um|pessoa) (?:ja )?palpitou\b/,
+  /\bver se (?:as |os )?(?:pessoas|participantes|amig[oa]s|gente).{0,40}(?:registr|palpit)/,
+  /\bver quem (?:ja )?(?:ta participando|engajou|entrou no bolao)/,
+];
+
+// v3.8.0 — CUTUCAR_PENDENTES: admin manda DM pra todo mundo que ainda
+// não palpitou no bolão dele. Reaproveita a lógica de send-reminders mas
+// sob demanda (sem esperar cron). Identifica o admin no texto da DM.
+const CUTUCAR_PENDENTES_PATTERNS: RegExp[] = [
+  /\bcutucar pendentes?\b/,
+  /\bcutucar (?:quem|os) (?:nao|n[ãa]o) palpitou\b/,
+  /\bcutucar (?:os )?atrasad[oa]s\b/,
+  /\blembrar pendentes?\b/,
+  /\blembrar (?:quem|os) (?:nao|n[ãa]o) palpitou\b/,
+  /\bcobrar (?:os )?palpites?\b/,
+  /\bchamar pendentes?\b/,
+  /\bpingar pendentes?\b/,
+  /\bavisar (?:quem|os) (?:nao|n[ãa]o) palpitou\b/,
 ];
 
 // ISSUE-011: EDITAR_PALPITE — "corrigir", "mudar", "alterar" palpite
@@ -687,6 +796,12 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.APAGAR_PALPITE, padroes: APAGAR_PALPITE_PATTERNS },
   // Sprint 2: EDITAR_PALPITE antes de MEU_PALPITE/PALPITE_INLINE — ISSUE-011
   { intencao: Intencao.EDITAR_PALPITE, padroes: EDITAR_PALPITE_PATTERNS },
+  // v3.9.0: DICAS_PALPITE e ACOLHIMENTO_NOVATO ANTES de COMO_PALPITAR e
+  // INFO_PRODUTO — são mais específicos. Bug Valéria 22/05: "tem dicas
+  // de como montar palpites" virava INFO_PRODUTO; "nao entendo de
+  // futebol" virava fallback. Agora têm intent dedicada acolhedora.
+  { intencao: Intencao.DICAS_PALPITE, padroes: DICAS_PALPITE_PATTERNS },
+  { intencao: Intencao.ACOLHIMENTO_NOVATO, padroes: ACOLHIMENTO_NOVATO_PATTERNS },
   // Sprint 2: COMO_PALPITAR antes de MEU_PALPITE/PROXIMOS_JOGOS — ISSUE-017
   { intencao: Intencao.COMO_PALPITAR, padroes: COMO_PALPITAR_PATTERNS },
   // Sprint 2: INFO_PRODUTO antes de AJUDA (fallback) — ISSUE-009
@@ -702,6 +817,10 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.ABRIR_RODADA, padroes: ABRIR_RODADA_PATTERNS },
   { intencao: Intencao.SAIR_BOLAO, padroes: SAIR_BOLAO_PATTERNS },
   { intencao: Intencao.QUEM_PARTICIPA, padroes: QUEM_PARTICIPA_PATTERNS },
+  // v3.8.0: CUTUCAR_PENDENTES e PROGRESSO_PALPITES antes de MEU_PALPITE
+  // — "quem palpitou" não pode virar MEU_PALPITE (que é "MEUS palpites")
+  { intencao: Intencao.CUTUCAR_PENDENTES, padroes: CUTUCAR_PENDENTES_PATTERNS },
+  { intencao: Intencao.PROGRESSO_PALPITES, padroes: PROGRESSO_PALPITES_PATTERNS },
   // MEU_PALPITE (mais especifico) antes do PALPITES_AMBIGUO
   { intencao: Intencao.MEU_PALPITE, padroes: MEU_PALPITE_PATTERNS },
   // PALPITES_AMBIGUO so casa "palpites" sozinho — quando nada acima bateu
@@ -889,35 +1008,135 @@ export function parseIntencao(text: string): ParsedMessage {
  * Retorna `null` se nada bateu.
  */
 function tentarParsearPalpiteInline(linha: string): PalpiteInline | null {
+  // v3.10.0: validador anti-match-ruim. Se um time parseado contém placar
+  // embutido (ex: "1x1 México x África do Sul" sequestrado como timeCasa),
+  // descarta — sinal de regex pegando lixo de palpites concatenados.
+  const validar = (timeCasa: string, timeVisitante: string): boolean => {
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeCasa)) return false;
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeVisitante)) return false;
+    // Times absurdamente longos (>40 chars sem placar) são raros e
+    // geralmente sinal de match colando 2+ palpites
+    if (timeCasa.length > 40 || timeVisitante.length > 40) return false;
+    return true;
+  };
+
+  // 1) Canônico: "Time1 NxN Time2"
   const direto = linha.match(PALPITE_REGEX);
   if (direto) {
-    return {
-      timeCasa: direto[1].trim(),
-      golsCasa: parseInt(direto[2], 10),
-      golsVisitante: parseInt(direto[3], 10),
-      timeVisitante: direto[4].trim(),
-    };
+    const tc = direto[1].trim();
+    const tv = direto[4].trim();
+    if (validar(tc, tv)) {
+      return {
+        timeCasa: tc,
+        golsCasa: parseInt(direto[2], 10),
+        golsVisitante: parseInt(direto[3], 10),
+        timeVisitante: tv,
+      };
+    }
   }
 
-  // Substitui extenso no texto original (preserva case dos times)
-  // mas operando palavra a palavra de forma case-insensitive
+  // 2) v3.10.0 — INVERTIDO: "NxN Time1 x Time2" (caso real Valéria 22/05)
+  const invertido = linha.match(PALPITE_INVERTIDO_REGEX);
+  if (invertido) {
+    const tc = invertido[3].trim();
+    const tv = invertido[4].trim();
+    if (validar(tc, tv)) {
+      return {
+        timeCasa: tc,
+        golsCasa: parseInt(invertido[1], 10),
+        golsVisitante: parseInt(invertido[2], 10),
+        timeVisitante: tv,
+      };
+    }
+  }
+
+  // 3) Extenso ("dois a um") — tenta canônico + invertido com substituição
   const comDigitos = linha.replace(
     /\b(zero|um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)\b/gi,
     (m) => NUMEROS_EXTENSO[m.toLowerCase()] ?? m,
   );
   if (comDigitos !== linha) {
-    const segunda = comDigitos.match(PALPITE_REGEX);
-    if (segunda) {
-      return {
-        timeCasa: segunda[1].trim(),
-        golsCasa: parseInt(segunda[2], 10),
-        golsVisitante: parseInt(segunda[3], 10),
-        timeVisitante: segunda[4].trim(),
-      };
+    const seg = comDigitos.match(PALPITE_REGEX);
+    if (seg) {
+      const tc = seg[1].trim();
+      const tv = seg[4].trim();
+      if (validar(tc, tv)) {
+        return {
+          timeCasa: tc,
+          golsCasa: parseInt(seg[2], 10),
+          golsVisitante: parseInt(seg[3], 10),
+          timeVisitante: tv,
+        };
+      }
+    }
+    const segInv = comDigitos.match(PALPITE_INVERTIDO_REGEX);
+    if (segInv) {
+      const tc = segInv[3].trim();
+      const tv = segInv[4].trim();
+      if (validar(tc, tv)) {
+        return {
+          timeCasa: tc,
+          golsCasa: parseInt(segInv[1], 10),
+          golsVisitante: parseInt(segInv[2], 10),
+          timeVisitante: tv,
+        };
+      }
     }
   }
 
   return null;
+}
+
+/**
+ * v3.10.0 — Tokenizer: separa palpites concatenados sem quebra de linha.
+ * Caso real Valéria 22/05 (11:20): mandou 10 palpites no formato invertido
+ * separados só por espaços. PALPITE_REGEX casou o primeiro como
+ * `(time1="1x1 México x África do Sul", 1, 0, time2="Coreia do Sul x ...
+ *  Japão")` — sequestrando 9 outros palpites como "timeVisitante".
+ *
+ * Algoritmo: encontra TODOS os âncoras `NxN` na linha. Pra cada âncora,
+ * o trecho ANTES (até a âncora anterior ou início) é time1, e o trecho
+ * DEPOIS (até a próxima âncora ou fim) é... bom, é palpite-time2 +
+ * possivelmente próximo palpite-time1.
+ *
+ * Heurística adotada: se há 2+ âncoras, assume formato INVERTIDO
+ * (`N1xN1 T1a x T1b N2xN2 T2a x T2b ...`) — placar antes dos times.
+ * Caso da Valéria. O formato canônico com 2+ palpites em uma linha só
+ * (`T1a N1xN1 T1b T2a N2xN2 T2b`) é praticamente impossível porque
+ * times terminam grudados no próximo time sem separador claro.
+ */
+export function tokenizarPalpitesEmUmaLinha(linha: string): PalpiteInline[] {
+  const matches = [...linha.matchAll(PLACAR_ANCHOR_REGEX)];
+  if (matches.length < 2) return [];
+
+  const resultados: PalpiteInline[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const golsCasa = parseInt(m[1], 10);
+    const golsVisitante = parseInt(m[2], 10);
+    const inicioPlacar = m.index ?? 0;
+    const fimPlacar = inicioPlacar + m[0].length;
+    // Texto entre fim deste placar e início do próximo placar (ou fim
+    // da linha) = "Time1 x Time2" deste palpite
+    const fimTimes = i + 1 < matches.length ? (matches[i + 1].index ?? linha.length) : linha.length;
+    const blocoTimes = linha.slice(fimPlacar, fimTimes).trim();
+    // Separa "Time1 x Time2" pelo conector
+    const conector = blocoTimes.match(/^(.+?)\s+(?:[xX]|vs|contra|-)\s+(.+)$/);
+    if (!conector) continue;
+    const timeCasa = conector[1].trim();
+    const timeVisitante = conector[2].trim();
+    if (!timeCasa || !timeVisitante) continue;
+    // Anti-lixo: time não pode conter placar embutido
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeCasa)) continue;
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    if (PLACAR_ANCHOR_REGEX.test(timeVisitante)) continue;
+    if (timeCasa.length > 40 || timeVisitante.length > 40) continue;
+    resultados.push({ timeCasa, golsCasa, timeVisitante, golsVisitante });
+  }
+  return resultados;
 }
 
 /**
@@ -947,10 +1166,24 @@ export function parseMultiplePalpitesDetalhado(text: string): {
   const ok: PalpiteInline[] = [];
   const descartadas: string[] = [];
   for (const line of lines) {
+    // v3.10.0 — primeiro tenta linha como UM palpite (canônico/invertido).
     const p = tentarParsearPalpiteInline(line);
     if (p) {
       ok.push(p);
-    } else if (line.length >= 5) {
+      continue;
+    }
+    // Se falhou E a linha tem 2+ âncoras NxN, é provável "palpites
+    // concatenados sem newline" (caso Valéria 11:20). Tokeniza.
+    PLACAR_ANCHOR_REGEX.lastIndex = 0;
+    const totalAnchors = (line.match(PLACAR_ANCHOR_REGEX) ?? []).length;
+    if (totalAnchors >= 2) {
+      const tokens = tokenizarPalpitesEmUmaLinha(line);
+      if (tokens.length > 0) {
+        ok.push(...tokens);
+        continue;
+      }
+    }
+    if (line.length >= 5) {
       descartadas.push(line);
     }
   }

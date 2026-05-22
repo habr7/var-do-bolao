@@ -547,6 +547,134 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.8.0 — PROGRESSO_PALPITES', () => {
+    it('"quem palpitou?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem palpitou?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quem ja palpitou" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem ja palpitou').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quem ainda nao palpitou?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem ainda nao palpitou?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"Mais gente registrou palpites?" (caso da Jeni 22/05) → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('Mais gente registrou palpites?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"Quero ver se as pessoas que entraram registram algum palpite" (caso da Jeni 22/05) → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('Quero ver se as pessoas que entraram registram algum palpite').intencao).toBe(
+        Intencao.PROGRESSO_PALPITES,
+      );
+    });
+    it('"progresso do bolão" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('progresso do bolão').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quem ta atrasado?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quem ta atrasado?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    it('"quanto cada um palpitou?" → PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('quanto cada um palpitou?').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+    // Falsos positivos críticos: não pode virar MEU_PALPITE
+    it('"quem palpitou" NÃO cai em MEU_PALPITE (que é "MEUS palpites")', () => {
+      expect(parseIntencao('quem palpitou').intencao).not.toBe(Intencao.MEU_PALPITE);
+    });
+  });
+
+  describe('v3.8.0 — CUTUCAR_PENDENTES', () => {
+    it('"cutucar pendentes" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('cutucar pendentes').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    it('"cobrar palpites" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('cobrar palpites').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    it('"lembrar quem nao palpitou" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('lembrar quem nao palpitou').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    it('"chamar pendentes" → CUTUCAR_PENDENTES', () => {
+      expect(parseIntencao('chamar pendentes').intencao).toBe(Intencao.CUTUCAR_PENDENTES);
+    });
+    // Precedência sobre PROGRESSO_PALPITES (mais específico)
+    it('"cutucar pendentes" NÃO cai em PROGRESSO_PALPITES', () => {
+      expect(parseIntencao('cutucar pendentes').intencao).not.toBe(Intencao.PROGRESSO_PALPITES);
+    });
+  });
+
+  describe('v3.9.0 — DICAS_PALPITE (estratégia, não formato)', () => {
+    it('"você tem dicas de como montar os palpites?" (caso Valéria 22/05) → DICAS_PALPITE', () => {
+      expect(parseIntencao('você tem dicas de como montar os palpites?').intencao).toBe(
+        Intencao.DICAS_PALPITE,
+      );
+    });
+    it('"tem dicas?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('tem dicas?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"dicas pra palpitar" → DICAS_PALPITE', () => {
+      expect(parseIntencao('dicas pra palpitar').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"como eu monto um palpite?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('como eu monto um palpite?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"como decido o placar?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('como decido o placar?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"qual placar é mais comum?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('qual placar é mais comum?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"tem estratégia?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('tem estratégia?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"me ensina a palpitar" → DICAS_PALPITE', () => {
+      expect(parseIntencao('me ensina a palpitar').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    // Anti-falso-positivo: COMO_PALPITAR continua sendo COMO_PALPITAR (formato)
+    it('"como dou palpite" continua sendo COMO_PALPITAR (formato, não estratégia)', () => {
+      expect(parseIntencao('como dou palpite').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+    it('"como faço palpite" continua sendo COMO_PALPITAR', () => {
+      expect(parseIntencao('como faço palpite').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+  });
+
+  describe('v3.9.0 — ACOLHIMENTO_NOVATO (vulnerabilidade)', () => {
+    it('"nao entendo de futebol" (caso Valéria 22/05) → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('nao entendo de futebol').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"não entendo nada de futebol" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('não entendo nada de futebol').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"nao sei nada de futebol" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('nao sei nada de futebol').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"futebol não é minha praia" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('futebol não é minha praia').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"to perdida" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('to perdida').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"to perdido" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('to perdido').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"é minha primeira vez" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('é minha primeira vez').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"nunca palpitei" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('nunca palpitei').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"to com medo de errar" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('to com medo de errar').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"vou errar tudo" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('vou errar tudo').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"sou leiga em bolão" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('sou leiga em bolão').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    // Anti-falso-positivo: "perdi minha senha" não cai em ACOLHIMENTO_NOVATO
+    it('"perdi minha senha" NÃO cai em ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('perdi minha senha').intencao).not.toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+  });
+
   describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
     it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
       expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);
@@ -961,5 +1089,92 @@ Grêmio 1x2 Inter`;
 
   it('retorna array vazio se nenhum palpite', () => {
     expect(parseMultiplePalpites('oi tudo bem?')).toEqual([]);
+  });
+
+  describe('v3.10.0 — formato invertido + tokenizer (caso Valéria 22/05)', () => {
+    it('parseia uma linha invertida "1x1 México x África do Sul"', () => {
+      const r = parseMultiplePalpites('1x1 México x África do Sul');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({
+        timeCasa: 'México',
+        timeVisitante: 'África do Sul',
+        golsCasa: 1,
+        golsVisitante: 1,
+      });
+    });
+
+    it('parseia várias linhas invertidas (Valéria 11:22, 10 palpites)', () => {
+      const text = `1x1 México x África do Sul
+1x0 Coreia do Sul x República Tcheca
+0x1 Canadá x Bósnia e Herzegovina
+1x2 Estados Unidos x Paraguai
+1x0 Catar x Suíça
+2x1 Brasil x Marrocos
+1x0 Haiti x Escócia
+0x1 Austrália x Turquia
+1x2 Alemanha x Curaçao
+1x2 Holanda x Japao`;
+      const r = parseMultiplePalpites(text);
+      expect(r).toHaveLength(10);
+      expect(r[0]).toMatchObject({ timeCasa: 'México', timeVisitante: 'África do Sul' });
+      expect(r[5]).toMatchObject({ timeCasa: 'Brasil', timeVisitante: 'Marrocos', golsCasa: 2, golsVisitante: 1 });
+      expect(r[9]).toMatchObject({ timeCasa: 'Holanda', timeVisitante: 'Japao' });
+    });
+
+    it('tokeniza palpites concatenados em UMA linha sem newline (Valéria 11:20)', () => {
+      const text =
+        '1x1 México x África do Sul 1x0 Coreia do Sul x República Tcheca 0x1 Canadá x Bósnia ' +
+        '1x2 Estados Unidos x Paraguai 1x0 Catar x Suíça 2x1 Brasil x Marrocos';
+      const r = parseMultiplePalpites(text);
+      expect(r.length).toBeGreaterThanOrEqual(5);
+      // Confere que Brasil x Marrocos (último do trecho) foi capturado certo
+      const brasil = r.find((p) => p.timeCasa === 'Brasil');
+      expect(brasil).toBeDefined();
+      expect(brasil?.timeVisitante).toBe('Marrocos');
+      expect(brasil?.golsCasa).toBe(2);
+      expect(brasil?.golsVisitante).toBe(1);
+    });
+
+    it('NÃO captura "1x1 México x África do Sul" como UM palpite com timeCasa contendo placar', () => {
+      // Bug raiz: PALPITE_REGEX casaria timeCasa="1x1 México x África do Sul"
+      // e timeVisitante seria todo o resto. Validador anti-lixo deve descartar.
+      const r = parseMultiplePalpites(
+        '1x1 México x África do Sul 1x0 Coreia do Sul x República Tcheca',
+      );
+      // Não pode existir um palpite cujo time tenha "1x" embutido
+      for (const p of r) {
+        expect(p.timeCasa).not.toMatch(/\d+\s*[xX-]\s*\d+/);
+        expect(p.timeVisitante).not.toMatch(/\d+\s*[xX-]\s*\d+/);
+      }
+    });
+
+    it('formato canônico continua funcionando (anti-regressão)', () => {
+      const text = `Flamengo 2x1 Palmeiras
+Corinthians 0x0 São Paulo`;
+      const r = parseMultiplePalpites(text);
+      expect(r).toHaveLength(2);
+      expect(r[0].timeCasa).toBe('Flamengo');
+    });
+
+    it('mistura formato canônico e invertido', () => {
+      const text = `Brasil 2x1 Marrocos
+1x0 Argentina x Peru`;
+      const r = parseMultiplePalpites(text);
+      expect(r).toHaveLength(2);
+      expect(r[0].timeCasa).toBe('Brasil');
+      expect(r[1]).toMatchObject({ timeCasa: 'Argentina', timeVisitante: 'Peru', golsCasa: 1, golsVisitante: 0 });
+    });
+
+    it('separador "vs" funciona no invertido', () => {
+      const r = parseMultiplePalpites('2-1 Brasil vs Argentina');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'Brasil', timeVisitante: 'Argentina', golsCasa: 2, golsVisitante: 1 });
+    });
+
+    it('separador "a" funciona no invertido', () => {
+      const r = parseMultiplePalpites('2 a 1 Brasil x Argentina');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'Brasil', timeVisitante: 'Argentina', golsCasa: 2, golsVisitante: 1 });
+    });
   });
 });
