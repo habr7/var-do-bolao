@@ -232,11 +232,39 @@ o que ainda nao palpitei?
 lista de jogos
 mostra os jogos
 ```
-→ Só lista bolões **ATIVOS**. Se o usuário só tem bolões encerrados, o bot
+→ Mostra um lote de até **10 jogos cronológicos** abertos da rodada, com ✅/⚪
+de palpite + rodapé honesto: *"Mostrando jogos 1–10 de 72 da rodada. Palpites
+seus neste lote: 4/10. Faltam 68 palpite(s) no bolão. Manda **mais jogos**
+pra ver os próximos 10."* (v3.5.0). Reseta paginação a cada chamada.
+
+Só lista bolões **ATIVOS**. Se o usuário só tem bolões encerrados, o bot
 detecta o caso e responde com mensagem **auto-diagnóstica** ("Você tem N
 bolão(ões) encerrado(s). Manda *ranking* pra ver o resultado final ou
 *meus palpites* pra ver o histórico.") — em vez do genérico "não participa
 de nenhum bolão" que contradizia a notificação anterior do bot.
+
+### Mais jogos (paginação — v3.5.0)
+```
+mais jogos
+mais palpites
+próximos 10
+outros jogos
+tem mais jogos?
+quero ver mais
+continuar palpitando
+```
+→ Avança o ponteiro em +10 e mostra o próximo lote da rodada. Cada bolão tem
+seu próprio offset (Redis, TTL 60min). Quando estoura o total, volta pro topo
+com aviso *"Você já tinha visto até o fim — voltei pro topo da lista pra
+continuar."*
+
+**Cutucada automática**: depois que o usuário palpita em todos os jogos do
+lote visível, o bot manda follow-up oferecendo o próximo lote (idempotente:
+1x por bolão a cada 30min).
+
+💡 **Multi-palpite**: a janela aberta após "próximos jogos" aceita várias
+linhas / vírgula numa mensagem só. Ex: *"Brasil 2x1 Marrocos, México 1x1
+África do Sul"*.
 
 ### Jogos hoje
 ```

@@ -16,9 +16,13 @@ import {
   abrirJanelaPalpiteLivre,
   janelaPalpiteLivreAtiva,
   fecharJanelaPalpiteLivre,
+  setProximosJogosOffset,
+  getProximosJogosOffset,
+  resetProximosJogosOffset,
   type Session,
 } from './session.manager.js';
 import { env } from '../config/env.js';
+import { redis } from '../config/redis.js';
 import * as bolaoService from '../modules/bolao/bolao.service.js';
 // PIX desativado nesta fase — ver handleCriandoBolaoSenha mais abaixo.
 // import * as pagamentoService from '../modules/pagamento/pagamento.service.js';
@@ -428,6 +432,10 @@ async function dispatchIntencao(
     case Intencao.JOGOS_HOJE:
     case Intencao.PROXIMOS_JOGOS:
       await handleProximosJogos(msg, usuarioId);
+      return true;
+
+    case Intencao.MAIS_JOGOS:
+      await handleMaisJogos(msg, usuarioId);
       return true;
 
     case Intencao.ABRIR_RODADA:
@@ -1587,6 +1595,11 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
   }
 
   await sendText({ to: msg.waId, text: resposta });
+
+  // v3.5.0: oferece mais jogos se fechou o lote
+  if (registrados > 0) {
+    await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
+  }
 }
 
 // ============================================================
@@ -2082,6 +2095,11 @@ async function registrarPalpitesConfirmados(
   let resposta = `${confirmacao()} ${registrados} palpite(s) registrado(s) no *${bolaoNome}*!`;
   if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
   await sendText({ to: msg.waId, text: resposta });
+
+  // v3.5.0: se o user fechou todos os jogos do lote visível, oferece mais
+  if (registrados > 0) {
+    await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
+  }
 }
 
 /**
@@ -3378,7 +3396,49 @@ async function handleConfirmandoRecusarNomeado(
  * bolao pra nao estourar 4kb do WhatsApp. Se nao houver rodada aberta
  * em lugar nenhum, explica que nao tem jogo aberto pra palpite agora.
  */
+const PROXIMOS_JOGOS_LOTE = 10;
+
+/**
+ * Handler do PROXIMOS_JOGOS — reseta paginação (offset = 0) e mostra o
+ * 1º lote de 10 jogos abertos da rodada de cada bolão ativo. Usado
+ * também quando user manda "jogos hoje".
+ *
+ * Pra paginar (lotes 11-20, 21-30, etc) o user manda "mais jogos" →
+ * cai em `handleMaisJogos` que avança o offset salvo no Redis.
+ */
 async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
+  await mostrarProximosJogos(msg, usuarioId, { resetOffset: true });
+}
+
+/**
+ * Handler do MAIS_JOGOS (v3.5.0) — avança a paginação em +10 por bolão.
+ * Se for a 1ª vez (sem offset salvo), comporta-se como PROXIMOS_JOGOS.
+ */
+async function handleMaisJogos(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.MAIS_JOGOS');
+  await mostrarProximosJogos(msg, usuarioId, { resetOffset: false, avancar: true });
+}
+
+/**
+ * Núcleo compartilhado entre PROXIMOS_JOGOS e MAIS_JOGOS.
+ *
+ * Por bolão:
+ *  - Busca TODOS os jogos abertos da rodada (sem `take`) — precisa do
+ *    total pra mostrar contador honesto e detectar fim do scroll.
+ *  - Aplica offset (persistido em Redis por bolão) + slice de 10.
+ *  - Conta palpites do user no lote visível + na rodada inteira.
+ *  - Persiste o offset usado.
+ *
+ * Decisões:
+ *  - `resetOffset: true` (PROXIMOS_JOGOS) sempre começa do 0.
+ *  - `avancar: true` (MAIS_JOGOS) soma +10 ao offset anterior. Se isso
+ *    estourar o total da rodada, volta pro topo e avisa.
+ */
+async function mostrarProximosJogos(
+  msg: IncomingMessage,
+  usuarioId: string,
+  opts: { resetOffset?: boolean; avancar?: boolean } = {},
+) {
   const boloes = await bolaoService.listarBoloesAtivosDoUsuario(usuarioId);
   if (boloes.length === 0) {
     // HOTFIX 17/05: detecta caso "so tem encerrados" pra nao contradizer
@@ -3407,31 +3467,56 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
 
   const agora = new Date();
   const partes: string[] = [];
+  let algumLoteVoltouAoTopo = false;
 
   for (const b of boloes) {
-    // Pega a rodada mais recente ABERTA pra esse bolao (caso geral em
-    // Copa: uma rodada so com varios jogos espalhados ao longo da fase).
     const rodada = await prisma.rodada.findFirst({
       where: { bolaoId: b.id, status: 'ABERTA' },
       include: {
         jogos: {
           where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
           orderBy: { dataHora: 'asc' },
-          take: 10,
         },
       },
     });
 
     if (!rodada || rodada.jogos.length === 0) continue;
 
-    // Quais jogos o usuario ja palpitou?
     const palpite = await prisma.palpite.findUnique({
       where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
       include: { jogos: true },
     });
     const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
 
-    const linhas = rodada.jogos.map((j) => {
+    const totalRodada = rodada.jogos.length;
+    const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
+
+    // Resolver offset deste bolão
+    let offset: number;
+    if (opts.resetOffset) {
+      offset = 0;
+      await resetProximosJogosOffset(msg.waId, b.id);
+    } else if (opts.avancar) {
+      const atual = await getProximosJogosOffset(msg.waId, b.id);
+      offset = atual + PROXIMOS_JOGOS_LOTE;
+      if (offset >= totalRodada) {
+        // Estourou: volta pro topo e sinaliza
+        offset = 0;
+        algumLoteVoltouAoTopo = true;
+      }
+    } else {
+      offset = await getProximosJogosOffset(msg.waId, b.id);
+      if (offset >= totalRodada) offset = 0;
+    }
+
+    const lote = rodada.jogos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
+    if (lote.length === 0) continue;
+
+    const palpitadosNoLote = lote.filter((j) => palpitadosIds.has(j.id)).length;
+    const pendentesRodada = totalRodada - palpitadosTotal;
+    const fimDoLote = offset + lote.length;
+
+    const linhas = lote.map((j) => {
       const data = j.dataHora.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
@@ -3442,12 +3527,26 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
       return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}`;
     });
 
-    const faltam = rodada.jogos.filter((j) => !palpitadosIds.has(j.id)).length;
-    partes.push(
-      `🏆 *${b.nome}*\n` +
-      linhas.join('\n') +
-      (faltam > 0 ? `\n_Faltam *${faltam}* palpite(s) — manda no formato \`Time1 NxN Time2\` pra registrar._` : '\n_Todos os palpites desta rodada já estão registrados! 🍀_'),
+    // Rodapé honesto: contador + indicação se há mais jogos
+    const temMais = fimDoLote < totalRodada;
+    const rodape: string[] = [];
+    rodape.push(
+      `📊 Mostrando jogos *${offset + 1}–${fimDoLote}* de *${totalRodada}* da rodada. ` +
+        `Palpites seus neste lote: *${palpitadosNoLote}/${lote.length}*. ` +
+        `Faltam *${pendentesRodada}* palpite(s) no bolão.`,
     );
+    if (temMais) {
+      rodape.push(`➡️ Manda *mais jogos* pra ver os próximos ${Math.min(PROXIMOS_JOGOS_LOTE, totalRodada - fimDoLote)}.`);
+    } else if (pendentesRodada === 0) {
+      rodape.push(`🎉 Você já palpitou em *todos* os ${totalRodada} jogos abertos. Bolão fechado pelo seu lado!`);
+    } else {
+      rodape.push(`🔁 Fim da lista. Manda *próximos jogos* pra voltar ao topo.`);
+    }
+
+    partes.push(`🏆 *${b.nome}*\n${linhas.join('\n')}\n\n${rodape.join('\n')}`);
+
+    // Persiste o offset usado pra próxima chamada de "mais jogos"
+    await setProximosJogosOffset(msg.waId, b.id, offset);
   }
 
   if (partes.length === 0) {
@@ -3460,14 +3559,99 @@ async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
+  const aviso = algumLoteVoltouAoTopo
+    ? '\n\n_(Você já tinha visto até o fim — voltei pro topo da lista pra continuar)_'
+    : '';
+
   await sendText({
     to: msg.waId,
-    text: `📅 *Próximos jogos:*\n\n${partes.join('\n\n')}\n\n_✅ = você já palpitou • ⚪ = falta palpitar_\n\n💡 _Pode mandar palpites de qualquer formato: "Brasil 2x1 Marrocos", "Brasil 2 a 1 Marrocos", ou ate "2 a zero pra Brasil contra Marrocos"._`,
+    text:
+      `📅 *Próximos jogos:*\n\n${partes.join('\n\n')}` +
+      aviso +
+      `\n\n_✅ = você já palpitou • ⚪ = falta palpitar_\n\n` +
+      `💡 _Pode mandar *vários palpites de uma vez*, separados por vírgula ou em linhas diferentes._\n` +
+      `_Ex: "Brasil 2x1 Marrocos, México 1x1 África do Sul" — registra ambos numa tacada._`,
   });
 
   // Abre janela de palpite livre — proximas msgs em IDLE serao
   // testadas via LLM extrator mesmo se nao casarem regex.
   await abrirJanelaPalpiteLivre(msg.waId);
+}
+
+/**
+ * Cutucada inline (v3.5.0) — chamada após registrar palpite. Se o
+ * usuário acabou de completar TODOS os jogos do último lote visto E
+ * ainda há jogos pendentes na rodada, oferece o próximo lote.
+ *
+ * Idempotente via flag Redis (`pj_oferta:{waId}:{bolaoId}`) com TTL
+ * curto — não cutuca duas vezes seguidas pelo mesmo evento.
+ *
+ * Não cutuca quando:
+ *  - Offset = 0 e ninguém tinha visto lista ainda (palpite avulso fora do fluxo).
+ *  - Já palpitou em tudo da rodada (manda parabens completo via outro caminho).
+ *  - Falha em ler dados (silencioso — não trava o fluxo principal).
+ */
+async function talvezOferecerMaisJogos(
+  msg: IncomingMessage,
+  usuarioId: string,
+  rodadaId: string,
+): Promise<void> {
+  try {
+    const agora = new Date();
+    const rodada = await prisma.rodada.findUnique({
+      where: { id: rodadaId },
+      include: {
+        jogos: {
+          where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+          orderBy: { dataHora: 'asc' },
+        },
+      },
+    });
+    if (!rodada || rodada.jogos.length === 0) return;
+    const bolaoId = rodada.bolaoId;
+
+    // Só oferta se houve `próximos jogos` antes (offset salvo).
+    const offsetSalvo = await getProximosJogosOffset(msg.waId, bolaoId);
+
+    const palpite = await prisma.palpite.findUnique({
+      where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
+      include: { jogos: true },
+    });
+    const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
+
+    const totalRodada = rodada.jogos.length;
+    const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
+    const pendentes = totalRodada - palpitadosTotal;
+
+    // Já palpitou em tudo? Sem mais oferta.
+    if (pendentes === 0) return;
+
+    // Lote em foco: do offset salvo até offset+10
+    const lote = rodada.jogos.slice(offsetSalvo, offsetSalvo + PROXIMOS_JOGOS_LOTE);
+    if (lote.length === 0) return;
+
+    const palpitadosNoLote = lote.filter((j) => palpitadosIds.has(j.id)).length;
+    // Só cutuca quando o lote inteiro está completo
+    if (palpitadosNoLote < lote.length) return;
+
+    // Idempotência: não cutuca de novo nas próximas 30 min pelo mesmo bolão
+    const flagKey = `pj_oferta:${msg.waId}:${bolaoId}`;
+    const flag = await redis.get(flagKey);
+    if (flag) return;
+    await redis.setex(flagKey, 30 * 60, '1');
+
+    const proximoLote = Math.min(PROXIMOS_JOGOS_LOTE, pendentes);
+    await sendText({
+      to: msg.waId,
+      text:
+        `🔥 Fechou esses ${lote.length} 👏 Tá em dia com os palpites do lote!\n\n` +
+        `📋 Ainda tem *${pendentes}* jogo(s) abertos no bolão pra você palpitar (libera até pouco antes do kickoff de cada um).\n\n` +
+        `➡️ Manda *mais jogos* pra ver os próximos ${proximoLote}.`,
+    });
+  } catch (err) {
+    // Não trava o fluxo principal se algo falhar aqui
+    console.warn('[talvezOferecerMaisJogos] erro silencioso:', err);
+  }
 }
 
 // ============================================================

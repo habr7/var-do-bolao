@@ -219,3 +219,34 @@ export async function janelaPalpiteLivreAtiva(waId: string): Promise<boolean> {
 export async function fecharJanelaPalpiteLivre(waId: string): Promise<void> {
   await redis.del(`${PALPITE_WINDOW_PREFIX}${waId}`);
 }
+
+/**
+ * Offset de paginação do `handleProximosJogos` por bolão. Persiste qual
+ * lote de 10 jogos o usuário viu por último em cada bolão dele, pra que
+ * `mais jogos` (intent MAIS_JOGOS) avance corretamente.
+ *
+ * - `próximos jogos` reseta offset = 0.
+ * - `mais jogos` busca offset atual e soma 10.
+ * - TTL 60min: tempo razoável pra continuar o fluxo. Após isso, "mais
+ *   jogos" cai pro topo de novo (offset = 0).
+ */
+const PROXIMOS_JOGOS_OFFSET_PREFIX = 'pj_offset:';
+const PROXIMOS_JOGOS_OFFSET_TTL_SECONDS = 60 * 60;
+
+export async function setProximosJogosOffset(
+  waId: string,
+  bolaoId: string,
+  offset: number,
+): Promise<void> {
+  const key = `${PROXIMOS_JOGOS_OFFSET_PREFIX}${waId}:${bolaoId}`;
+  await redis.setex(key, PROXIMOS_JOGOS_OFFSET_TTL_SECONDS, String(offset));
+}
+
+export async function getProximosJogosOffset(waId: string, bolaoId: string): Promise<number> {
+  const v = await redis.get(`${PROXIMOS_JOGOS_OFFSET_PREFIX}${waId}:${bolaoId}`);
+  return v ? parseInt(v, 10) : 0;
+}
+
+export async function resetProximosJogosOffset(waId: string, bolaoId: string): Promise<void> {
+  await redis.del(`${PROXIMOS_JOGOS_OFFSET_PREFIX}${waId}:${bolaoId}`);
+}

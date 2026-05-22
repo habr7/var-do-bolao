@@ -154,6 +154,38 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('variantes naturais — MAIS_JOGOS (v3.5.0 paginação)', () => {
+    it('"mais jogos"', () => {
+      expect(parseIntencao('mais jogos').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"mais palpites"', () => {
+      expect(parseIntencao('mais palpites').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"próximos 10 jogos"', () => {
+      expect(parseIntencao('próximos 10 jogos').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"outros jogos"', () => {
+      expect(parseIntencao('outros jogos').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"tem mais jogos?"', () => {
+      expect(parseIntencao('tem mais jogos?').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"quero ver mais"', () => {
+      expect(parseIntencao('quero ver mais').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"continuar palpitando"', () => {
+      expect(parseIntencao('continuar palpitando').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    it('"ver mais"', () => {
+      expect(parseIntencao('ver mais').intencao).toBe(Intencao.MAIS_JOGOS);
+    });
+    // MAIS_JOGOS precisa ter precedência sobre PROXIMOS_JOGOS — se cair em
+    // PROXIMOS_JOGOS, reseta offset e a paginação quebra.
+    it('"mais jogos" NÃO cai em PROXIMOS_JOGOS', () => {
+      expect(parseIntencao('mais jogos').intencao).not.toBe(Intencao.PROXIMOS_JOGOS);
+    });
+  });
+
   describe('variantes naturais — MEUS_PONTOS', () => {
     it('"quanto eu fiz"', () => {
       expect(parseIntencao('quanto eu fiz').intencao).toBe(Intencao.MEUS_PONTOS);
