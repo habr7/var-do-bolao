@@ -27,6 +27,8 @@ export enum Intencao {
   MAIS_JOGOS = 'MAIS_JOGOS',         // proximo lote de 10 jogos (paginacao de PROXIMOS_JOGOS)
   PROGRESSO_PALPITES = 'PROGRESSO_PALPITES', // v3.8.0 — quem ja palpitou / quem falta no bolao (visivel pra todos)
   CUTUCAR_PENDENTES = 'CUTUCAR_PENDENTES',   // v3.8.0 — admin manda DM pra quem ainda nao palpitou
+  DICAS_PALPITE = 'DICAS_PALPITE',           // v3.9.0 — "tem dicas?", "como monto palpite", "qual placar comum"
+  ACOLHIMENTO_NOVATO = 'ACOLHIMENTO_NOVATO', // v3.9.0 — "nao entendo de futebol", "to perdida", "primeira vez"
   MEU_PALPITE = 'MEU_PALPITE',
   ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
@@ -545,6 +547,57 @@ const INFO_PRECO_PATTERNS: RegExp[] = [
   /\bcobra (?:alguma )?taxa\b/,
 ];
 
+// v3.9.0 — DICAS_PALPITE: usuario quer ESTRATEGIA pra montar palpite.
+// Distinto de COMO_PALPITAR (formato/sintaxe) e de INFO_PRODUTO (pitch).
+// Caso real Valeria 22/05: "voce tem dicas de como montar os palpites?"
+// caiu em INFO_PRODUTO porque "como" + "palpites" matchou heuristica errada.
+//
+// Resposta determinística: pontuação resumida + placares comuns em Copa +
+// 4 dicas práticas (palpita em tudo, foca em vencedor, vai no coração se
+// não souber, dá pra editar). NÃO dá dica de aposta (só de uso do bolão).
+const DICAS_PALPITE_PATTERNS: RegExp[] = [
+  /\btem (?:alguma )?dicas?\b/,
+  /\bdicas? (?:de |pra |para )?palpit(?:ar|e)/,
+  /\bdicas? (?:de |pra |para )?(?:montar|fazer|dar) palpite/,
+  /\b(?:tem |alguma )?dicas? (?:boas? )?pra (?:eu )?palpitar/,
+  /\bdica (?:de |para |pra )?bol[ãa]o/,
+  /\bcomo (?:eu )?(?:monto|montar) (?:um |o |os |meus? )?palpites?/,
+  /\bcomo (?:eu )?decid(?:o|ir) (?:o |um |meu )?(?:palpite|placar)/,
+  /\bcomo (?:eu )?escolh(?:o|er) (?:o |um |meu )?(?:palpite|placar|time)/,
+  /\bqual (?:o |eh o )?melhor (?:palpite|placar|chute)/,
+  /\bqual (?:o |eh o )?palpite (?:bom|melhor|certo|ideal)/,
+  /\bqual placar (?:eh |e )?(?:mais )?(?:comum|provavel|prov[áa]vel)/,
+  /\b(?:tem |existe |alguma )?estrat[eé]gia\b/,
+  /\b(?:tem |existe |algum )?segredo (?:de |pra |para )?palpit/,
+  /\bme ensina (?:a |como )?palpitar/,
+  /\bme d[áa] uma (?:dica|luz)/,
+];
+
+// v3.9.0 — ACOLHIMENTO_NOVATO: usuario expressa inseguranca/vulnerabilidade
+// ("nao entendo de futebol", "to perdida", "primeira vez", "vou errar
+// tudo"). Caso real Valeria 22/05: "nao entendo de futebol" caiu em
+// fallback genérico, perdendo oportunidade de engajamento.
+//
+// Resposta acolhedora: "relaxa, não precisa entender nada" + validação
+// (gente palpita no coração e ganha) + 3 passos básicos + CTAs leves.
+const ACOLHIMENTO_NOVATO_PATTERNS: RegExp[] = [
+  /\b(?:nao|n[ãa]o) (?:entendo|sei|manjo|saco) (?:nada |muito |bem )?(?:de |sobre )?futebol/,
+  /\b(?:nao|n[ãa]o) (?:conheco|conheço) (?:nada |muito )?(?:de |sobre )?futebol/,
+  /\b(?:nao|n[ãa]o) sou (?:muito )?(?:de |fa de |f[ãa] de )futebol/,
+  /\bfutebol (?:nao|n[ãa]o) (?:eh |e )?(?:meu |minha )?(?:forte|coisa|praia)/,
+  /\b(?:to|tou|estou) (?:meio |bem |totalmente )?perdid[ao]\b/,
+  /\b(?:eh|e|sou) (?:a |minha |meu |novo |nova )?(?:primeira vez|novat[oa])\b/,
+  /\bprimeira vez (?:que |aqui )?(?:palpit|jog|fa[cç]o|no bol)/,
+  /\bnunca (?:palpitei|joguei|fiz )(?:bol[ãa]o|isso)?/,
+  /\bnunca (?:fiz |participei )(?:de )?bol[ãa]o/,
+  /\b(?:to|tou|estou) (?:com )?medo de errar/,
+  /\b(?:vou|posso) errar tudo\b/,
+  /\b(?:nao|n[ãa]o) sei (?:qual|que) time/,
+  /\b(?:nao|n[ãa]o) sei (?:nem )?quem (?:joga|vai jogar|ta jogando)/,
+  /\bsou (?:leiga|leigo|iniciante|novata?o?) (?:em |de )?(?:futebol|bol[ãa]o)/,
+  /\b(?:nao|n[ãa]o) sei (?:nada )?(?:do |sobre )?(?:bol[ãa]o|isso)\b/,
+];
+
 // ISSUE-017: "como dou palpite", "como palpitar", "como faco palpite"
 // Distinto de PROXIMOS_JOGOS ("quero palpitar"): aqui o user quer SABER COMO,
 // nao iniciar o ato. PROXIMOS_JOGOS usa verbo de acao + obj; este usa "como" + verbo.
@@ -727,6 +780,12 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.APAGAR_PALPITE, padroes: APAGAR_PALPITE_PATTERNS },
   // Sprint 2: EDITAR_PALPITE antes de MEU_PALPITE/PALPITE_INLINE — ISSUE-011
   { intencao: Intencao.EDITAR_PALPITE, padroes: EDITAR_PALPITE_PATTERNS },
+  // v3.9.0: DICAS_PALPITE e ACOLHIMENTO_NOVATO ANTES de COMO_PALPITAR e
+  // INFO_PRODUTO — são mais específicos. Bug Valéria 22/05: "tem dicas
+  // de como montar palpites" virava INFO_PRODUTO; "nao entendo de
+  // futebol" virava fallback. Agora têm intent dedicada acolhedora.
+  { intencao: Intencao.DICAS_PALPITE, padroes: DICAS_PALPITE_PATTERNS },
+  { intencao: Intencao.ACOLHIMENTO_NOVATO, padroes: ACOLHIMENTO_NOVATO_PATTERNS },
   // Sprint 2: COMO_PALPITAR antes de MEU_PALPITE/PROXIMOS_JOGOS — ISSUE-017
   { intencao: Intencao.COMO_PALPITAR, padroes: COMO_PALPITAR_PATTERNS },
   // Sprint 2: INFO_PRODUTO antes de AJUDA (fallback) — ISSUE-009

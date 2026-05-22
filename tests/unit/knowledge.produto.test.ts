@@ -96,6 +96,16 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/placar.*privado/);
   });
 
+  it('v3.9.0 — knowledge cobre tom pra novato/inseguro (caso Valéria 22/05)', () => {
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o entendo de futebol/);
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('acolhimento_novato');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toContain('dicas_palpite');
+    // Cita placares comuns como fato histórico
+    expect(KNOWLEDGE_PRODUTO).toMatch(/1x0|2x1/);
+    // Proíbe LLM de dar palpite/predição
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/n[ãa]o.*dica de aposta|n[ãa]o.*predi[cç][ãa]o/);
+  });
+
   it('v3.8.0 — tem legenda de emoji (resolve "por que Fulano tem emoji?")', () => {
     expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('LEGENDA DE EMOJI');
     // 👑 e a explicação dele

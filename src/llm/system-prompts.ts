@@ -49,6 +49,8 @@ INTENCOES:
 - MEU_PALPITE: ver palpites JA dados PELO PROPRIO USER. Ex: "meus palpites", "o que eu chutei?", "quais palpites dei?".
 - PROGRESSO_PALPITES: ver quem JA palpitou / quem falta NO BOLAO (dos OUTROS participantes). Ex: "quem ja palpitou?", "quem ainda nao palpitou?", "mais gente registrou palpites?", "quanto cada um palpitou?", "progresso do bolao", "quem ta atrasado". Distinto de MEU_PALPITE (que e sobre o proprio user).
 - CUTUCAR_PENDENTES: admin pede pra bot mandar lembrete pra quem ainda nao palpitou. Ex: "cutucar pendentes", "lembrar quem nao palpitou", "cobrar palpites", "chamar pendentes".
+- DICAS_PALPITE: user quer ESTRATEGIA pra montar palpite (nao formato). Ex: "tem dicas?", "como monto/decido o palpite?", "qual placar e mais comum?", "tem estrategia?", "qual o melhor palpite?". Distinto de COMO_PALPITAR (formato/sintaxe "Brasil 2x1") e de INFO_PRODUTO (pitch do produto).
+- ACOLHIMENTO_NOVATO: user expressa inseguranca/vulnerabilidade. Ex: "nao entendo de futebol", "nao sei nada de futebol", "to perdida/perdido", "e minha primeira vez", "nunca palpitei", "to com medo de errar", "vou errar tudo", "sou leiga". Resposta acolhedora, NAO menu generico.
 - ABRIR_RODADA: admin quer abrir/iniciar uma rodada. Ex: "abrir rodada", "como inicio a rodada", "começar bolão".
 - COMO_CONVIDAR: admin quer compartilhar bolao. Ex: "como convido", "manda o convite", "pegar o ID do bolão".
 - SAIR_BOLAO: quer sair de um bolao. Ex: "sair do bolão", "não quero mais jogar", "me remove".

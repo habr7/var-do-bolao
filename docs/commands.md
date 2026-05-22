@@ -524,6 +524,50 @@ pingar pendentes
 Se admin tem >1 bolão e nenhum padrão setado, bot pede pra definir um
 padrão primeiro com `definir bolão padrão`.
 
+## Onboarding leve pra novato (v3.9.0)
+
+### Dicas pra montar palpite
+```
+dicas
+tem dicas?
+dicas pra palpitar
+como eu monto um palpite?
+como decido o placar?
+qual placar é mais comum?
+tem estratégia?
+me ensina a palpitar
+```
+→ Bot responde com:
+- *Pontuação resumida* (10/7/5/3/0)
+- *Placares mais comuns em Copa*: 1x0, 2x1, 2x0, 1x1, 0x0 (fato histórico)
+- *4 dicas práticas*: (1) palpita em TODOS os jogos, (2) foco em vencedor (3pts e fácil), (3) coração/aleatório quando não sabe, (4) dá pra editar até o jogo começar
+- CTA: `próximos jogos`
+
+> ⚠️ Bot NÃO dá dica de aposta nem predição de jogo específico — só
+> estratégia genérica de uso do bolão.
+
+### Acolhimento de novato
+```
+nao entendo de futebol
+nao sei nada de futebol
+futebol não é minha praia
+to perdida / to perdido
+é minha primeira vez
+nunca palpitei
+to com medo de errar / vou errar tudo
+sou leiga/iniciante em bolão
+```
+→ Bot responde com tom acolhedor (não condescendente):
+- *"Relaxa! Não precisa entender nada de futebol pra palpitar"*
+- Validação: gente palpita no aleatório/coração/cor da camisa e ganha
+- 3 passos básicos (palpita placar → ganha pontos → erra? sem stress)
+- CTAs leves: `dicas`, `regras`, `próximos jogos` (se já tá em bolão) ou `entrar em bolão` (se não)
+
+Caso real que motivou (Valéria Midon 22/05/2026):
+- *"você tem dicas de como montar os palpites?"* → bot dava pitch genérico de INFO_PRODUTO
+- *"nao entendo de futebol"* → bot caía em fallback "Não peguei essa, craque"
+- Agora ambos vão pros handlers dedicados.
+
 ## Editar e apagar palpite
 
 ### Editar (substituir placar)

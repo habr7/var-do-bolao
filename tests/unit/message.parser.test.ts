@@ -599,6 +599,82 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.9.0 — DICAS_PALPITE (estratégia, não formato)', () => {
+    it('"você tem dicas de como montar os palpites?" (caso Valéria 22/05) → DICAS_PALPITE', () => {
+      expect(parseIntencao('você tem dicas de como montar os palpites?').intencao).toBe(
+        Intencao.DICAS_PALPITE,
+      );
+    });
+    it('"tem dicas?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('tem dicas?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"dicas pra palpitar" → DICAS_PALPITE', () => {
+      expect(parseIntencao('dicas pra palpitar').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"como eu monto um palpite?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('como eu monto um palpite?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"como decido o placar?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('como decido o placar?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"qual placar é mais comum?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('qual placar é mais comum?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"tem estratégia?" → DICAS_PALPITE', () => {
+      expect(parseIntencao('tem estratégia?').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    it('"me ensina a palpitar" → DICAS_PALPITE', () => {
+      expect(parseIntencao('me ensina a palpitar').intencao).toBe(Intencao.DICAS_PALPITE);
+    });
+    // Anti-falso-positivo: COMO_PALPITAR continua sendo COMO_PALPITAR (formato)
+    it('"como dou palpite" continua sendo COMO_PALPITAR (formato, não estratégia)', () => {
+      expect(parseIntencao('como dou palpite').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+    it('"como faço palpite" continua sendo COMO_PALPITAR', () => {
+      expect(parseIntencao('como faço palpite').intencao).toBe(Intencao.COMO_PALPITAR);
+    });
+  });
+
+  describe('v3.9.0 — ACOLHIMENTO_NOVATO (vulnerabilidade)', () => {
+    it('"nao entendo de futebol" (caso Valéria 22/05) → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('nao entendo de futebol').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"não entendo nada de futebol" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('não entendo nada de futebol').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"nao sei nada de futebol" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('nao sei nada de futebol').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"futebol não é minha praia" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('futebol não é minha praia').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"to perdida" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('to perdida').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"to perdido" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('to perdido').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"é minha primeira vez" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('é minha primeira vez').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"nunca palpitei" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('nunca palpitei').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"to com medo de errar" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('to com medo de errar').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"vou errar tudo" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('vou errar tudo').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    it('"sou leiga em bolão" → ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('sou leiga em bolão').intencao).toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+    // Anti-falso-positivo: "perdi minha senha" não cai em ACOLHIMENTO_NOVATO
+    it('"perdi minha senha" NÃO cai em ACOLHIMENTO_NOVATO', () => {
+      expect(parseIntencao('perdi minha senha').intencao).not.toBe(Intencao.ACOLHIMENTO_NOVATO);
+    });
+  });
+
   describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
     it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
       expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);

@@ -492,6 +492,15 @@ async function dispatchIntencao(
       await handleComoPalpitar(msg, usuarioId);
       return true;
 
+    // v3.9.0 — onboarding leve pra novato (caso Valéria 22/05)
+    case Intencao.DICAS_PALPITE:
+      await handleDicasPalpite(msg, usuarioId);
+      return true;
+
+    case Intencao.ACOLHIMENTO_NOVATO:
+      await handleAcolhimentoNovato(msg, usuarioId);
+      return true;
+
     case Intencao.QUANDO_COMECA:
       await handleQuandoComeca(msg, usuarioId);
       return true;
@@ -939,6 +948,98 @@ async function handleComoPalpitar(msg: IncomingMessage, usuarioId: string) {
     texto += `\n\nVocê ainda não está em nenhum bolão. Manda *entrar em bolão* pra começar.`;
   } else {
     texto += `\n\nManda *próximos jogos* pra ver os jogos abertos pra palpitar agora.`;
+  }
+
+  await sendText({ to: msg.waId, text: texto });
+}
+
+// ============================================================
+// v3.9.0 — DICAS_PALPITE: estratégia (não formato)
+// ============================================================
+/**
+ * Resposta determinística pra "tem dicas?", "como monto palpite?", "qual
+ * placar é mais comum?". NÃO dá dica de aposta (regras de aposta nem
+ * fazem sentido aqui — bolão é de pontos, não de dinheiro). Só dá:
+ *
+ * - Resumo da pontuação (10/7/5/3/0) — quem entende o sistema palpita melhor
+ * - Placares mais comuns em Copa do Mundo (fato histórico, não predição)
+ * - 4 dicas práticas de uso do bolão
+ *
+ * Pessoa real que motivou (Valéria 22/05): perguntou "você tem dicas de
+ * como montar os palpites?" e bot deu pitch do produto. Resposta atual
+ * é acolhedora e prática.
+ */
+async function handleDicasPalpite(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.DICAS_PALPITE');
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+
+  let texto =
+    `🎯 *Dicas pra montar palpite*\n\n` +
+    `O bolão é mais sobre diversão que sobre acerto perfeito — mas se quer estratégia, vamos lá:\n\n` +
+    `📊 *Como pontua* (manda *regras* pra ver completo):\n` +
+    `• Placar exato → *10 pts*\n` +
+    `• Diferença de gols certa → *7 pts*\n` +
+    `• Vencedor + 1 gol certo → *5 pts*\n` +
+    `• Só o vencedor → *3 pts*\n` +
+    `• Errou tudo → *0*\n\n` +
+    `⚽ *Placares mais comuns em Copa do Mundo*:\n` +
+    `\`1x0\`, \`2x1\`, \`2x0\`, \`1x1\`, \`0x0\`\n\n` +
+    `🧠 *Dicas práticas*:\n` +
+    `1. *Palpita em TODOS os jogos* — só pontua quem tem palpite registrado. Em branco vale zero.\n` +
+    `2. *Foco no vencedor*: acertar só quem ganha já dá 3 pts e é bem mais fácil que cravar placar exato.\n` +
+    `3. *Não sabe nada do jogo?* Vai no coração, na sorte, no time da casa. Gente que palpita \`1x0\` sempre costuma ir bem.\n` +
+    `4. *Dá pra editar* — manda *corrigir palpite* até o jogo começar. Mudou de ideia? Sem problema.`;
+
+  if (boloes.length === 0) {
+    texto += `\n\n*Bora começar?* Manda *entrar em bolão* pra entrar em algum. 🍀`;
+  } else {
+    texto += `\n\n*Bora?* Manda *próximos jogos* pra ver o que tá aberto pra palpitar. 🍀`;
+  }
+
+  await sendText({ to: msg.waId, text: texto });
+}
+
+// ============================================================
+// v3.9.0 — ACOLHIMENTO_NOVATO: validação emocional
+// ============================================================
+/**
+ * Responde a sinais de insegurança/vulnerabilidade: "nao entendo de
+ * futebol", "to perdida", "primeira vez", "nunca palpitei", "to com
+ * medo de errar".
+ *
+ * Pessoa real que motivou (Valéria 22/05): mandou "nao entendo de
+ * futebol" depois de pedir dicas. Bot caiu em fallback genérico (menu),
+ * perdendo oportunidade clara de engajamento.
+ *
+ * Tom: acolhedor, sem condescendência. Valida que palpitar no aleatório
+ * funciona. 3 passos básicos. CTAs leves (dicas, próximos jogos,
+ * regras) — não força a pessoa a já entrar em bolão.
+ */
+async function handleAcolhimentoNovato(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.ACOLHIMENTO_NOVATO');
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+
+  let texto =
+    `🍀 *Relaxa!* Não precisa entender nada de futebol pra palpitar.\n\n` +
+    `Sério — muita gente que ganha bolão é assim:\n` +
+    `• Chuta no aleatório 🎲\n` +
+    `• Vai no coração ❤️\n` +
+    `• Escolhe pela cor da camisa 👕\n` +
+    `• Palpita sempre \`1x0\` e ganha 😄\n\n` +
+    `⚽ *Como funciona aqui*:\n` +
+    `1. *Você palpita o placar* de cada jogo (ex: \`Brasil 2x1 Marrocos\`)\n` +
+    `2. *Ganha pontos* se acertar — placar exato vale 10, só o vencedor já vale 3\n` +
+    `3. *Errou? Sem stress* — cada jogo é uma chance nova, e dá pra editar palpite até o jogo começar\n\n` +
+    `✨ *Bora começar leve*:\n` +
+    `• *dicas* — dicas pra montar palpite\n` +
+    `• *regras* — pontuação completa`;
+
+  if (boloes.length === 0) {
+    texto += `\n• *entrar em bolão* — quando alguém te mandar um convite, é só clicar no link`;
+    texto += `\n\nE se ficar perdida, manda *ajuda* a qualquer momento. Tô aqui. 🍀`;
+  } else {
+    texto += `\n• *próximos jogos* — eu te mostro os jogos abertos`;
+    texto += `\n\nQuando for palpitar, manda assim: \`Brasil 2 a 1 Marrocos\`. Eu mostro um preview e você confirma — *nada vai pro bolão sem você dizer sim*. 🍀`;
   }
 
   await sendText({ to: msg.waId, text: texto });
