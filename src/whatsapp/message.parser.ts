@@ -121,6 +121,23 @@ const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+)
 // O separador entre os 2 times pode ser " x ", " X ", " vs ", " - ", " contra ".
 const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+?)\s+(?:[xX]|vs|contra|-)\s+(.+)$/;
 
+// v3.19.0 — formato GOLS SEPARADOS: "N Time1 X N Time2" (gols colados
+// em cada time, separador "x"/"X" no meio). Caso real Natane 11/06:
+// "1 México X 2 África do Sul" / "3 brasil x 1 Marrocos". Antes esses
+// caíam em tentarPalpiteLivreViaLLM (que registrava sem confirmação —
+// bug crítico v3.19.0). Agora detecta direto, vai pro pipeline canônico
+// de PREVIEW + sim/não.
+//
+// Diferenças dos outros formatos:
+//   - PALPITE_REGEX (canônico):     "Time1 NxN Time2"   — placar grudado
+//   - PALPITE_INVERTIDO_REGEX:      "NxN Time1 x Time2" — placar grudado no início
+//   - PALPITE_GOLS_SEPARADOS_REGEX: "N Time1 X N Time2" — gols separados nos times
+//
+// PRECEDÊNCIA importante: este regex é mais GENÉRICO que os outros (não
+// exige placar grudado), então só tentar DEPOIS dos canônico/invertido
+// falharem. Ordem em `tentarParsearPalpiteInline`.
+const PALPITE_GOLS_SEPARADOS_REGEX = /^(\d+)\s+(.+?)\s+[xX]\s+(\d+)\s+(.+)$/;
+
 // v3.10.0 — detecta um "âncora" de placar (NxN) dentro de uma linha.
 // Usado pra: (1) tokenizar linhas com vários palpites concatenados sem
 // quebra de linha, (2) validar que um time parseado não tem placar
@@ -1242,7 +1259,66 @@ function tentarParsearPalpiteInline(linha: string): PalpiteInline | null {
     }
   }
 
+  // 4) v3.19.0 — GOLS SEPARADOS: "N Time1 X N Time2" (caso real Natane
+  // 11/06). DEPOIS dos outros pra não roubar matches mais específicos.
+  // Anti-lixo agressivo (regex é genérico — qualquer "N palavra X N
+  // palavra" casa). Bloqueia palavras semânticas comuns que NUNCA são
+  // nomes de time: "anos x derrotas", "jogos x vezes", etc.
+  const separados = linha.match(PALPITE_GOLS_SEPARADOS_REGEX);
+  if (separados) {
+    const tc = separados[2].trim();
+    const tv = separados[4].trim();
+    if (
+      !timeComecaComDigito(tc) &&
+      !timeComecaComDigito(tv) &&
+      !timeEhStopwordSemantica(tc) &&
+      !timeEhStopwordSemantica(tv) &&
+      validar(tc, tv)
+    ) {
+      return {
+        timeCasa: tc,
+        golsCasa: parseInt(separados[1], 10),
+        golsVisitante: parseInt(separados[3], 10),
+        timeVisitante: tv,
+      };
+    }
+  }
+
   return null;
+}
+
+function timeComecaComDigito(nome: string): boolean {
+  return /^\d/.test(nome);
+}
+
+/**
+ * v3.19.0 — palavras semânticas que NUNCA são nomes de time. Usadas pra
+ * filtrar falsos positivos no PALPITE_GOLS_SEPARADOS_REGEX (que casa
+ * coisas tipo "12 anos x 2 vitorias", "3 jogos x 5 derrotas").
+ *
+ * Match em qualquer palavra do "time" parseado (acento-insensitive).
+ * Se acertar, descarta o palpite — não é palpite real.
+ */
+const TIME_STOPWORDS_SEMANTICAS = new Set([
+  // tempo
+  'anos', 'ano', 'mes', 'meses', 'semana', 'semanas', 'dia', 'dias',
+  'hora', 'horas', 'minuto', 'minutos', 'segundo', 'segundos',
+  'vez', 'vezes',
+  // futebol generico (sem ser time)
+  'jogos', 'jogo', 'partida', 'partidas', 'rodada', 'rodadas',
+  'vitoria', 'vitorias', 'derrota', 'derrotas', 'empate', 'empates',
+  'ponto', 'pontos', 'gol', 'gols', 'goleada',
+  // outros
+  'pessoa', 'pessoas', 'gente',
+]);
+
+function timeEhStopwordSemantica(nome: string): boolean {
+  const palavras = nome
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/\s+/);
+  return palavras.some((p) => TIME_STOPWORDS_SEMANTICAS.has(p));
 }
 
 /**

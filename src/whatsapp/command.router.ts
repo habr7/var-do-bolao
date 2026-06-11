@@ -2849,25 +2849,37 @@ async function handleConfirmandoPalpitePlacarAbsurdo(
 }
 
 /**
- * Tenta extrair palpites em linguagem natural usando o LLM, dentro da
- * janela de palpite livre aberta apos "proximos jogos". Itera os
- * bolaes do usuario e roda o extrator com a lista de jogos da rodada
- * aberta de cada um. Se conseguiu registrar algum palpite, retorna true.
+ * v3.19.0 — REFATORADO. Antes esta função REGISTRAVA palpites direto via
+ * LLM sem preview e respondia "✅ Registrei N palpite(s)!". Caso real
+ * Natane 11/06 14:02: mandou 5 palpites em formato não-canônico (`1 México X
+ * 2 África do Sul`), bot rodou aqui, registrou (ou não — sem confirmação),
+ * e respondeu como se tivesse funcionado. Violava a regra da v3.10.0
+ * ("NUNCA mentir 'registrei' sem confirmar"). O LLM podia ter alucinado
+ * placares ou trocado time casa/visitante — usuária nunca saberia.
  *
- * Funciona pra coisas que regex nao pega:
- *   - "2 a zero pra Africa"     (1 time, com extenso)
- *   - "1 a 1 Coreia"            (1 time)
- *   - "brasil ganha de 3"       (placar parcial)
- *   - varias linhas misturadas
+ * Agora: detecta se há jogos correspondentes via LLM e delega ao pipeline
+ * canônico de preview + confirmação (`iniciarConfirmacaoPalpites` pra
+ * 1 bolão, `iniciarConfirmacaoPalpitesMultiBolao` pra >1). Esse pipeline
+ * roda regex + LLM de novo internamente, mas mostra preview e exige
+ * sim/não/refazer.
+ *
+ * Retorna true se delegou (caller deve fechar a janela de palpite livre);
+ * false se nenhum jogo casou (caller segue pro próximo fallback).
  */
 async function tentarPalpiteLivreViaLLM(
   msg: IncomingMessage,
   usuarioId: string,
 ): Promise<boolean> {
   const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
-  let totalRegistrados = 0;
-  const erros: string[] = [];
-  const palpitesPorBolao: Array<{ nome: string; count: number }> = [];
+
+  // Descobre quais bolões TÊM algum jogo que casa o texto. Não registra
+  // nada — só identifica os candidatos.
+  interface Candidato {
+    bolaoId: string;
+    bolaoNome: string;
+    rodadaId: string;
+  }
+  const candidatos: Candidato[] = [];
 
   for (const b of boloes) {
     const rodada = await prisma.rodada.findFirst({
@@ -2882,32 +2894,29 @@ async function tentarPalpiteLivreViaLLM(
     );
     if (palpites.length === 0) continue;
 
-    let countBolao = 0;
-    for (const p of palpites) {
-      try {
-        await palpiteService.registrarPalpiteEmRodada({
-          usuarioId,
-          rodadaId: rodada.id,
-          timeCasa: p.timeCasa,
-          timeVisitante: p.timeVisitante,
-          golsCasa: p.golsCasa,
-          golsVisitante: p.golsVisitante,
-        });
-        countBolao++;
-        totalRegistrados++;
-      } catch (err) {
-        erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
-      }
-    }
-    if (countBolao > 0) palpitesPorBolao.push({ nome: b.nome, count: countBolao });
+    candidatos.push({ bolaoId: b.id, bolaoNome: b.nome, rodadaId: rodada.id });
   }
 
-  if (totalRegistrados === 0) return false;
+  console.log(
+    `[palpite-livre] waId=${msg.waId} candidatos=${candidatos.length}`,
+  );
 
-  const resumo = palpitesPorBolao.map((p) => `• ${p.count} palpite(s) em *${p.nome}*`).join('\n');
-  let resposta = `${confirmacao()} Registrei ${totalRegistrados} palpite(s) em linguagem natural!\n\n${resumo}`;
-  if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
-  await sendText({ to: msg.waId, text: resposta });
+  if (candidatos.length === 0) return false;
+
+  // Delega ao pipeline canônico que SEMPRE mostra preview + pede
+  // sim/não/refazer. Caminho idêntico ao palpite inline normal —
+  // sem atalho que pula confirmação.
+  if (candidatos.length === 1) {
+    const c = candidatos[0];
+    await iniciarConfirmacaoPalpites(msg, usuarioId, msg.text, c.bolaoId, c.bolaoNome, c.rodadaId);
+  } else {
+    await iniciarConfirmacaoPalpitesMultiBolao(
+      msg,
+      usuarioId,
+      msg.text,
+      candidatos.map((c) => ({ id: c.bolaoId, nome: c.bolaoNome })),
+    );
+  }
   return true;
 }
 
