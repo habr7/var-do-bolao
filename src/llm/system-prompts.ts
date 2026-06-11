@@ -58,6 +58,7 @@ INTENCOES:
 - STATUS_RODADA: quando atualiza ranking/pontos/resultado. Ex: "quando atualiza o ranking?", "quando saem os pontos?", "cade meus pontos?", "demora quanto pra calcular?".
 - DESABAFO_RANKING: user lamentando desempenho ruim. Ex: "to em ultimo", "fui mal demais", "nunca acerto", "desisto", "so erro". Resposta acolhedora.
 - RECLAMACAO_BUG: user reportando erro no bot/pontuacao. Ex: "meus pontos estao errados", "ta bugado", "calculou errado", "faltou ponto", "o bot ta errado". Acolher + explicar pontuacao automatica, NUNCA ser defensivo.
+- PALPITE_OUTROS: user pergunta se vai ver palpite/pontuacao individual de OUTROS participantes em cada jogo. Ex: "vai mostrar palpites dos outros?", "quem acertou Brasil x Marrocos?", "como vejo o palpite do Fulano?", "vai falar quem pontuou em cada jogo?". Resposta explica publico (ranking total) vs privado (placar individual), NUNCA defensivo, oferece *pontos de ontem* pro user ver acertos proprios. Distinto de PROGRESSO_PALPITES (que mostra X/Y palpites agregados, sem placar).
 - ABRIR_RODADA: admin quer abrir/iniciar uma rodada. Ex: "abrir rodada", "como inicio a rodada", "começar bolão".
 - COMO_CONVIDAR: admin quer compartilhar bolao. Ex: "como convido", "manda o convite", "pegar o ID do bolão".
 - SAIR_BOLAO: quer sair de um bolao. Ex: "sair do bolão", "não quero mais jogar", "me remove".

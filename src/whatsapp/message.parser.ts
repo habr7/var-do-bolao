@@ -34,6 +34,7 @@ export enum Intencao {
   STATUS_RODADA = 'STATUS_RODADA',           // v3.15.0 — "quando atualiza o ranking?", "quando sai o resultado?"
   DESABAFO_RANKING = 'DESABAFO_RANKING',     // v3.15.0 — "tô em último", "fui mal demais" (acolhimento)
   RECLAMACAO_BUG = 'RECLAMACAO_BUG',         // v3.15.0 — "meus pontos estão errados", "tá bugado" (loga + acolhe)
+  PALPITE_OUTROS = 'PALPITE_OUTROS',         // v3.17.0 — "quem acertou X?", "vai mostrar palpites dos outros?" (privacidade clara)
   MEU_PALPITE = 'MEU_PALPITE',
   ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
@@ -370,6 +371,32 @@ const DESABAFO_RANKING_PATTERNS: RegExp[] = [
 ];
 
 // v3.15.0 — RECLAMACAO_BUG: user reportando erro no bot/pontuação.
+// v3.17.0 — PALPITE_OUTROS: usuário perguntando se vai ver palpite/
+// performance dos OUTROS. Caso real Camila 11/06 (print 1): respostas
+// defensivas "não" em sequência confundiam — agora explicamos o
+// público (ranking total) vs privado (placar individual) e oferecemos
+// alternativa útil (*pontos de ontem* mostra acertos por jogo do user).
+// PRECEDÊNCIA: antes de PROGRESSO_PALPITES (que mostra X/Y palpites
+// agregados) e antes de MEU_PALPITE (que é sobre o próprio user).
+const PALPITE_OUTROS_PATTERNS: RegExp[] = [
+  // "palpites do fulano / dos outros / da galera / do grupo"
+  /\bpalpites? (?:d[oa]s? )?(?:outr[oa]s?|fulan[oa]|amig[oa]s?|galera|grupo|pessoal|participantes?)/,
+  /\bpalpites? d[ea] (?:quem|cada um|todo mundo)\b/,
+  /\bpalpites? individua/,
+  // "quem acertou / pontuou / fez pontos no jogo X"
+  /\bquem (?:ja )?(?:acertou|pontuou|fez pontos?|fez tantos?|tirou) /,
+  // "vai me mostrar / falar palpite/quem dos outros"
+  /\b(?:vai |vc vai |voc[êe] vai )?(?:me )?(?:mostrar|falar|dizer|contar) (?:quem|os? palpites? d|o que cada)/,
+  // "como vejo o palpite do fulano / como sei o que o fulano palpitou"
+  /\bcomo (?:vejo|sei|descubro|consigo ver) (?:o )?palpite/,
+  /\bcomo sei o que (?:o |a )?(?:fulan|outr|amig|partic|jog)/,
+  // "ver palpites dos participantes / lista de palpites"
+  /\bver palpites? (?:d[oa]s? )?(?:outr|partic|amig|galer|jogador|fulan)/,
+  /\blista de palpites?\b/,
+  // "o que o fulano palpitou"
+  /\bo que (?:o |a )?(?:fulan|outr|cada um|cada pessoa)/,
+];
+
 // PRECEDÊNCIA: antes de MEUS_PONTOS ("meus pontos estão errados").
 // Handler loga pra revisão offline + acolhe + explica recálculo.
 const RECLAMACAO_BUG_PATTERNS: RegExp[] = [
@@ -868,6 +895,12 @@ const INTENT_RULES: IntentRules[] = [
   // PERGUNTA_GERAL_FUTEBOL quando a pergunta é fora de escopo (copa
   // antiga, clube etc).
   { intencao: Intencao.PLACAR_JOGO, padroes: PLACAR_JOGO_PATTERNS },
+  // v3.17.0 — PALPITE_OUTROS antes de PERGUNTA_GERAL_FUTEBOL (que tem
+  // "jogos de ontem") e antes de PROGRESSO_PALPITES/MEU_PALPITE.
+  // "quem acertou X?" / "quem pontuou no jogo Y?" pede explicação de
+  // privacidade (público vs privado), não info externa nem contagem
+  // agregada.
+  { intencao: Intencao.PALPITE_OUTROS, padroes: PALPITE_OUTROS_PATTERNS },
   // v3.15.0 — RECLAMACAO_BUG antes de MEUS_PONTOS ("meus pontos estão
   // errados" contém "meus pontos"). STATUS_RODADA antes de QUANDO_COMECA.
   { intencao: Intencao.RECLAMACAO_BUG, padroes: RECLAMACAO_BUG_PATTERNS },

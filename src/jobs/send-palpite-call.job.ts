@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
 import { setSession, getSession } from '../whatsapp/session.manager.js';
+import { podeEnviarAvisoHoje, registrarAvisoEnviado } from '../utils/aviso-cap.js';
 import { env } from '../config/env.js';
 import { chamadaPalpite } from '../utils/football.terms.js';
 
@@ -96,7 +97,7 @@ export async function sendPalpiteCallJob() {
       `${linhasJogos.join('\n')}\n\n` +
       `📝 Manda os palpites assim:\n` +
       `_Brasil 2x1 Marrocos_\n_Argentina 3x0 Argélia_\n\n` +
-      `_(pode mandar tudo numa só mensagem ou em linguagem natural mesmo)_`;
+      `_(pode mandar tudo numa só mensagem ou em linguagem natural mesmo. Horários em fuso de Brasília 🇧🇷)_`;
 
     // So envia pra quem ainda nao palpitou nada nesta rodada
     const jaPalpitou = new Set(rodada.palpites.map((p) => p.usuarioId));
@@ -108,6 +109,9 @@ export async function sendPalpiteCallJob() {
       // Flag compartilhada com send-bom-dia. Evita dupla notificação.
       const flagCross = `aviso_jogo:${p.usuario.whatsappId}`;
       if (await redis.get(flagCross)) continue;
+
+      // v3.17.0 — cap absoluto de avisos/dia (defesa de profundidade)
+      if (!(await podeEnviarAvisoHoje(p.usuario.whatsappId))) continue;
 
       // v3.15.0 — BUG: setSession incondicional ATROPELAVA sessão em
       // andamento. User no meio de criar bolão / confirmar palpites
@@ -130,6 +134,7 @@ export async function sendPalpiteCallJob() {
           });
         }
         await sendText({ to: p.usuario.whatsappId, text: mensagem });
+        await registrarAvisoEnviado(p.usuario.whatsappId);
         await redis.set(flagCross, '1', 'EX', 24 * 3600);
         enviados++;
       } catch (error) {

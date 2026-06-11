@@ -776,6 +776,49 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.17.0 — PALPITE_OUTROS (caso Camila 11/06)', () => {
+    it('"vai mostrar os palpites dos outros?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('vai mostrar os palpites dos outros?').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"vai me mostrar quem palpitou o quê?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('vai me mostrar quem palpitou o que').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"quem acertou Brasil x Marrocos?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('quem acertou Brasil x Marrocos?').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"quem pontuou no jogo de ontem?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('quem pontuou no jogo de ontem?').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"como vejo o palpite do Fulano?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('como vejo o palpite do Fulano?').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"palpites dos participantes" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('palpites dos participantes').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"lista de palpites" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('lista de palpites').intencao).toBe(Intencao.PALPITE_OUTROS);
+    });
+    // Anti-regressão:
+    it('"meus palpites" continua MEU_PALPITE (não vira PALPITE_OUTROS)', () => {
+      expect(parseIntencao('meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"quem palpitou" continua PROGRESSO_PALPITES (contagem agregada, não outros)', () => {
+      expect(parseIntencao('quem palpitou').intencao).toBe(Intencao.PROGRESSO_PALPITES);
+    });
+  });
+
   describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
     it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
       expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);

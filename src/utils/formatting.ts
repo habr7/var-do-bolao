@@ -25,11 +25,23 @@ export interface PalpiteDisplay {
 export function formatRanking(nome: string, rodada: number, campeonato: string, entries: RankingEntry[]): string {
   const header = `🏆 *RANKING — ${nome}*\nRodada ${rodada} | ${campeonato}\n${'─'.repeat(30)}`;
 
-  const lines = entries.map((e) =>
-    `${medalha(e.posicao)} ${e.nome} ${'·'.repeat(Math.max(1, 20 - e.nome.length))} ${e.pontuacaoTotal} pts`
-  );
+  // v3.17.0 — quando ninguém pontuou ainda (rodada acabou de abrir, ou
+  // nenhum jogo finalizou), as medalhas 🥇🥈🥉 confundem: usuários
+  // perguntam "como tem campeão se ninguém marcou ponto?". Decidimos
+  // exibir só medalha se o LÍDER tem ≥1 pt (acabou pelo menos 1 jogo
+  // que valeu pontos pra ele). Caso contrário, numeração simples.
+  const todosZerados = entries.length > 0 && entries[0].pontuacaoTotal === 0;
 
-  return `${header}\n${lines.join('\n')}\n${'─'.repeat(30)}\n📊 _VAR do Bolão_`;
+  const lines = entries.map((e) => {
+    const marca = todosZerados ? `${e.posicao}.` : medalha(e.posicao);
+    return `${marca} ${e.nome} ${'·'.repeat(Math.max(1, 20 - e.nome.length))} ${e.pontuacaoTotal} pts`;
+  });
+
+  const nota = todosZerados
+    ? `\n_(Empate técnico em 0 pts — o ranking começa a se formar quando os jogos terminarem.)_`
+    : '';
+
+  return `${header}\n${lines.join('\n')}${nota}\n${'─'.repeat(30)}\n📊 _VAR do Bolão_`;
 }
 
 export function formatJogosRodada(numero: number, campeonato: string, jogos: JogoDisplay[]): string {
