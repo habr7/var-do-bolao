@@ -60,7 +60,7 @@ e cobre os ajustes que destravaram o pipeline de cálculo de pontuação.
 
 ### 2. Variáveis de ambiente em produção
 
-- [ ] `FOOTBALL_PROVIDER=fifa-2026` (ou outro provider configurado).
+- [ ] `FOOTBALL_PROVIDER=openfootball` (default v3.16.0+; `fifa-2026` legacy depende de `FIFA_SEASON_ID` setado).
 - [ ] `TIMEZONE=America/Sao_Paulo`.
 - [ ] `DRY_RUN_WHATSAPP=false` (envia mensagens REAIS).
 - [ ] `ENABLE_BOM_DIA=true`, `ENABLE_PALPITE_CALL=true`, `ENABLE_REMINDERS=true`.
@@ -87,9 +87,18 @@ node scripts/sync-copa-2026.mjs  # opcional — atualiza dados se openfootball p
 
 ### 5. Plano de contingência
 
-#### Se FIFA API estiver fora
+#### Como verificar que o fetcher está recebendo placares (v3.16.0+)
 
-- O fetcher retorna `[]` silenciosamente. Log: `[fetch-results] erro na rodada N: ...`.
+Log estruturado a cada tick do `fetch-results` (cron 5min):
+```
+[openfootball] placares recebidos: sucesso=N sem_score=K sem_match=M total_no_json=T
+```
+
+- `sucesso > 0` → fonte ativa, jogos sendo atualizados.
+- `sucesso = 0` E `total_no_json > 0` → fonte ok mas nada casou (investigar nomes; ver `sem_match` no log).
+- `total_no_json = 0` ou erro de rede → openfootball indisponível; usar fallback manual abaixo.
+
+#### Se openfootball estiver fora ou demorar demais
 - **Fallback**: admin atualiza placar manualmente via Prisma Studio ou SQL direto:
   ```sql
   UPDATE jogos
