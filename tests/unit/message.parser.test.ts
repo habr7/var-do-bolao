@@ -1152,6 +1152,43 @@ describe('parseIntencao', () => {
     it('"agradecido" → AGRADECIMENTO', () => {
       expect(parseIntencao('agradecido').intencao).toBe(Intencao.AGRADECIMENTO);
     });
+
+    describe('v3.18.0 — anti-loop: auto-replies NÃO viram AGRADECIMENTO', () => {
+      // Caso real Lucas 11/06: "Agradeço seu contato, respondo em breve"
+      // batia pattern /^agrade[cç]o\b/ e disparava loop. Patterns
+      // endurecidos + cap de 30 chars no matchIntent garantem que essas
+      // frases longas NÃO casam mais AGRADECIMENTO.
+      it('"Agradeço seu contato, respondo em breve" → NÃO é AGRADECIMENTO', () => {
+        expect(parseIntencao('Agradeço seu contato, respondo em breve').intencao).not.toBe(
+          Intencao.AGRADECIMENTO,
+        );
+      });
+      it('"Obrigado pelo contato, retorno em breve" → NÃO é AGRADECIMENTO', () => {
+        expect(parseIntencao('Obrigado pelo contato, retorno em breve').intencao).not.toBe(
+          Intencao.AGRADECIMENTO,
+        );
+      });
+      it('"Thanks for reaching out, will get back soon" → NÃO é AGRADECIMENTO', () => {
+        expect(parseIntencao('Thanks for reaching out, will get back soon').intencao).not.toBe(
+          Intencao.AGRADECIMENTO,
+        );
+      });
+      it('"valeu cara, muito obrigado pelo bom dia" → NÃO casa (frase longa)', () => {
+        expect(parseIntencao('valeu cara, muito obrigado pelo bom dia').intencao).not.toBe(
+          Intencao.AGRADECIMENTO,
+        );
+      });
+      // Anti-regressão das curtas
+      it('"Agradeço!" → continua AGRADECIMENTO', () => {
+        expect(parseIntencao('Agradeço!').intencao).toBe(Intencao.AGRADECIMENTO);
+      });
+      it('"obrigado mesmo" → continua AGRADECIMENTO', () => {
+        expect(parseIntencao('obrigado mesmo').intencao).toBe(Intencao.AGRADECIMENTO);
+      });
+      it('"muito obrigado!" → continua AGRADECIMENTO', () => {
+        expect(parseIntencao('muito obrigado!').intencao).toBe(Intencao.AGRADECIMENTO);
+      });
+    });
     // Regressao: "oi" continua SAUDACAO
     it('"oi" continua SAUDACAO (regressao)', () => {
       expect(parseIntencao('oi').intencao).toBe(Intencao.SAUDACAO);
