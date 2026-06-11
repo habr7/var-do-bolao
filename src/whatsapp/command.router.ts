@@ -6,7 +6,7 @@ import {
   parseMultiplePalpitesDetalhado,
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA, ehEscolhaTodos } from './lista.helper.js';
-import { normalizeTeamName, validarPlacar } from '../utils/validators.js';
+import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo } from '../utils/validators.js';
 import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarHoraBR } from '../utils/datetime.js';
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
@@ -2436,42 +2436,22 @@ async function iniciarConfirmacaoPalpites(
     { jogoId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
   >();
 
-  // helper local: dado um par (timeCasa, timeVisitante), acha o jogoId
-  const acharJogo = (tc: string, tv: string) => {
-    const normTc = normalizeTeamName(tc);
-    const normTv = normalizeTeamName(tv);
-    return jogos.find((j) => {
-      const jc = normalizeTeamName(j.timeCasa);
-      const jv = normalizeTeamName(j.timeVisitante);
-      return (jc.includes(normTc) || normTc.includes(jc)) && (jv.includes(normTv) || normTv.includes(jv));
+  // v3.25.0 — casa por times tolerando ordem INVERTIDA (mandante trocado);
+  // resolverPalpiteParaJogo já troca o placar pra alinhar ao fixture.
+  const registrar = (p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }) => {
+    const r = resolverPalpiteParaJogo(jogos, p);
+    if (!r) return;
+    acumulado.set(r.jogo.id, {
+      jogoId: r.jogo.id,
+      timeCasa: r.timeCasa,
+      timeVisitante: r.timeVisitante,
+      golsCasa: r.golsCasa,
+      golsVisitante: r.golsVisitante,
     });
   };
 
-  for (const p of regexResult.ok) {
-    const j = acharJogo(p.timeCasa, p.timeVisitante);
-    if (j) {
-      acumulado.set(j.id, {
-        jogoId: j.id,
-        timeCasa: j.timeCasa,
-        timeVisitante: j.timeVisitante,
-        golsCasa: p.golsCasa,
-        golsVisitante: p.golsVisitante,
-      });
-    }
-  }
-  for (const p of llmPalpites) {
-    const j = acharJogo(p.timeCasa, p.timeVisitante);
-    if (j) {
-      // LLM vence (sobrescreve regex)
-      acumulado.set(j.id, {
-        jogoId: j.id,
-        timeCasa: j.timeCasa,
-        timeVisitante: j.timeVisitante,
-        golsCasa: p.golsCasa,
-        golsVisitante: p.golsVisitante,
-      });
-    }
-  }
+  for (const p of regexResult.ok) registrar(p);
+  for (const p of llmPalpites) registrar(p); // LLM vence (sobrescreve regex)
 
   // v3.20.0 — separa palpites pra jogos JÁ INICIADOS (kickoff passou).
   // Antes: o preview mostrava o jogo, user confirmava, e SÓ DEPOIS do
@@ -2616,29 +2596,20 @@ async function iniciarConfirmacaoPalpitesMultiBolao(
   // Mescla: chave = (timeCasa, timeVisitante) normalizado. LLM vence regex.
   type PalpiteResolvido = { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number };
   const resolvidos = new Map<string, PalpiteResolvido>();
-  const acharJogo = (tc: string, tv: string) => {
-    const normTc = normalizeTeamName(tc);
-    const normTv = normalizeTeamName(tv);
-    return jogosUnicos.find((j) => {
-      const jc = normalizeTeamName(j.timeCasa);
-      const jv = normalizeTeamName(j.timeVisitante);
-      return (jc.includes(normTc) || normTc.includes(jc)) && (jv.includes(normTv) || normTv.includes(jv));
+  // v3.25.0 — casa por times tolerando ordem INVERTIDA; troca o placar quando invertido.
+  const registrar = (p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }) => {
+    const r = resolverPalpiteParaJogo(jogosUnicos, p);
+    if (!r) return;
+    const k = `${normalizeTeamName(r.timeCasa)}_${normalizeTeamName(r.timeVisitante)}`;
+    resolvidos.set(k, {
+      timeCasa: r.timeCasa,
+      timeVisitante: r.timeVisitante,
+      golsCasa: r.golsCasa,
+      golsVisitante: r.golsVisitante,
     });
   };
-  for (const p of regexResult.ok) {
-    const j = acharJogo(p.timeCasa, p.timeVisitante);
-    if (j) {
-      const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}`;
-      resolvidos.set(k, { timeCasa: j.timeCasa, timeVisitante: j.timeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante });
-    }
-  }
-  for (const p of llmPalpites) {
-    const j = acharJogo(p.timeCasa, p.timeVisitante);
-    if (j) {
-      const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}`;
-      resolvidos.set(k, { timeCasa: j.timeCasa, timeVisitante: j.timeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante });
-    }
-  }
+  for (const p of regexResult.ok) registrar(p);
+  for (const p of llmPalpites) registrar(p);
 
   const palpites = [...resolvidos.values()];
   if (palpites.length === 0) {
