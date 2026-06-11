@@ -1,0 +1,7815 @@
+{
+  "fonte": "openfootball/worldcup",
+  "fonteUrl": "https://raw.githubusercontent.com/openfootball/worldcup/master/more/2026_squads.txt",
+  "atualizadoEm": "2026-06-11T00:04:07.753Z",
+  "totalTimes": 48,
+  "totalJogadores": 1245,
+  "squads": [
+    {
+      "timeIngles": "Czech Republic",
+      "time": "República Tcheca",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Matěj KOVÁŘ",
+          "posicao": "GK",
+          "nascimento": "2000-05-17"
+        },
+        {
+          "numero": 16,
+          "nome": "Jindřich STANĚK",
+          "posicao": "GK",
+          "nascimento": "1996-04-27"
+        },
+        {
+          "numero": 23,
+          "nome": "Lukáš HORNÍČEK",
+          "posicao": "GK",
+          "nascimento": "2002-07-13"
+        },
+        {
+          "numero": 2,
+          "nome": "David ZIMA",
+          "posicao": "DF",
+          "nascimento": "2000-11-08"
+        },
+        {
+          "numero": 3,
+          "nome": "Tomáš HOLEŠ",
+          "posicao": "DF",
+          "nascimento": "1993-03-31"
+        },
+        {
+          "numero": 4,
+          "nome": "Robin HRANÁČ",
+          "posicao": "DF",
+          "nascimento": "2000-01-29"
+        },
+        {
+          "numero": 5,
+          "nome": "Vladimír COUFAL",
+          "posicao": "DF",
+          "nascimento": "1992-08-22"
+        },
+        {
+          "numero": 6,
+          "nome": "Štěpán CHALOUPEK",
+          "posicao": "DF",
+          "nascimento": "2003-03-08"
+        },
+        {
+          "numero": 7,
+          "nome": "Ladislav KREJČÍ",
+          "posicao": "DF",
+          "nascimento": "1999-04-20"
+        },
+        {
+          "numero": 14,
+          "nome": "David JURÁSEK",
+          "posicao": "DF",
+          "nascimento": "2000-08-07"
+        },
+        {
+          "numero": 20,
+          "nome": "Jaroslav ZELENÝ",
+          "posicao": "DF",
+          "nascimento": "1992-08-20"
+        },
+        {
+          "numero": 21,
+          "nome": "David DOUDĚRA",
+          "posicao": "DF",
+          "nascimento": "1998-05-31"
+        },
+        {
+          "numero": 8,
+          "nome": "Vladimír DARIDA",
+          "posicao": "MF",
+          "nascimento": "1990-08-08"
+        },
+        {
+          "numero": 12,
+          "nome": "Lukáš ČERV",
+          "posicao": "MF",
+          "nascimento": "2001-04-10"
+        },
+        {
+          "numero": 17,
+          "nome": "Lukáš PROVOD",
+          "posicao": "MF",
+          "nascimento": "1996-10-23"
+        },
+        {
+          "numero": 18,
+          "nome": "Michal SADÍLEK",
+          "posicao": "MF",
+          "nascimento": "1999-05-31"
+        },
+        {
+          "numero": 22,
+          "nome": "Tomáš SOUČEK",
+          "posicao": "MF",
+          "nascimento": "1995-02-27"
+        },
+        {
+          "numero": 24,
+          "nome": "Alexandr SOJKA",
+          "posicao": "MF",
+          "nascimento": "2003-04-02"
+        },
+        {
+          "numero": 25,
+          "nome": "Hugo SOCHŮREK",
+          "posicao": "MF",
+          "nascimento": "2008-06-07"
+        },
+        {
+          "numero": 9,
+          "nome": "Adam HLOŽEK",
+          "posicao": "FW",
+          "nascimento": "2002-07-25"
+        },
+        {
+          "numero": 10,
+          "nome": "Patrik SCHICK",
+          "posicao": "FW",
+          "nascimento": "1996-01-24"
+        },
+        {
+          "numero": 11,
+          "nome": "Jan KUCHTA",
+          "posicao": "FW",
+          "nascimento": "1997-01-08"
+        },
+        {
+          "numero": 13,
+          "nome": "Mojmír CHYTIL",
+          "posicao": "FW",
+          "nascimento": "1999-04-29"
+        },
+        {
+          "numero": 15,
+          "nome": "Pavel ŠULC",
+          "posicao": "FW",
+          "nascimento": "2000-12-29"
+        },
+        {
+          "numero": 19,
+          "nome": "Tomáš CHORÝ",
+          "posicao": "FW",
+          "nascimento": "1995-01-26"
+        },
+        {
+          "numero": 26,
+          "nome": "Denis VIŠINSKÝ",
+          "posicao": "FW",
+          "nascimento": "2003-03-21"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Mexico",
+      "time": "México",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Raúl RANGEL",
+          "posicao": "GK",
+          "nascimento": "2000-02-25"
+        },
+        {
+          "numero": 12,
+          "nome": "Carlos ACEVEDO",
+          "posicao": "GK",
+          "nascimento": "1996-04-19"
+        },
+        {
+          "numero": 13,
+          "nome": "Guillermo OCHOA",
+          "posicao": "GK",
+          "nascimento": "1985-07-13"
+        },
+        {
+          "numero": 2,
+          "nome": "Jorge SÁNCHEZ",
+          "posicao": "DF",
+          "nascimento": "1997-12-10"
+        },
+        {
+          "numero": 3,
+          "nome": "César MONTES",
+          "posicao": "DF",
+          "nascimento": "1997-02-24"
+        },
+        {
+          "numero": 4,
+          "nome": "Edson ÁLVAREZ",
+          "posicao": "DF",
+          "nascimento": "1997-10-24"
+        },
+        {
+          "numero": 5,
+          "nome": "Johan VÁSQUEZ",
+          "posicao": "DF",
+          "nascimento": "1998-10-22"
+        },
+        {
+          "numero": 15,
+          "nome": "Israel REYES",
+          "posicao": "DF",
+          "nascimento": "2000-05-23"
+        },
+        {
+          "numero": 20,
+          "nome": "Mateo CHÁVEZ",
+          "posicao": "DF",
+          "nascimento": "2004-05-12"
+        },
+        {
+          "numero": 23,
+          "nome": "Jesús GALLARDO",
+          "posicao": "DF",
+          "nascimento": "1994-08-15"
+        },
+        {
+          "numero": 6,
+          "nome": "Érik LIRA",
+          "posicao": "MF",
+          "nascimento": "2000-05-08"
+        },
+        {
+          "numero": 7,
+          "nome": "Luis ROMO",
+          "posicao": "MF",
+          "nascimento": "1995-06-05"
+        },
+        {
+          "numero": 8,
+          "nome": "Álvaro FIDALGO",
+          "posicao": "MF",
+          "nascimento": "1997-04-09"
+        },
+        {
+          "numero": 17,
+          "nome": "Orbelín PINEDA",
+          "posicao": "MF",
+          "nascimento": "1996-03-24"
+        },
+        {
+          "numero": 18,
+          "nome": "Obed VARGAS",
+          "posicao": "MF",
+          "nascimento": "2005-08-05"
+        },
+        {
+          "numero": 19,
+          "nome": "Gilberto MORA",
+          "posicao": "MF",
+          "nascimento": "2008-10-14"
+        },
+        {
+          "numero": 24,
+          "nome": "Luis CHÁVEZ",
+          "posicao": "MF",
+          "nascimento": "1996-01-15"
+        },
+        {
+          "numero": 26,
+          "nome": "Brian GUTIÉRREZ",
+          "posicao": "MF",
+          "nascimento": "2003-06-17"
+        },
+        {
+          "numero": 9,
+          "nome": "Raúl JIMÉNEZ",
+          "posicao": "FW",
+          "nascimento": "1991-05-05"
+        },
+        {
+          "numero": 10,
+          "nome": "Alexis VEGA",
+          "posicao": "FW",
+          "nascimento": "1997-11-25"
+        },
+        {
+          "numero": 11,
+          "nome": "Santiago GIMÉNEZ",
+          "posicao": "FW",
+          "nascimento": "2001-04-18"
+        },
+        {
+          "numero": 14,
+          "nome": "Armando GONZÁLEZ",
+          "posicao": "FW",
+          "nascimento": "2003-04-20"
+        },
+        {
+          "numero": 16,
+          "nome": "Julián QUIÑONES",
+          "posicao": "FW",
+          "nascimento": "1997-03-24"
+        },
+        {
+          "numero": 21,
+          "nome": "César HUERTA",
+          "posicao": "FW",
+          "nascimento": "2000-12-03"
+        },
+        {
+          "numero": 22,
+          "nome": "Guillermo MARTÍNEZ",
+          "posicao": "FW",
+          "nascimento": "1995-03-15"
+        },
+        {
+          "numero": 25,
+          "nome": "Roberto ALVARADO",
+          "posicao": "FW",
+          "nascimento": "1998-09-07"
+        }
+      ]
+    },
+    {
+      "timeIngles": "South Africa",
+      "time": "África do Sul",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Ronwen WILLIAMS",
+          "posicao": "GK",
+          "nascimento": "1992-01-21"
+        },
+        {
+          "numero": 16,
+          "nome": "Sipho CHAINE",
+          "posicao": "GK",
+          "nascimento": "1996-12-14"
+        },
+        {
+          "numero": 22,
+          "nome": "Ricardo GOSS",
+          "posicao": "GK",
+          "nascimento": "1994-04-02"
+        },
+        {
+          "numero": 2,
+          "nome": "Thabang MATULUDI",
+          "posicao": "DF",
+          "nascimento": "1999-01-14"
+        },
+        {
+          "numero": 3,
+          "nome": "Khulumani NDAMANE",
+          "posicao": "DF",
+          "nascimento": "2004-02-05"
+        },
+        {
+          "numero": 6,
+          "nome": "Aubrey MODIBA",
+          "posicao": "DF",
+          "nascimento": "1995-07-22"
+        },
+        {
+          "numero": 14,
+          "nome": "Mbekezeli MBOKAZI",
+          "posicao": "DF",
+          "nascimento": "2005-09-19"
+        },
+        {
+          "numero": 18,
+          "nome": "Samukele KABINI",
+          "posicao": "DF",
+          "nascimento": "2004-03-15"
+        },
+        {
+          "numero": 19,
+          "nome": "Nkosinathi SIBISI",
+          "posicao": "DF",
+          "nascimento": "1995-09-22"
+        },
+        {
+          "numero": 20,
+          "nome": "Khuliso MUDAU",
+          "posicao": "DF",
+          "nascimento": "1995-04-26"
+        },
+        {
+          "numero": 21,
+          "nome": "Ime OKON",
+          "posicao": "DF",
+          "nascimento": "2004-02-20"
+        },
+        {
+          "numero": 24,
+          "nome": "Olwethu MAKHANYA",
+          "posicao": "DF",
+          "nascimento": "2004-04-30"
+        },
+        {
+          "numero": 26,
+          "nome": "Bradley CROSS",
+          "posicao": "DF",
+          "nascimento": "2001-01-30"
+        },
+        {
+          "numero": 4,
+          "nome": "Teboho MOKOENA",
+          "posicao": "MF",
+          "nascimento": "1997-01-24"
+        },
+        {
+          "numero": 5,
+          "nome": "Thalente MBATHA",
+          "posicao": "MF",
+          "nascimento": "2000-03-06"
+        },
+        {
+          "numero": 11,
+          "nome": "Themba ZWANE",
+          "posicao": "MF",
+          "nascimento": "1989-08-03"
+        },
+        {
+          "numero": 13,
+          "nome": "Sphephelo SITHOLE",
+          "posicao": "MF",
+          "nascimento": "1999-03-03"
+        },
+        {
+          "numero": 23,
+          "nome": "Jayden ADAMS",
+          "posicao": "MF",
+          "nascimento": "2001-05-05"
+        },
+        {
+          "numero": 7,
+          "nome": "Oswin APPOLLIS",
+          "posicao": "FW",
+          "nascimento": "2001-08-25"
+        },
+        {
+          "numero": 8,
+          "nome": "Tshepang MOREMI",
+          "posicao": "FW",
+          "nascimento": "2000-10-02"
+        },
+        {
+          "numero": 9,
+          "nome": "Lyle FOSTER",
+          "posicao": "FW",
+          "nascimento": "2000-09-03"
+        },
+        {
+          "numero": 10,
+          "nome": "Relebohile MOFOKENG",
+          "posicao": "FW",
+          "nascimento": "2004-10-23"
+        },
+        {
+          "numero": 12,
+          "nome": "Thapelo MASEKO",
+          "posicao": "FW",
+          "nascimento": "2003-11-11"
+        },
+        {
+          "numero": 15,
+          "nome": "Iqraam RAYNERS",
+          "posicao": "FW",
+          "nascimento": "1995-12-19"
+        },
+        {
+          "numero": 17,
+          "nome": "Evidence MAKGOPA",
+          "posicao": "FW",
+          "nascimento": "2000-06-05"
+        },
+        {
+          "numero": 25,
+          "nome": "Kamogelo SEBELEBELE",
+          "posicao": "FW",
+          "nascimento": "2002-07-21"
+        }
+      ]
+    },
+    {
+      "timeIngles": "South Korea",
+      "time": "Coreia do Sul",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Kim SEUNG-GYU",
+          "posicao": "GK",
+          "nascimento": "1990-09-30"
+        },
+        {
+          "numero": 12,
+          "nome": "Song BUM-KEUN",
+          "posicao": "GK",
+          "nascimento": "1997-10-15"
+        },
+        {
+          "numero": 21,
+          "nome": "Jo HYEON-WOO",
+          "posicao": "GK",
+          "nascimento": "1991-09-25"
+        },
+        {
+          "numero": 2,
+          "nome": "Lee HAN-BEOM",
+          "posicao": "DF",
+          "nascimento": "2002-06-17"
+        },
+        {
+          "numero": 4,
+          "nome": "Kim MIN-JAE",
+          "posicao": "DF",
+          "nascimento": "1996-11-15"
+        },
+        {
+          "numero": 5,
+          "nome": "Kim TAE-HYEON",
+          "posicao": "DF",
+          "nascimento": "2000-09-17"
+        },
+        {
+          "numero": 13,
+          "nome": "Lee TAE-SEOK",
+          "posicao": "DF",
+          "nascimento": "2002-07-28"
+        },
+        {
+          "numero": 14,
+          "nome": "Cho WI-JE",
+          "posicao": "DF",
+          "nascimento": "2001-08-25"
+        },
+        {
+          "numero": 15,
+          "nome": "Kim MOON-HWAN",
+          "posicao": "DF",
+          "nascimento": "1995-08-01"
+        },
+        {
+          "numero": 16,
+          "nome": "Park JIN-SEOB",
+          "posicao": "DF",
+          "nascimento": "1995-10-23"
+        },
+        {
+          "numero": 22,
+          "nome": "Seol YOUNG-WOO",
+          "posicao": "DF",
+          "nascimento": "1998-12-05"
+        },
+        {
+          "numero": 23,
+          "nome": "Jens CASTROP",
+          "posicao": "DF",
+          "nascimento": "2003-07-29"
+        },
+        {
+          "numero": 3,
+          "nome": "Lee GI-HYUK",
+          "posicao": "MF",
+          "nascimento": "2000-07-07"
+        },
+        {
+          "numero": 6,
+          "nome": "Hwang IN-BEOM",
+          "posicao": "MF",
+          "nascimento": "1996-09-20"
+        },
+        {
+          "numero": 8,
+          "nome": "Paik SEUNG-HO",
+          "posicao": "MF",
+          "nascimento": "1997-03-17"
+        },
+        {
+          "numero": 10,
+          "nome": "Lee JAE-SUNG",
+          "posicao": "MF",
+          "nascimento": "1992-08-10"
+        },
+        {
+          "numero": 11,
+          "nome": "Hwang HEE-CHAN",
+          "posicao": "MF",
+          "nascimento": "1996-01-26"
+        },
+        {
+          "numero": 17,
+          "nome": "Bae JUN-HO",
+          "posicao": "MF",
+          "nascimento": "2003-08-21"
+        },
+        {
+          "numero": 19,
+          "nome": "Lee KANG-IN",
+          "posicao": "MF",
+          "nascimento": "2001-02-19"
+        },
+        {
+          "numero": 20,
+          "nome": "Yang HYUN-JUN",
+          "posicao": "MF",
+          "nascimento": "2002-05-25"
+        },
+        {
+          "numero": 24,
+          "nome": "Kim JIN-GYU",
+          "posicao": "MF",
+          "nascimento": "1997-02-24"
+        },
+        {
+          "numero": 25,
+          "nome": "Eom JI-SUNG",
+          "posicao": "MF",
+          "nascimento": "2002-05-09"
+        },
+        {
+          "numero": 26,
+          "nome": "Lee DONG-GYEONG",
+          "posicao": "MF",
+          "nascimento": "1997-09-20"
+        },
+        {
+          "numero": 7,
+          "nome": "Son HEUNG-MIN",
+          "posicao": "FW",
+          "nascimento": "1992-07-08"
+        },
+        {
+          "numero": 9,
+          "nome": "Cho GUE-SUNG",
+          "posicao": "FW",
+          "nascimento": "1998-01-25"
+        },
+        {
+          "numero": 18,
+          "nome": "Oh HYEON-GYU",
+          "posicao": "FW",
+          "nascimento": "2001-04-12"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Bosnia and Herzegovina",
+      "time": "Bosnia and Herzegovina",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Nikola VASILJ",
+          "posicao": "GK",
+          "nascimento": "1995-12-02"
+        },
+        {
+          "numero": 12,
+          "nome": "Mladen JURKAS",
+          "posicao": "GK",
+          "nascimento": "2007-10-07"
+        },
+        {
+          "numero": 22,
+          "nome": "Martin ZLOMISLIĆ",
+          "posicao": "GK",
+          "nascimento": "1998-08-16"
+        },
+        {
+          "numero": 2,
+          "nome": "Nihad MUJAKIĆ",
+          "posicao": "DF",
+          "nascimento": "1998-04-15"
+        },
+        {
+          "numero": 3,
+          "nome": "Dennis HADŽIKADUNIĆ",
+          "posicao": "DF",
+          "nascimento": "1998-07-09"
+        },
+        {
+          "numero": 4,
+          "nome": "Tarik MUHAREMOVIĆ",
+          "posicao": "DF",
+          "nascimento": "2003-02-28"
+        },
+        {
+          "numero": 5,
+          "nome": "Sead KOLAŠINAC",
+          "posicao": "DF",
+          "nascimento": "1993-06-20"
+        },
+        {
+          "numero": 7,
+          "nome": "Amar DEDIĆ",
+          "posicao": "DF",
+          "nascimento": "2002-08-18"
+        },
+        {
+          "numero": 18,
+          "nome": "Nikola KATIĆ",
+          "posicao": "DF",
+          "nascimento": "1996-10-10"
+        },
+        {
+          "numero": 21,
+          "nome": "Stjepan RADELJIĆ",
+          "posicao": "DF",
+          "nascimento": "1997-09-05"
+        },
+        {
+          "numero": 24,
+          "nome": "Nidal ČELIK",
+          "posicao": "DF",
+          "nascimento": "2006-07-17"
+        },
+        {
+          "numero": 6,
+          "nome": "Benjamin TAHIROVIĆ",
+          "posicao": "MF",
+          "nascimento": "2003-03-03"
+        },
+        {
+          "numero": 8,
+          "nome": "Armin GIGOVIĆ",
+          "posicao": "MF",
+          "nascimento": "2002-04-06"
+        },
+        {
+          "numero": 13,
+          "nome": "Ivan BAŠIĆ",
+          "posicao": "MF",
+          "nascimento": "2002-04-30"
+        },
+        {
+          "numero": 14,
+          "nome": "Ivan ŠUNJIĆ",
+          "posicao": "MF",
+          "nascimento": "1996-10-09"
+        },
+        {
+          "numero": 15,
+          "nome": "Amar MEMIĆ",
+          "posicao": "MF",
+          "nascimento": "2001-01-20"
+        },
+        {
+          "numero": 16,
+          "nome": "Amir HADŽIAHMETOVIĆ",
+          "posicao": "MF",
+          "nascimento": "1997-03-08"
+        },
+        {
+          "numero": 17,
+          "nome": "Dženis BURNIĆ",
+          "posicao": "MF",
+          "nascimento": "1998-05-22"
+        },
+        {
+          "numero": 26,
+          "nome": "Ermin MAHMIĆ",
+          "posicao": "MF",
+          "nascimento": "2005-03-14"
+        },
+        {
+          "numero": 9,
+          "nome": "Samed BAŽDAR",
+          "posicao": "FW",
+          "nascimento": "2004-01-31"
+        },
+        {
+          "numero": 10,
+          "nome": "Ermedin DEMIROVIĆ",
+          "posicao": "FW",
+          "nascimento": "1998-03-25"
+        },
+        {
+          "numero": 11,
+          "nome": "Edin DŽEKO",
+          "posicao": "FW",
+          "nascimento": "1986-03-17"
+        },
+        {
+          "numero": 19,
+          "nome": "Kerim ALAJBEGOVIĆ",
+          "posicao": "FW",
+          "nascimento": "2007-09-21"
+        },
+        {
+          "numero": 20,
+          "nome": "Esmir BAJRAKTAREVIĆ",
+          "posicao": "FW",
+          "nascimento": "2005-03-10"
+        },
+        {
+          "numero": 23,
+          "nome": "Haris TABAKOVIĆ",
+          "posicao": "FW",
+          "nascimento": "1994-06-20"
+        },
+        {
+          "numero": 25,
+          "nome": "Jovo LUKIĆ",
+          "posicao": "FW",
+          "nascimento": "1998-11-28"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Canada",
+      "time": "Canadá",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Dayne ST. CLAIR",
+          "posicao": "GK",
+          "nascimento": "1997-05-09"
+        },
+        {
+          "numero": 16,
+          "nome": "Maxime CRÉPEAU",
+          "posicao": "GK",
+          "nascimento": "1994-05-11"
+        },
+        {
+          "numero": 18,
+          "nome": "Owen GOODMAN",
+          "posicao": "GK",
+          "nascimento": "2003-11-27"
+        },
+        {
+          "numero": 2,
+          "nome": "Alistair JOHNSTON",
+          "posicao": "DF",
+          "nascimento": "1998-10-08"
+        },
+        {
+          "numero": 3,
+          "nome": "Alfie JONES",
+          "posicao": "DF",
+          "nascimento": "1997-10-07"
+        },
+        {
+          "numero": 4,
+          "nome": "Luc de FOUGEROLLES",
+          "posicao": "DF",
+          "nascimento": "2005-10-12"
+        },
+        {
+          "numero": 5,
+          "nome": "Joel WATERMAN",
+          "posicao": "DF",
+          "nascimento": "1996-01-24"
+        },
+        {
+          "numero": 13,
+          "nome": "Derek CORNELIUS",
+          "posicao": "DF",
+          "nascimento": "1997-11-25"
+        },
+        {
+          "numero": 15,
+          "nome": "Moïse BOMBITO",
+          "posicao": "DF",
+          "nascimento": "2000-03-30"
+        },
+        {
+          "numero": 19,
+          "nome": "Alphonso DAVIES",
+          "posicao": "DF",
+          "nascimento": "2000-11-02"
+        },
+        {
+          "numero": 22,
+          "nome": "Richie LARYEA",
+          "posicao": "DF",
+          "nascimento": "1995-01-07"
+        },
+        {
+          "numero": 23,
+          "nome": "Niko SIGUR",
+          "posicao": "DF",
+          "nascimento": "2003-09-09"
+        },
+        {
+          "numero": 6,
+          "nome": "Mathieu CHOINIÈRE",
+          "posicao": "MF",
+          "nascimento": "1999-02-07"
+        },
+        {
+          "numero": 7,
+          "nome": "Stephen EUSTÁQUIO",
+          "posicao": "MF",
+          "nascimento": "1996-12-21"
+        },
+        {
+          "numero": 8,
+          "nome": "Ismaël KONÉ",
+          "posicao": "MF",
+          "nascimento": "2002-06-16"
+        },
+        {
+          "numero": 11,
+          "nome": "Liam MILLAR",
+          "posicao": "MF",
+          "nascimento": "1999-09-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Jacob SHAFFELBURG",
+          "posicao": "MF",
+          "nascimento": "1999-11-26"
+        },
+        {
+          "numero": 21,
+          "nome": "Jonathan OSORIO",
+          "posicao": "MF",
+          "nascimento": "1992-06-12"
+        },
+        {
+          "numero": 25,
+          "nome": "Nathan SALIBA",
+          "posicao": "MF",
+          "nascimento": "2004-02-07"
+        },
+        {
+          "numero": 26,
+          "nome": "Jayden NELSON",
+          "posicao": "MF",
+          "nascimento": "2002-02-07"
+        },
+        {
+          "numero": 9,
+          "nome": "Cyle LARIN",
+          "posicao": "FW",
+          "nascimento": "1995-04-17"
+        },
+        {
+          "numero": 10,
+          "nome": "Jonathan DAVID",
+          "posicao": "FW",
+          "nascimento": "2000-01-14"
+        },
+        {
+          "numero": 12,
+          "nome": "Tani OLUWASEYI",
+          "posicao": "FW",
+          "nascimento": "2000-05-15"
+        },
+        {
+          "numero": 17,
+          "nome": "Tajon BUCHANAN",
+          "posicao": "FW",
+          "nascimento": "1999-02-08"
+        },
+        {
+          "numero": 20,
+          "nome": "Ali AHMED",
+          "posicao": "FW",
+          "nascimento": "2000-10-10"
+        },
+        {
+          "numero": 24,
+          "nome": "Promise DAVID",
+          "posicao": "FW",
+          "nascimento": "2001-07-03"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Qatar",
+      "time": "Catar",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Mahmud ABUNADA",
+          "posicao": "GK",
+          "nascimento": "2000-02-05"
+        },
+        {
+          "numero": 21,
+          "nome": "Salah ZAKARIA",
+          "posicao": "GK",
+          "nascimento": "1999-04-24"
+        },
+        {
+          "numero": 22,
+          "nome": "Meshaal BARSHAM",
+          "posicao": "GK",
+          "nascimento": "1998-02-14"
+        },
+        {
+          "numero": 2,
+          "nome": "PEDRO MIGUEL",
+          "posicao": "DF",
+          "nascimento": "1990-08-06"
+        },
+        {
+          "numero": 3,
+          "nome": "Lucas MENDES",
+          "posicao": "DF",
+          "nascimento": "1990-07-03"
+        },
+        {
+          "numero": 4,
+          "nome": "Issa LAYE",
+          "posicao": "DF",
+          "nascimento": "1997-12-22"
+        },
+        {
+          "numero": 5,
+          "nome": "Jassem GABER",
+          "posicao": "DF",
+          "nascimento": "2002-02-20"
+        },
+        {
+          "numero": 13,
+          "nome": "Ayoub AL-OUI",
+          "posicao": "DF",
+          "nascimento": "2005-03-11"
+        },
+        {
+          "numero": 14,
+          "nome": "Homam AHMED",
+          "posicao": "DF",
+          "nascimento": "1999-08-25"
+        },
+        {
+          "numero": 16,
+          "nome": "Boualem KHOUKHI",
+          "posicao": "DF",
+          "nascimento": "1990-07-09"
+        },
+        {
+          "numero": 18,
+          "nome": "Sultan AL-BRAKE",
+          "posicao": "DF",
+          "nascimento": "1996-04-07"
+        },
+        {
+          "numero": 25,
+          "nome": "Al-Hashmi AL-HUSSAIN",
+          "posicao": "DF",
+          "nascimento": "2003-08-15"
+        },
+        {
+          "numero": 6,
+          "nome": "Abdulaziz HATEM",
+          "posicao": "MF",
+          "nascimento": "1990-01-01"
+        },
+        {
+          "numero": 12,
+          "nome": "Karim BOUDIAF",
+          "posicao": "MF",
+          "nascimento": "1990-09-16"
+        },
+        {
+          "numero": 17,
+          "nome": "Ahmed AL-GANEHI",
+          "posicao": "MF",
+          "nascimento": "2000-09-22"
+        },
+        {
+          "numero": 20,
+          "nome": "Ahmed FATHY",
+          "posicao": "MF",
+          "nascimento": "1993-01-25"
+        },
+        {
+          "numero": 23,
+          "nome": "Assim MADIBO",
+          "posicao": "MF",
+          "nascimento": "1996-10-22"
+        },
+        {
+          "numero": 7,
+          "nome": "Ahmed ALAAELDIN",
+          "posicao": "FW",
+          "nascimento": "1993-01-31"
+        },
+        {
+          "numero": 8,
+          "nome": "EDMILSON JUNIOR",
+          "posicao": "FW",
+          "nascimento": "1994-08-19"
+        },
+        {
+          "numero": 9,
+          "nome": "Mohammed MUNTARI",
+          "posicao": "FW",
+          "nascimento": "1993-12-20"
+        },
+        {
+          "numero": 10,
+          "nome": "Hassan AL-HAYDOS",
+          "posicao": "FW",
+          "nascimento": "1990-12-11"
+        },
+        {
+          "numero": 11,
+          "nome": "Akram AFIF",
+          "posicao": "FW",
+          "nascimento": "1996-11-18"
+        },
+        {
+          "numero": 15,
+          "nome": "Yusuf ABDURISAG",
+          "posicao": "FW",
+          "nascimento": "1999-08-06"
+        },
+        {
+          "numero": 19,
+          "nome": "Almoez ALI",
+          "posicao": "FW",
+          "nascimento": "1996-08-19"
+        },
+        {
+          "numero": 24,
+          "nome": "Tahsin JAMSHID",
+          "posicao": "FW",
+          "nascimento": "2006-06-16"
+        },
+        {
+          "numero": 26,
+          "nome": "Mohamed MANAI",
+          "posicao": "FW",
+          "nascimento": "2002-10-25"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Switzerland",
+      "time": "Suíça",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Gregor KOBEL",
+          "posicao": "GK",
+          "nascimento": "1997-12-06"
+        },
+        {
+          "numero": 12,
+          "nome": "Yvon MVOGO",
+          "posicao": "GK",
+          "nascimento": "1994-06-06"
+        },
+        {
+          "numero": 21,
+          "nome": "Marvin KELLER",
+          "posicao": "GK",
+          "nascimento": "2002-07-03"
+        },
+        {
+          "numero": 2,
+          "nome": "Miro MUHEIM",
+          "posicao": "DF",
+          "nascimento": "1998-03-24"
+        },
+        {
+          "numero": 3,
+          "nome": "Silvan WIDMER",
+          "posicao": "DF",
+          "nascimento": "1993-03-05"
+        },
+        {
+          "numero": 4,
+          "nome": "Nico ELVEDI",
+          "posicao": "DF",
+          "nascimento": "1996-09-30"
+        },
+        {
+          "numero": 5,
+          "nome": "Manuel AKANJI",
+          "posicao": "DF",
+          "nascimento": "1995-07-19"
+        },
+        {
+          "numero": 13,
+          "nome": "Ricardo RODRIGUEZ",
+          "posicao": "DF",
+          "nascimento": "1992-08-25"
+        },
+        {
+          "numero": 18,
+          "nome": "Eray CÖMERT",
+          "posicao": "DF",
+          "nascimento": "1998-02-04"
+        },
+        {
+          "numero": 24,
+          "nome": "Aurèle AMENDA",
+          "posicao": "DF",
+          "nascimento": "2003-07-31"
+        },
+        {
+          "numero": 25,
+          "nome": "Luca JAQUEZ",
+          "posicao": "DF",
+          "nascimento": "2003-06-02"
+        },
+        {
+          "numero": 6,
+          "nome": "Denis ZAKARIA",
+          "posicao": "MF",
+          "nascimento": "1996-11-20"
+        },
+        {
+          "numero": 8,
+          "nome": "Remo FREULER",
+          "posicao": "MF",
+          "nascimento": "1992-04-15"
+        },
+        {
+          "numero": 9,
+          "nome": "Johan MANZAMBI",
+          "posicao": "MF",
+          "nascimento": "2005-10-14"
+        },
+        {
+          "numero": 10,
+          "nome": "Granit XHAKA",
+          "posicao": "MF",
+          "nascimento": "1992-09-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Ardon JASHARI",
+          "posicao": "MF",
+          "nascimento": "2002-07-30"
+        },
+        {
+          "numero": 15,
+          "nome": "Djibril SOW",
+          "posicao": "MF",
+          "nascimento": "1997-02-06"
+        },
+        {
+          "numero": 20,
+          "nome": "Michel AEBISCHER",
+          "posicao": "MF",
+          "nascimento": "1997-01-06"
+        },
+        {
+          "numero": 22,
+          "nome": "Fabian RIEDER",
+          "posicao": "MF",
+          "nascimento": "2002-02-16"
+        },
+        {
+          "numero": 7,
+          "nome": "Breel EMBOLO",
+          "posicao": "FW",
+          "nascimento": "1997-02-14"
+        },
+        {
+          "numero": 11,
+          "nome": "Dan NDOYE",
+          "posicao": "FW",
+          "nascimento": "2000-10-25"
+        },
+        {
+          "numero": 16,
+          "nome": "Christian FASSNACHT",
+          "posicao": "FW",
+          "nascimento": "1993-11-11"
+        },
+        {
+          "numero": 17,
+          "nome": "Rubén VARGAS",
+          "posicao": "FW",
+          "nascimento": "1998-08-05"
+        },
+        {
+          "numero": 19,
+          "nome": "Noah OKAFOR",
+          "posicao": "FW",
+          "nascimento": "2000-05-24"
+        },
+        {
+          "numero": 23,
+          "nome": "Zeki AMDOUNI",
+          "posicao": "FW",
+          "nascimento": "2000-12-04"
+        },
+        {
+          "numero": 26,
+          "nome": "Cedric ITTEN",
+          "posicao": "FW",
+          "nascimento": "1996-12-27"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Brazil",
+      "time": "Brasil",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "ALISSON",
+          "posicao": "GK",
+          "nascimento": "1992-10-02"
+        },
+        {
+          "numero": 12,
+          "nome": "WEVERTON",
+          "posicao": "GK",
+          "nascimento": "1987-12-13"
+        },
+        {
+          "numero": 23,
+          "nome": "Ederson MORAES",
+          "posicao": "GK",
+          "nascimento": "1993-08-17"
+        },
+        {
+          "numero": 3,
+          "nome": "Gabriel MAGALHÃES",
+          "posicao": "DF",
+          "nascimento": "1997-12-19"
+        },
+        {
+          "numero": 4,
+          "nome": "MARQUINHOS",
+          "posicao": "DF",
+          "nascimento": "1994-05-14"
+        },
+        {
+          "numero": 6,
+          "nome": "ALEX SANDRO",
+          "posicao": "DF",
+          "nascimento": "1991-01-26"
+        },
+        {
+          "numero": 13,
+          "nome": "DANILO LUIZ",
+          "posicao": "DF",
+          "nascimento": "1991-07-15"
+        },
+        {
+          "numero": 14,
+          "nome": "BREMER",
+          "posicao": "DF",
+          "nascimento": "1997-03-18"
+        },
+        {
+          "numero": 15,
+          "nome": "Léo PEREIRA",
+          "posicao": "DF",
+          "nascimento": "1996-01-31"
+        },
+        {
+          "numero": 16,
+          "nome": "Douglas SANTOS",
+          "posicao": "DF",
+          "nascimento": "1994-03-22"
+        },
+        {
+          "numero": 24,
+          "nome": "Roger IBAÑEZ",
+          "posicao": "DF",
+          "nascimento": "1998-11-23"
+        },
+        {
+          "numero": 2,
+          "nome": "Éderson SILVA",
+          "posicao": "MF",
+          "nascimento": "1999-07-07"
+        },
+        {
+          "numero": 5,
+          "nome": "CASEMIRO",
+          "posicao": "MF",
+          "nascimento": "1992-02-23"
+        },
+        {
+          "numero": 8,
+          "nome": "Bruno GUIMARÃES",
+          "posicao": "MF",
+          "nascimento": "1997-11-16"
+        },
+        {
+          "numero": 17,
+          "nome": "FABINHO",
+          "posicao": "MF",
+          "nascimento": "1993-10-23"
+        },
+        {
+          "numero": 18,
+          "nome": "Danilo SANTOS",
+          "posicao": "MF",
+          "nascimento": "2001-04-29"
+        },
+        {
+          "numero": 20,
+          "nome": "Lucas PAQUETÁ",
+          "posicao": "MF",
+          "nascimento": "1997-08-27"
+        },
+        {
+          "numero": 7,
+          "nome": "VINÍCIUS JÚNIOR",
+          "posicao": "FW",
+          "nascimento": "2000-07-12"
+        },
+        {
+          "numero": 9,
+          "nome": "Matheus CUNHA",
+          "posicao": "FW",
+          "nascimento": "1999-05-27"
+        },
+        {
+          "numero": 10,
+          "nome": "NEYMAR",
+          "posicao": "FW",
+          "nascimento": "1992-02-05"
+        },
+        {
+          "numero": 11,
+          "nome": "RAPHINHA",
+          "posicao": "FW",
+          "nascimento": "1996-12-14"
+        },
+        {
+          "numero": 19,
+          "nome": "ENDRICK",
+          "posicao": "FW",
+          "nascimento": "2006-07-21"
+        },
+        {
+          "numero": 21,
+          "nome": "LUIZ HENRIQUE",
+          "posicao": "FW",
+          "nascimento": "2001-01-02"
+        },
+        {
+          "numero": 22,
+          "nome": "Gabriel MARTINELLI",
+          "posicao": "FW",
+          "nascimento": "2001-06-18"
+        },
+        {
+          "numero": 25,
+          "nome": "IGOR THIAGO",
+          "posicao": "FW",
+          "nascimento": "2001-06-26"
+        },
+        {
+          "numero": 26,
+          "nome": "RAYAN",
+          "posicao": "FW",
+          "nascimento": "2006-08-03"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Haiti",
+      "time": "Haiti",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Johny PLACIDE",
+          "posicao": "GK",
+          "nascimento": "1988-01-29"
+        },
+        {
+          "numero": 12,
+          "nome": "Alexandre PIERRE",
+          "posicao": "GK",
+          "nascimento": "2001-02-25"
+        },
+        {
+          "numero": 23,
+          "nome": "Josué DUVERGER",
+          "posicao": "GK",
+          "nascimento": "2000-04-27"
+        },
+        {
+          "numero": 2,
+          "nome": "Carlens ARCUS",
+          "posicao": "DF",
+          "nascimento": "1996-06-28"
+        },
+        {
+          "numero": 3,
+          "nome": "Keeto THERMONCY",
+          "posicao": "DF",
+          "nascimento": "2006-03-29"
+        },
+        {
+          "numero": 4,
+          "nome": "Ricardo ADÉ",
+          "posicao": "DF",
+          "nascimento": "1990-05-21"
+        },
+        {
+          "numero": 5,
+          "nome": "Hannes DELCROIX",
+          "posicao": "DF",
+          "nascimento": "1999-02-28"
+        },
+        {
+          "numero": 8,
+          "nome": "Martin EXPÉRIENCE",
+          "posicao": "DF",
+          "nascimento": "1999-03-09"
+        },
+        {
+          "numero": 13,
+          "nome": "Duke LACROIX",
+          "posicao": "DF",
+          "nascimento": "1993-10-14"
+        },
+        {
+          "numero": 22,
+          "nome": "Jean-Kévin DUVERNE",
+          "posicao": "DF",
+          "nascimento": "1997-07-12"
+        },
+        {
+          "numero": 24,
+          "nome": "Wilguens PAUGAIN",
+          "posicao": "DF",
+          "nascimento": "2001-08-24"
+        },
+        {
+          "numero": 6,
+          "nome": "Carl SAINTÉ",
+          "posicao": "MF",
+          "nascimento": "2002-08-09"
+        },
+        {
+          "numero": 10,
+          "nome": "Jean-Ricner BELLEGARDE",
+          "posicao": "MF",
+          "nascimento": "1998-06-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Leverton PIERRE",
+          "posicao": "MF",
+          "nascimento": "1998-03-09"
+        },
+        {
+          "numero": 17,
+          "nome": "Danley JEAN JACQUES",
+          "posicao": "MF",
+          "nascimento": "2000-05-20"
+        },
+        {
+          "numero": 25,
+          "nome": "Dominique SIMON",
+          "posicao": "MF",
+          "nascimento": "2000-07-29"
+        },
+        {
+          "numero": 26,
+          "nome": "Woodensky PIERRE",
+          "posicao": "MF",
+          "nascimento": "2004-12-30"
+        },
+        {
+          "numero": 7,
+          "nome": "Derrick Etienne JR.",
+          "posicao": "FW",
+          "nascimento": "1996-11-25"
+        },
+        {
+          "numero": 9,
+          "nome": "Duckens NAZON",
+          "posicao": "FW",
+          "nascimento": "1994-04-07"
+        },
+        {
+          "numero": 11,
+          "nome": "Louicius DEEDSON",
+          "posicao": "FW",
+          "nascimento": "2001-02-11"
+        },
+        {
+          "numero": 15,
+          "nome": "Ruben PROVIDENCE",
+          "posicao": "FW",
+          "nascimento": "2001-07-07"
+        },
+        {
+          "numero": 16,
+          "nome": "Lenny JOSEPH",
+          "posicao": "FW",
+          "nascimento": "2000-10-12"
+        },
+        {
+          "numero": 18,
+          "nome": "Wilson ISIDOR",
+          "posicao": "FW",
+          "nascimento": "2000-08-27"
+        },
+        {
+          "numero": 19,
+          "nome": "Yassin FORTUNÉ",
+          "posicao": "FW",
+          "nascimento": "1999-01-30"
+        },
+        {
+          "numero": 20,
+          "nome": "Frantzdy PIERROT",
+          "posicao": "FW",
+          "nascimento": "1995-03-29"
+        },
+        {
+          "numero": 21,
+          "nome": "Josué CASIMIR",
+          "posicao": "FW",
+          "nascimento": "2001-09-24"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Morocco",
+      "time": "Marrocos",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Yassine BOUNOU",
+          "posicao": "GK",
+          "nascimento": "1991-04-05"
+        },
+        {
+          "numero": 12,
+          "nome": "Munir MOHAMEDI",
+          "posicao": "GK",
+          "nascimento": "1989-05-10"
+        },
+        {
+          "numero": 22,
+          "nome": "Ahmed Reda TAGNAOUTI",
+          "posicao": "GK",
+          "nascimento": "1996-04-05"
+        },
+        {
+          "numero": 2,
+          "nome": "Achraf HAKIMI",
+          "posicao": "DF",
+          "nascimento": "1998-11-04"
+        },
+        {
+          "numero": 3,
+          "nome": "Noussair MAZRAOUI",
+          "posicao": "DF",
+          "nascimento": "1997-11-14"
+        },
+        {
+          "numero": 5,
+          "nome": "Nayef AGUERD",
+          "posicao": "DF",
+          "nascimento": "1996-03-30"
+        },
+        {
+          "numero": 13,
+          "nome": "Zakaria El OUAHDI",
+          "posicao": "DF",
+          "nascimento": "2001-12-31"
+        },
+        {
+          "numero": 14,
+          "nome": "Issa DIOP",
+          "posicao": "DF",
+          "nascimento": "1997-01-09"
+        },
+        {
+          "numero": 18,
+          "nome": "Chadi RIAD",
+          "posicao": "DF",
+          "nascimento": "2003-06-17"
+        },
+        {
+          "numero": 19,
+          "nome": "Youssef BELAMMARI",
+          "posicao": "DF",
+          "nascimento": "1998-09-20"
+        },
+        {
+          "numero": 25,
+          "nome": "Redouane HALHAL",
+          "posicao": "DF",
+          "nascimento": "2003-03-05"
+        },
+        {
+          "numero": 26,
+          "nome": "Anass SALAH-EDDINE",
+          "posicao": "DF",
+          "nascimento": "2002-01-18"
+        },
+        {
+          "numero": 4,
+          "nome": "Sofyan AMRABAT",
+          "posicao": "MF",
+          "nascimento": "1996-08-21"
+        },
+        {
+          "numero": 6,
+          "nome": "Ayyoub BOUADDI",
+          "posicao": "MF",
+          "nascimento": "2007-10-02"
+        },
+        {
+          "numero": 7,
+          "nome": "Chemsdine TALBI",
+          "posicao": "MF",
+          "nascimento": "2005-05-09"
+        },
+        {
+          "numero": 8,
+          "nome": "Azzedine OUNAHI",
+          "posicao": "MF",
+          "nascimento": "2000-04-19"
+        },
+        {
+          "numero": 11,
+          "nome": "Ismael SAIBARI",
+          "posicao": "MF",
+          "nascimento": "2001-01-28"
+        },
+        {
+          "numero": 15,
+          "nome": "Samir El MOURABET",
+          "posicao": "MF",
+          "nascimento": "2005-10-06"
+        },
+        {
+          "numero": 16,
+          "nome": "Gessime YASSINE",
+          "posicao": "MF",
+          "nascimento": "2005-11-22"
+        },
+        {
+          "numero": 23,
+          "nome": "Bilal El KHANNOUSS",
+          "posicao": "MF",
+          "nascimento": "2004-05-10"
+        },
+        {
+          "numero": 24,
+          "nome": "Neil El AYNAOUI",
+          "posicao": "MF",
+          "nascimento": "2001-07-02"
+        },
+        {
+          "numero": 9,
+          "nome": "Soufiane RAHIMI",
+          "posicao": "FW",
+          "nascimento": "1996-06-02"
+        },
+        {
+          "numero": 10,
+          "nome": "Brahim DÍAZ",
+          "posicao": "FW",
+          "nascimento": "1999-08-03"
+        },
+        {
+          "numero": 17,
+          "nome": "Abde EZZALZOULI",
+          "posicao": "FW",
+          "nascimento": "2001-12-17"
+        },
+        {
+          "numero": 20,
+          "nome": "Ayoub El KAABI",
+          "posicao": "FW",
+          "nascimento": "1993-06-25"
+        },
+        {
+          "numero": 21,
+          "nome": "Ayoube AMAIMOUNI",
+          "posicao": "FW",
+          "nascimento": "2004-11-30"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Scotland",
+      "time": "Escócia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Angus GUNN",
+          "posicao": "GK",
+          "nascimento": "1996-01-22"
+        },
+        {
+          "numero": 12,
+          "nome": "Liam KELLY",
+          "posicao": "GK",
+          "nascimento": "1996-01-23"
+        },
+        {
+          "numero": 21,
+          "nome": "Craig GORDON",
+          "posicao": "GK",
+          "nascimento": "1982-12-31"
+        },
+        {
+          "numero": 2,
+          "nome": "Aaron HICKEY",
+          "posicao": "DF",
+          "nascimento": "2002-06-10"
+        },
+        {
+          "numero": 3,
+          "nome": "Andy ROBERTSON",
+          "posicao": "DF",
+          "nascimento": "1994-03-11"
+        },
+        {
+          "numero": 5,
+          "nome": "Grant HANLEY",
+          "posicao": "DF",
+          "nascimento": "1991-11-20"
+        },
+        {
+          "numero": 6,
+          "nome": "Kieran TIERNEY",
+          "posicao": "DF",
+          "nascimento": "1997-06-05"
+        },
+        {
+          "numero": 13,
+          "nome": "Jack HENDRY",
+          "posicao": "DF",
+          "nascimento": "1995-05-07"
+        },
+        {
+          "numero": 15,
+          "nome": "John SOUTTAR",
+          "posicao": "DF",
+          "nascimento": "1996-09-25"
+        },
+        {
+          "numero": 16,
+          "nome": "Dominic HYAM",
+          "posicao": "DF",
+          "nascimento": "1995-12-20"
+        },
+        {
+          "numero": 22,
+          "nome": "Nathan PATTERSON",
+          "posicao": "DF",
+          "nascimento": "2001-10-16"
+        },
+        {
+          "numero": 24,
+          "nome": "Anthony RALSTON",
+          "posicao": "DF",
+          "nascimento": "1998-11-16"
+        },
+        {
+          "numero": 26,
+          "nome": "Scott MCKENNA",
+          "posicao": "DF",
+          "nascimento": "1996-11-12"
+        },
+        {
+          "numero": 4,
+          "nome": "Scott MCTOMINAY",
+          "posicao": "MF",
+          "nascimento": "1996-12-08"
+        },
+        {
+          "numero": 7,
+          "nome": "John MCGINN",
+          "posicao": "MF",
+          "nascimento": "1994-10-18"
+        },
+        {
+          "numero": 8,
+          "nome": "Tyler FLETCHER",
+          "posicao": "MF",
+          "nascimento": "2007-03-19"
+        },
+        {
+          "numero": 11,
+          "nome": "Ryan CHRISTIE",
+          "posicao": "MF",
+          "nascimento": "1995-02-22"
+        },
+        {
+          "numero": 19,
+          "nome": "Lewis FERGUSON",
+          "posicao": "MF",
+          "nascimento": "1999-08-24"
+        },
+        {
+          "numero": 23,
+          "nome": "Kenny MCLEAN",
+          "posicao": "MF",
+          "nascimento": "1992-01-08"
+        },
+        {
+          "numero": 9,
+          "nome": "Lyndon DYKES",
+          "posicao": "FW",
+          "nascimento": "1995-10-07"
+        },
+        {
+          "numero": 10,
+          "nome": "Ché ADAMS",
+          "posicao": "FW",
+          "nascimento": "1996-07-13"
+        },
+        {
+          "numero": 14,
+          "nome": "Ross STEWART",
+          "posicao": "FW",
+          "nascimento": "1996-07-11"
+        },
+        {
+          "numero": 17,
+          "nome": "Ben GANNON-DOAK",
+          "posicao": "FW",
+          "nascimento": "2005-11-11"
+        },
+        {
+          "numero": 18,
+          "nome": "George HIRST",
+          "posicao": "FW",
+          "nascimento": "1999-02-15"
+        },
+        {
+          "numero": 20,
+          "nome": "Lawrence SHANKLAND",
+          "posicao": "FW",
+          "nascimento": "1995-08-10"
+        },
+        {
+          "numero": 25,
+          "nome": "Findlay CURTIS",
+          "posicao": "FW",
+          "nascimento": "2006-06-09"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Australia",
+      "time": "Austrália",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Mathew RYAN",
+          "posicao": "GK",
+          "nascimento": "1992-04-08"
+        },
+        {
+          "numero": 12,
+          "nome": "Paul IZZO",
+          "posicao": "GK",
+          "nascimento": "1995-01-06"
+        },
+        {
+          "numero": 18,
+          "nome": "Patrick BEACH",
+          "posicao": "GK",
+          "nascimento": "2003-08-06"
+        },
+        {
+          "numero": 2,
+          "nome": "Miloš DEGENEK",
+          "posicao": "DF",
+          "nascimento": "1994-04-28"
+        },
+        {
+          "numero": 3,
+          "nome": "Alessandro CIRCATI",
+          "posicao": "DF",
+          "nascimento": "2003-10-10"
+        },
+        {
+          "numero": 4,
+          "nome": "Jacob ITALIANO",
+          "posicao": "DF",
+          "nascimento": "2001-07-30"
+        },
+        {
+          "numero": 5,
+          "nome": "Jordan BOS",
+          "posicao": "DF",
+          "nascimento": "2002-10-29"
+        },
+        {
+          "numero": 6,
+          "nome": "Jason GERIA",
+          "posicao": "DF",
+          "nascimento": "1993-05-10"
+        },
+        {
+          "numero": 15,
+          "nome": "Kai TREWIN",
+          "posicao": "DF",
+          "nascimento": "2001-05-18"
+        },
+        {
+          "numero": 16,
+          "nome": "Aziz BEHICH",
+          "posicao": "DF",
+          "nascimento": "1990-12-16"
+        },
+        {
+          "numero": 19,
+          "nome": "Harry SOUTTAR",
+          "posicao": "DF",
+          "nascimento": "1998-10-22"
+        },
+        {
+          "numero": 21,
+          "nome": "Cameron BURGESS",
+          "posicao": "DF",
+          "nascimento": "1995-10-21"
+        },
+        {
+          "numero": 25,
+          "nome": "Lucas HERRINGTON",
+          "posicao": "DF",
+          "nascimento": "2007-09-05"
+        },
+        {
+          "numero": 8,
+          "nome": "Connor METCALFE",
+          "posicao": "MF",
+          "nascimento": "1999-11-05"
+        },
+        {
+          "numero": 13,
+          "nome": "Aiden O'NEILL",
+          "posicao": "MF",
+          "nascimento": "1998-07-04"
+        },
+        {
+          "numero": 14,
+          "nome": "Cammy DEVLIN",
+          "posicao": "MF",
+          "nascimento": "1998-06-07"
+        },
+        {
+          "numero": 22,
+          "nome": "Jackson IRVINE",
+          "posicao": "MF",
+          "nascimento": "1993-03-07"
+        },
+        {
+          "numero": 24,
+          "nome": "Paul OKON-ENGSTLER",
+          "posicao": "MF",
+          "nascimento": "2005-01-24"
+        },
+        {
+          "numero": 7,
+          "nome": "Mathew LECKIE",
+          "posicao": "FW",
+          "nascimento": "1991-02-04"
+        },
+        {
+          "numero": 9,
+          "nome": "Mohamed TOURÉ",
+          "posicao": "FW",
+          "nascimento": "2004-03-26"
+        },
+        {
+          "numero": 10,
+          "nome": "Ajdin HRUSTIC",
+          "posicao": "FW",
+          "nascimento": "1996-07-05"
+        },
+        {
+          "numero": 11,
+          "nome": "Awer MABIL",
+          "posicao": "FW",
+          "nascimento": "1995-09-15"
+        },
+        {
+          "numero": 17,
+          "nome": "Nestory IRANKUNDA",
+          "posicao": "FW",
+          "nascimento": "2006-02-09"
+        },
+        {
+          "numero": 20,
+          "nome": "Cristian VOLPATO",
+          "posicao": "FW",
+          "nascimento": "2003-11-15"
+        },
+        {
+          "numero": 23,
+          "nome": "Nishan VELUPILLAY",
+          "posicao": "FW",
+          "nascimento": "2001-05-07"
+        },
+        {
+          "numero": 26,
+          "nome": "Tete YENGI",
+          "posicao": "FW",
+          "nascimento": "2000-11-28"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Paraguay",
+      "time": "Paraguai",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Gatito FERNÁNDEZ",
+          "posicao": "GK",
+          "nascimento": "1988-03-29"
+        },
+        {
+          "numero": 12,
+          "nome": "Orlando GILL",
+          "posicao": "GK",
+          "nascimento": "2000-06-11"
+        },
+        {
+          "numero": 22,
+          "nome": "Gastón OLVEIRA",
+          "posicao": "GK",
+          "nascimento": "1993-04-21"
+        },
+        {
+          "numero": 2,
+          "nome": "Gustavo VELÁZQUEZ",
+          "posicao": "DF",
+          "nascimento": "1991-04-17"
+        },
+        {
+          "numero": 3,
+          "nome": "Omar ALDERETE",
+          "posicao": "DF",
+          "nascimento": "1996-12-26"
+        },
+        {
+          "numero": 4,
+          "nome": "Juan José CÁCERES",
+          "posicao": "DF",
+          "nascimento": "2000-06-01"
+        },
+        {
+          "numero": 5,
+          "nome": "Fabián BALBUENA",
+          "posicao": "DF",
+          "nascimento": "1991-08-23"
+        },
+        {
+          "numero": 6,
+          "nome": "Júnior ALONSO",
+          "posicao": "DF",
+          "nascimento": "1993-02-09"
+        },
+        {
+          "numero": 13,
+          "nome": "José CANALE",
+          "posicao": "DF",
+          "nascimento": "1996-07-20"
+        },
+        {
+          "numero": 15,
+          "nome": "Gustavo GÓMEZ",
+          "posicao": "DF",
+          "nascimento": "1993-05-06"
+        },
+        {
+          "numero": 26,
+          "nome": "Alexandro MAIDANA",
+          "posicao": "DF",
+          "nascimento": "2005-07-26"
+        },
+        {
+          "numero": 7,
+          "nome": "Ramón SOSA",
+          "posicao": "MF",
+          "nascimento": "1999-08-31"
+        },
+        {
+          "numero": 8,
+          "nome": "Diego GÓMEZ",
+          "posicao": "MF",
+          "nascimento": "2003-03-27"
+        },
+        {
+          "numero": 10,
+          "nome": "Miguel ALMIRÓN",
+          "posicao": "MF",
+          "nascimento": "1994-02-10"
+        },
+        {
+          "numero": 11,
+          "nome": "MAURÍCIO",
+          "posicao": "MF",
+          "nascimento": "2001-06-22"
+        },
+        {
+          "numero": 14,
+          "nome": "Andrés CUBAS",
+          "posicao": "MF",
+          "nascimento": "1996-05-11"
+        },
+        {
+          "numero": 16,
+          "nome": "Damián BOBADILLA",
+          "posicao": "MF",
+          "nascimento": "2001-07-11"
+        },
+        {
+          "numero": 20,
+          "nome": "Braian OJEDA",
+          "posicao": "MF",
+          "nascimento": "2000-06-27"
+        },
+        {
+          "numero": 23,
+          "nome": "Matías GALARZA",
+          "posicao": "MF",
+          "nascimento": "2002-02-11"
+        },
+        {
+          "numero": 24,
+          "nome": "Gustavo CABALLERO",
+          "posicao": "MF",
+          "nascimento": "2001-09-21"
+        },
+        {
+          "numero": 9,
+          "nome": "Antonio SANABRIA",
+          "posicao": "FW",
+          "nascimento": "1996-03-04"
+        },
+        {
+          "numero": 17,
+          "nome": "KAKU",
+          "posicao": "FW",
+          "nascimento": "1995-01-11"
+        },
+        {
+          "numero": 18,
+          "nome": "Álex ARCE",
+          "posicao": "FW",
+          "nascimento": "1995-06-16"
+        },
+        {
+          "numero": 19,
+          "nome": "Julio ENCISO",
+          "posicao": "FW",
+          "nascimento": "2004-01-23"
+        },
+        {
+          "numero": 21,
+          "nome": "Gabriel ÁVALOS",
+          "posicao": "FW",
+          "nascimento": "1990-10-12"
+        },
+        {
+          "numero": 25,
+          "nome": "Isidro PITTA",
+          "posicao": "FW",
+          "nascimento": "1999-08-14"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Turkey",
+      "time": "Turquia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Mert GÜNOK",
+          "posicao": "GK",
+          "nascimento": "1989-03-01"
+        },
+        {
+          "numero": 12,
+          "nome": "Altay BAYINDIR",
+          "posicao": "GK",
+          "nascimento": "1998-04-14"
+        },
+        {
+          "numero": 23,
+          "nome": "Uğurcan ÇAKIR",
+          "posicao": "GK",
+          "nascimento": "1996-04-05"
+        },
+        {
+          "numero": 2,
+          "nome": "Zeki ÇELIK",
+          "posicao": "DF",
+          "nascimento": "1997-02-17"
+        },
+        {
+          "numero": 3,
+          "nome": "Merih DEMIRAL",
+          "posicao": "DF",
+          "nascimento": "1998-03-05"
+        },
+        {
+          "numero": 4,
+          "nome": "Çağlar SÖYÜNCÜ",
+          "posicao": "DF",
+          "nascimento": "1996-05-23"
+        },
+        {
+          "numero": 13,
+          "nome": "Eren ELMALI",
+          "posicao": "DF",
+          "nascimento": "2000-07-07"
+        },
+        {
+          "numero": 14,
+          "nome": "Abdülkerim BARDAKCI",
+          "posicao": "DF",
+          "nascimento": "1994-09-07"
+        },
+        {
+          "numero": 15,
+          "nome": "Ozan KABAK",
+          "posicao": "DF",
+          "nascimento": "2000-03-25"
+        },
+        {
+          "numero": 18,
+          "nome": "Mert MÜLDÜR",
+          "posicao": "DF",
+          "nascimento": "1999-04-03"
+        },
+        {
+          "numero": 20,
+          "nome": "Ferdi KADIOĞLU",
+          "posicao": "DF",
+          "nascimento": "1999-10-07"
+        },
+        {
+          "numero": 25,
+          "nome": "Samet AKAYDIN",
+          "posicao": "DF",
+          "nascimento": "1994-03-13"
+        },
+        {
+          "numero": 5,
+          "nome": "Salih ÖZCAN",
+          "posicao": "MF",
+          "nascimento": "1998-01-11"
+        },
+        {
+          "numero": 6,
+          "nome": "Orkun KÖKÇÜ",
+          "posicao": "MF",
+          "nascimento": "2000-12-29"
+        },
+        {
+          "numero": 10,
+          "nome": "Hakan ÇALHANOĞLU",
+          "posicao": "MF",
+          "nascimento": "1994-02-08"
+        },
+        {
+          "numero": 16,
+          "nome": "İsmail YÜKSEK",
+          "posicao": "MF",
+          "nascimento": "1999-01-26"
+        },
+        {
+          "numero": 22,
+          "nome": "Kaan AYHAN",
+          "posicao": "MF",
+          "nascimento": "1994-11-10"
+        },
+        {
+          "numero": 7,
+          "nome": "Kerem AKTÜRKOĞLU",
+          "posicao": "FW",
+          "nascimento": "1998-10-21"
+        },
+        {
+          "numero": 8,
+          "nome": "Arda GÜLER",
+          "posicao": "FW",
+          "nascimento": "2005-02-25"
+        },
+        {
+          "numero": 9,
+          "nome": "Deniz GÜL",
+          "posicao": "FW",
+          "nascimento": "2004-07-02"
+        },
+        {
+          "numero": 11,
+          "nome": "Kenan YILDIZ",
+          "posicao": "FW",
+          "nascimento": "2005-05-04"
+        },
+        {
+          "numero": 17,
+          "nome": "İrfan Can KAHVECI",
+          "posicao": "FW",
+          "nascimento": "1995-07-15"
+        },
+        {
+          "numero": 19,
+          "nome": "Yunus AKGÜN",
+          "posicao": "FW",
+          "nascimento": "2000-07-07"
+        },
+        {
+          "numero": 21,
+          "nome": "Barış Alper YILMAZ",
+          "posicao": "FW",
+          "nascimento": "2000-05-23"
+        },
+        {
+          "numero": 24,
+          "nome": "Oğuz AYDIN",
+          "posicao": "FW",
+          "nascimento": "2000-10-27"
+        },
+        {
+          "numero": 26,
+          "nome": "Can UZUN",
+          "posicao": "FW",
+          "nascimento": "2005-11-11"
+        }
+      ]
+    },
+    {
+      "timeIngles": "United States",
+      "time": "Estados Unidos",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Matt TURNER",
+          "posicao": "GK",
+          "nascimento": "1994-06-24"
+        },
+        {
+          "numero": 24,
+          "nome": "Matt FREESE",
+          "posicao": "GK",
+          "nascimento": "1998-09-02"
+        },
+        {
+          "numero": 25,
+          "nome": "Chris BRADY",
+          "posicao": "GK",
+          "nascimento": "2004-03-03"
+        },
+        {
+          "numero": 2,
+          "nome": "Sergiño DEST",
+          "posicao": "DF",
+          "nascimento": "2000-11-03"
+        },
+        {
+          "numero": 3,
+          "nome": "Chris RICHARDS",
+          "posicao": "DF",
+          "nascimento": "2000-03-28"
+        },
+        {
+          "numero": 5,
+          "nome": "Antonee ROBINSON",
+          "posicao": "DF",
+          "nascimento": "1997-08-08"
+        },
+        {
+          "numero": 6,
+          "nome": "Auston TRUSTY",
+          "posicao": "DF",
+          "nascimento": "1998-08-12"
+        },
+        {
+          "numero": 12,
+          "nome": "Miles ROBINSON",
+          "posicao": "DF",
+          "nascimento": "1997-03-14"
+        },
+        {
+          "numero": 13,
+          "nome": "Tim REAM",
+          "posicao": "DF",
+          "nascimento": "1987-10-05"
+        },
+        {
+          "numero": 16,
+          "nome": "Alex FREEMAN",
+          "posicao": "DF",
+          "nascimento": "2004-08-09"
+        },
+        {
+          "numero": 18,
+          "nome": "Max ARFSTEN",
+          "posicao": "DF",
+          "nascimento": "2001-04-19"
+        },
+        {
+          "numero": 22,
+          "nome": "Mark MCKENZIE",
+          "posicao": "DF",
+          "nascimento": "1999-02-25"
+        },
+        {
+          "numero": 23,
+          "nome": "Joe SCALLY",
+          "posicao": "DF",
+          "nascimento": "2002-12-31"
+        },
+        {
+          "numero": 4,
+          "nome": "Tyler ADAMS",
+          "posicao": "MF",
+          "nascimento": "1999-02-14"
+        },
+        {
+          "numero": 7,
+          "nome": "Giovanni REYNA",
+          "posicao": "MF",
+          "nascimento": "2002-11-13"
+        },
+        {
+          "numero": 8,
+          "nome": "Weston MCKENNIE",
+          "posicao": "MF",
+          "nascimento": "1998-08-28"
+        },
+        {
+          "numero": 14,
+          "nome": "Sebastian BERHALTER",
+          "posicao": "MF",
+          "nascimento": "2001-05-10"
+        },
+        {
+          "numero": 15,
+          "nome": "Cristian ROLDAN",
+          "posicao": "MF",
+          "nascimento": "1995-06-03"
+        },
+        {
+          "numero": 17,
+          "nome": "Malik TILLMAN",
+          "posicao": "MF",
+          "nascimento": "2002-05-28"
+        },
+        {
+          "numero": 9,
+          "nome": "Ricardo PEPI",
+          "posicao": "FW",
+          "nascimento": "2003-01-09"
+        },
+        {
+          "numero": 10,
+          "nome": "Christian PULISIC",
+          "posicao": "FW",
+          "nascimento": "1998-09-18"
+        },
+        {
+          "numero": 11,
+          "nome": "Brenden AARONSON",
+          "posicao": "FW",
+          "nascimento": "2000-10-22"
+        },
+        {
+          "numero": 19,
+          "nome": "Haji WRIGHT",
+          "posicao": "FW",
+          "nascimento": "1998-03-27"
+        },
+        {
+          "numero": 20,
+          "nome": "Folarin BALOGUN",
+          "posicao": "FW",
+          "nascimento": "2001-07-03"
+        },
+        {
+          "numero": 21,
+          "nome": "Timothy WEAH",
+          "posicao": "FW",
+          "nascimento": "2000-02-22"
+        },
+        {
+          "numero": 26,
+          "nome": "Alejandro ZENDEJAS",
+          "posicao": "FW",
+          "nascimento": "1998-02-07"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Curaçao",
+      "time": "Curaçao",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Eloy ROOM",
+          "posicao": "GK",
+          "nascimento": "1989-02-06"
+        },
+        {
+          "numero": 25,
+          "nome": "Tyrick BODAK",
+          "posicao": "GK",
+          "nascimento": "2002-05-15"
+        },
+        {
+          "numero": 26,
+          "nome": "Trevor DOORNBUSCH",
+          "posicao": "GK",
+          "nascimento": "1999-07-06"
+        },
+        {
+          "numero": 2,
+          "nome": "Shurandy SAMBO",
+          "posicao": "DF",
+          "nascimento": "2001-08-19"
+        },
+        {
+          "numero": 3,
+          "nome": "Juriën GAARI",
+          "posicao": "DF",
+          "nascimento": "1993-12-23"
+        },
+        {
+          "numero": 4,
+          "nome": "Roshon van EIJMA",
+          "posicao": "DF",
+          "nascimento": "1998-06-09"
+        },
+        {
+          "numero": 5,
+          "nome": "Sherel FLORANUS",
+          "posicao": "DF",
+          "nascimento": "1998-08-23"
+        },
+        {
+          "numero": 18,
+          "nome": "Armando OBISPO",
+          "posicao": "DF",
+          "nascimento": "1999-03-05"
+        },
+        {
+          "numero": 20,
+          "nome": "Joshua BRENET",
+          "posicao": "DF",
+          "nascimento": "1994-03-20"
+        },
+        {
+          "numero": 23,
+          "nome": "Riechedly BAZOER",
+          "posicao": "DF",
+          "nascimento": "1996-10-12"
+        },
+        {
+          "numero": 24,
+          "nome": "Deveron FONVILLE",
+          "posicao": "DF",
+          "nascimento": "2003-05-16"
+        },
+        {
+          "numero": 6,
+          "nome": "Godfried ROEMERATOE",
+          "posicao": "MF",
+          "nascimento": "1999-08-19"
+        },
+        {
+          "numero": 7,
+          "nome": "Juninho BACUNA",
+          "posicao": "MF",
+          "nascimento": "1997-08-07"
+        },
+        {
+          "numero": 8,
+          "nome": "Livano COMENENCIA",
+          "posicao": "MF",
+          "nascimento": "2004-02-03"
+        },
+        {
+          "numero": 10,
+          "nome": "Leandro BACUNA",
+          "posicao": "MF",
+          "nascimento": "1991-08-21"
+        },
+        {
+          "numero": 15,
+          "nome": "Ar'jany MARTHA",
+          "posicao": "MF",
+          "nascimento": "2003-09-04"
+        },
+        {
+          "numero": 21,
+          "nome": "Tahith CHONG",
+          "posicao": "MF",
+          "nascimento": "1999-12-04"
+        },
+        {
+          "numero": 22,
+          "nome": "Kevin FELIDA",
+          "posicao": "MF",
+          "nascimento": "1999-11-11"
+        },
+        {
+          "numero": 9,
+          "nome": "Jürgen LOCADIA",
+          "posicao": "FW",
+          "nascimento": "1993-11-07"
+        },
+        {
+          "numero": 11,
+          "nome": "Jeremy ANTONISSE",
+          "posicao": "FW",
+          "nascimento": "2002-03-29"
+        },
+        {
+          "numero": 12,
+          "nome": "Sontje HANSEN",
+          "posicao": "FW",
+          "nascimento": "2002-05-18"
+        },
+        {
+          "numero": 13,
+          "nome": "Tyrese NOSLIN",
+          "posicao": "FW",
+          "nascimento": "2002-09-11"
+        },
+        {
+          "numero": 14,
+          "nome": "Kenji GORRÉ",
+          "posicao": "FW",
+          "nascimento": "1994-09-29"
+        },
+        {
+          "numero": 16,
+          "nome": "Jearl MARGARITHA",
+          "posicao": "FW",
+          "nascimento": "2000-04-10"
+        },
+        {
+          "numero": 17,
+          "nome": "Brandley KUWAS",
+          "posicao": "FW",
+          "nascimento": "1992-09-19"
+        },
+        {
+          "numero": 19,
+          "nome": "Gervane KASTANEER",
+          "posicao": "FW",
+          "nascimento": "1996-06-09"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Ecuador",
+      "time": "Equador",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Hernán GALÍNDEZ",
+          "posicao": "GK",
+          "nascimento": "1987-03-30"
+        },
+        {
+          "numero": 12,
+          "nome": "Moisés RAMÍREZ",
+          "posicao": "GK",
+          "nascimento": "2000-09-09"
+        },
+        {
+          "numero": 22,
+          "nome": "Gonzalo VALLE",
+          "posicao": "GK",
+          "nascimento": "1996-02-28"
+        },
+        {
+          "numero": 2,
+          "nome": "Félix TORRES",
+          "posicao": "DF",
+          "nascimento": "1997-01-11"
+        },
+        {
+          "numero": 3,
+          "nome": "Piero HINCAPIÉ",
+          "posicao": "DF",
+          "nascimento": "2002-01-09"
+        },
+        {
+          "numero": 4,
+          "nome": "Joel ORDÓÑEZ",
+          "posicao": "DF",
+          "nascimento": "2004-04-21"
+        },
+        {
+          "numero": 6,
+          "nome": "Willian PACHO",
+          "posicao": "DF",
+          "nascimento": "2001-10-16"
+        },
+        {
+          "numero": 7,
+          "nome": "Pervis ESTUPIÑÁN",
+          "posicao": "DF",
+          "nascimento": "1998-01-21"
+        },
+        {
+          "numero": 17,
+          "nome": "Ángelo PRECIADO",
+          "posicao": "DF",
+          "nascimento": "1998-02-18"
+        },
+        {
+          "numero": 25,
+          "nome": "Jackson POROZO",
+          "posicao": "DF",
+          "nascimento": "2000-08-04"
+        },
+        {
+          "numero": 26,
+          "nome": "Yaimar MEDINA",
+          "posicao": "DF",
+          "nascimento": "2004-11-05"
+        },
+        {
+          "numero": 5,
+          "nome": "Jordy ALCÍVAR",
+          "posicao": "MF",
+          "nascimento": "1999-08-05"
+        },
+        {
+          "numero": 8,
+          "nome": "Anthony VALENCIA",
+          "posicao": "MF",
+          "nascimento": "2003-07-21"
+        },
+        {
+          "numero": 10,
+          "nome": "Kendry PÁEZ",
+          "posicao": "MF",
+          "nascimento": "2007-05-04"
+        },
+        {
+          "numero": 14,
+          "nome": "Alan MINDA",
+          "posicao": "MF",
+          "nascimento": "2003-05-14"
+        },
+        {
+          "numero": 15,
+          "nome": "Pedro VITE",
+          "posicao": "MF",
+          "nascimento": "2002-03-09"
+        },
+        {
+          "numero": 18,
+          "nome": "Denil CASTILLO",
+          "posicao": "MF",
+          "nascimento": "2004-03-24"
+        },
+        {
+          "numero": 21,
+          "nome": "Alan FRANCO",
+          "posicao": "MF",
+          "nascimento": "1998-08-21"
+        },
+        {
+          "numero": 23,
+          "nome": "Moisés CAICEDO",
+          "posicao": "MF",
+          "nascimento": "2001-11-02"
+        },
+        {
+          "numero": 9,
+          "nome": "John YEBOAH",
+          "posicao": "FW",
+          "nascimento": "2000-06-23"
+        },
+        {
+          "numero": 11,
+          "nome": "Kevin RODRÍGUEZ",
+          "posicao": "FW",
+          "nascimento": "2000-03-04"
+        },
+        {
+          "numero": 13,
+          "nome": "Enner VALENCIA",
+          "posicao": "FW",
+          "nascimento": "1989-11-04"
+        },
+        {
+          "numero": 16,
+          "nome": "Jordy CAICEDO",
+          "posicao": "FW",
+          "nascimento": "1997-11-18"
+        },
+        {
+          "numero": 19,
+          "nome": "Gonzalo PLATA",
+          "posicao": "FW",
+          "nascimento": "2000-11-01"
+        },
+        {
+          "numero": 20,
+          "nome": "Nilson ANGULO",
+          "posicao": "FW",
+          "nascimento": "2003-06-19"
+        },
+        {
+          "numero": 24,
+          "nome": "Jeremy ARÉVALO",
+          "posicao": "FW",
+          "nascimento": "2005-03-19"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Germany",
+      "time": "Alemanha",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Manuel NEUER",
+          "posicao": "GK",
+          "nascimento": "1986-03-27"
+        },
+        {
+          "numero": 12,
+          "nome": "Oliver BAUMANN",
+          "posicao": "GK",
+          "nascimento": "1990-06-02"
+        },
+        {
+          "numero": 21,
+          "nome": "Alexander NÜBEL",
+          "posicao": "GK",
+          "nascimento": "1996-09-30"
+        },
+        {
+          "numero": 2,
+          "nome": "Antonio RÜDIGER",
+          "posicao": "DF",
+          "nascimento": "1993-03-03"
+        },
+        {
+          "numero": 3,
+          "nome": "Waldemar ANTON",
+          "posicao": "DF",
+          "nascimento": "1996-07-20"
+        },
+        {
+          "numero": 4,
+          "nome": "Jonathan TAH",
+          "posicao": "DF",
+          "nascimento": "1996-02-11"
+        },
+        {
+          "numero": 6,
+          "nome": "Joshua KIMMICH",
+          "posicao": "DF",
+          "nascimento": "1995-02-08"
+        },
+        {
+          "numero": 15,
+          "nome": "Nico SCHLOTTERBECK",
+          "posicao": "DF",
+          "nascimento": "1999-12-01"
+        },
+        {
+          "numero": 18,
+          "nome": "Nathaniel BROWN",
+          "posicao": "DF",
+          "nascimento": "2003-06-16"
+        },
+        {
+          "numero": 22,
+          "nome": "David RAUM",
+          "posicao": "DF",
+          "nascimento": "1998-04-22"
+        },
+        {
+          "numero": 24,
+          "nome": "Malick THIAW",
+          "posicao": "DF",
+          "nascimento": "2001-08-08"
+        },
+        {
+          "numero": 5,
+          "nome": "Aleksandar PAVLOVIĆ",
+          "posicao": "MF",
+          "nascimento": "2004-05-03"
+        },
+        {
+          "numero": 8,
+          "nome": "Leon GORETZKA",
+          "posicao": "MF",
+          "nascimento": "1995-02-06"
+        },
+        {
+          "numero": 9,
+          "nome": "Jamie LEWELING",
+          "posicao": "MF",
+          "nascimento": "2001-02-26"
+        },
+        {
+          "numero": 10,
+          "nome": "Jamal MUSIALA",
+          "posicao": "MF",
+          "nascimento": "2003-02-26"
+        },
+        {
+          "numero": 13,
+          "nome": "Pascal GROSS",
+          "posicao": "MF",
+          "nascimento": "1991-06-15"
+        },
+        {
+          "numero": 16,
+          "nome": "Angelo STILLER",
+          "posicao": "MF",
+          "nascimento": "2001-04-04"
+        },
+        {
+          "numero": 17,
+          "nome": "Florian WIRTZ",
+          "posicao": "MF",
+          "nascimento": "2003-05-03"
+        },
+        {
+          "numero": 19,
+          "nome": "Leroy SANÉ",
+          "posicao": "MF",
+          "nascimento": "1996-01-11"
+        },
+        {
+          "numero": 20,
+          "nome": "Nadiem AMIRI",
+          "posicao": "MF",
+          "nascimento": "1996-10-27"
+        },
+        {
+          "numero": 23,
+          "nome": "Felix NMECHA",
+          "posicao": "MF",
+          "nascimento": "2000-10-10"
+        },
+        {
+          "numero": 25,
+          "nome": "Assan OUÉDRAOGO",
+          "posicao": "MF",
+          "nascimento": "2006-05-09"
+        },
+        {
+          "numero": 7,
+          "nome": "Kai HAVERTZ",
+          "posicao": "FW",
+          "nascimento": "1999-06-11"
+        },
+        {
+          "numero": 11,
+          "nome": "Nick WOLTEMADE",
+          "posicao": "FW",
+          "nascimento": "2002-02-14"
+        },
+        {
+          "numero": 14,
+          "nome": "Maximilian BEIER",
+          "posicao": "FW",
+          "nascimento": "2002-10-17"
+        },
+        {
+          "numero": 26,
+          "nome": "Deniz UNDAV",
+          "posicao": "FW",
+          "nascimento": "1996-07-19"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Ivory Coast",
+      "time": "Costa do Marfim",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Yahia FOFANA",
+          "posicao": "GK",
+          "nascimento": "2000-08-21"
+        },
+        {
+          "numero": 16,
+          "nome": "Mohamed KONÉ",
+          "posicao": "GK",
+          "nascimento": "2002-03-07"
+        },
+        {
+          "numero": 23,
+          "nome": "Alban LAFONT",
+          "posicao": "GK",
+          "nascimento": "1999-01-23"
+        },
+        {
+          "numero": 2,
+          "nome": "Ousmane DIOMANDE",
+          "posicao": "DF",
+          "nascimento": "2003-12-04"
+        },
+        {
+          "numero": 3,
+          "nome": "Ghislain KONAN",
+          "posicao": "DF",
+          "nascimento": "1995-12-27"
+        },
+        {
+          "numero": 5,
+          "nome": "Wilfried SINGO",
+          "posicao": "DF",
+          "nascimento": "2000-12-25"
+        },
+        {
+          "numero": 7,
+          "nome": "Odilon KOSSOUNOU",
+          "posicao": "DF",
+          "nascimento": "2001-01-04"
+        },
+        {
+          "numero": 13,
+          "nome": "Christopher OPÉRI",
+          "posicao": "DF",
+          "nascimento": "1997-04-29"
+        },
+        {
+          "numero": 17,
+          "nome": "Guéla DOUÉ",
+          "posicao": "DF",
+          "nascimento": "2002-10-17"
+        },
+        {
+          "numero": 20,
+          "nome": "Emmanuel AGBADOU",
+          "posicao": "DF",
+          "nascimento": "1997-06-17"
+        },
+        {
+          "numero": 21,
+          "nome": "Evan NDICKA",
+          "posicao": "DF",
+          "nascimento": "1999-08-20"
+        },
+        {
+          "numero": 4,
+          "nome": "Jean Michaël SERI",
+          "posicao": "MF",
+          "nascimento": "1991-07-19"
+        },
+        {
+          "numero": 6,
+          "nome": "Seko FOFANA",
+          "posicao": "MF",
+          "nascimento": "1995-05-07"
+        },
+        {
+          "numero": 8,
+          "nome": "Franck KESSIÉ",
+          "posicao": "MF",
+          "nascimento": "1996-12-19"
+        },
+        {
+          "numero": 18,
+          "nome": "Ibrahim SANGARÉ",
+          "posicao": "MF",
+          "nascimento": "1997-12-02"
+        },
+        {
+          "numero": 25,
+          "nome": "Parfait GUIAGON",
+          "posicao": "MF",
+          "nascimento": "2001-02-22"
+        },
+        {
+          "numero": 26,
+          "nome": "Christ INAO OULAÏ",
+          "posicao": "MF",
+          "nascimento": "2006-04-06"
+        },
+        {
+          "numero": 9,
+          "nome": "Ange-Yoan BONNY",
+          "posicao": "FW",
+          "nascimento": "2003-10-25"
+        },
+        {
+          "numero": 10,
+          "nome": "Simon ADINGRA",
+          "posicao": "FW",
+          "nascimento": "2002-01-01"
+        },
+        {
+          "numero": 11,
+          "nome": "Yan DIOMANDE",
+          "posicao": "FW",
+          "nascimento": "2006-11-14"
+        },
+        {
+          "numero": 12,
+          "nome": "Elye WAHI",
+          "posicao": "FW",
+          "nascimento": "2003-01-02"
+        },
+        {
+          "numero": 14,
+          "nome": "Oumar DIAKITÉ",
+          "posicao": "FW",
+          "nascimento": "2003-12-20"
+        },
+        {
+          "numero": 15,
+          "nome": "Amad DIALLO",
+          "posicao": "FW",
+          "nascimento": "2002-07-11"
+        },
+        {
+          "numero": 19,
+          "nome": "Nicolas PÉPÉ",
+          "posicao": "FW",
+          "nascimento": "1995-05-29"
+        },
+        {
+          "numero": 22,
+          "nome": "Evann GUESSAND",
+          "posicao": "FW",
+          "nascimento": "2001-07-01"
+        },
+        {
+          "numero": 24,
+          "nome": "Bazoumana TOURÉ",
+          "posicao": "FW",
+          "nascimento": "2006-03-02"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Japan",
+      "time": "Japão",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Zion SUZUKI",
+          "posicao": "GK",
+          "nascimento": "2002-08-21"
+        },
+        {
+          "numero": 12,
+          "nome": "Keisuke ŌSAKO",
+          "posicao": "GK",
+          "nascimento": "1999-07-28"
+        },
+        {
+          "numero": 23,
+          "nome": "Tomoki HAYAKAWA",
+          "posicao": "GK",
+          "nascimento": "1999-03-03"
+        },
+        {
+          "numero": 2,
+          "nome": "Yukinari SUGAWARA",
+          "posicao": "DF",
+          "nascimento": "2000-06-28"
+        },
+        {
+          "numero": 3,
+          "nome": "Shōgo TANIGUCHI",
+          "posicao": "DF",
+          "nascimento": "1991-07-15"
+        },
+        {
+          "numero": 4,
+          "nome": "Kō ITAKURA",
+          "posicao": "DF",
+          "nascimento": "1997-01-27"
+        },
+        {
+          "numero": 5,
+          "nome": "Yūto NAGATOMO",
+          "posicao": "DF",
+          "nascimento": "1986-09-12"
+        },
+        {
+          "numero": 16,
+          "nome": "Tsuyoshi WATANABE",
+          "posicao": "DF",
+          "nascimento": "1997-02-05"
+        },
+        {
+          "numero": 20,
+          "nome": "Ayumu SEKO",
+          "posicao": "DF",
+          "nascimento": "2000-06-07"
+        },
+        {
+          "numero": 21,
+          "nome": "Hiroki ITŌ",
+          "posicao": "DF",
+          "nascimento": "1999-05-12"
+        },
+        {
+          "numero": 22,
+          "nome": "Takehiro TOMIYASU",
+          "posicao": "DF",
+          "nascimento": "1998-11-05"
+        },
+        {
+          "numero": 25,
+          "nome": "Junnosuke SUZUKI",
+          "posicao": "DF",
+          "nascimento": "2003-07-12"
+        },
+        {
+          "numero": 6,
+          "nome": "Wataru ENDO",
+          "posicao": "MF",
+          "nascimento": "1993-02-09"
+        },
+        {
+          "numero": 7,
+          "nome": "Ao TANAKA",
+          "posicao": "MF",
+          "nascimento": "1998-09-10"
+        },
+        {
+          "numero": 8,
+          "nome": "Takefusa KUBO",
+          "posicao": "MF",
+          "nascimento": "2001-06-04"
+        },
+        {
+          "numero": 10,
+          "nome": "Ritsu DŌAN",
+          "posicao": "MF",
+          "nascimento": "1998-06-16"
+        },
+        {
+          "numero": 11,
+          "nome": "Daizen MAEDA",
+          "posicao": "MF",
+          "nascimento": "1997-10-20"
+        },
+        {
+          "numero": 13,
+          "nome": "Keito NAKAMURA",
+          "posicao": "MF",
+          "nascimento": "2000-07-28"
+        },
+        {
+          "numero": 14,
+          "nome": "Junya ITŌ",
+          "posicao": "MF",
+          "nascimento": "1993-03-09"
+        },
+        {
+          "numero": 15,
+          "nome": "Daichi KAMADA",
+          "posicao": "MF",
+          "nascimento": "1996-08-05"
+        },
+        {
+          "numero": 17,
+          "nome": "Yuito SUZUKI",
+          "posicao": "MF",
+          "nascimento": "2001-10-25"
+        },
+        {
+          "numero": 24,
+          "nome": "Kaishū SANO",
+          "posicao": "MF",
+          "nascimento": "2000-12-30"
+        },
+        {
+          "numero": 9,
+          "nome": "Keisuke GOTŌ",
+          "posicao": "FW",
+          "nascimento": "2005-06-03"
+        },
+        {
+          "numero": 18,
+          "nome": "Ayase UEDA",
+          "posicao": "FW",
+          "nascimento": "1998-08-28"
+        },
+        {
+          "numero": 19,
+          "nome": "Kōki OGAWA",
+          "posicao": "FW",
+          "nascimento": "1997-08-08"
+        },
+        {
+          "numero": 26,
+          "nome": "Kento SHIOGAI",
+          "posicao": "FW",
+          "nascimento": "2005-03-26"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Netherlands",
+      "time": "Holanda",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Bart VERBRUGGEN",
+          "posicao": "GK",
+          "nascimento": "2002-08-18"
+        },
+        {
+          "numero": 13,
+          "nome": "Robin ROEFS",
+          "posicao": "GK",
+          "nascimento": "2003-01-17"
+        },
+        {
+          "numero": 23,
+          "nome": "Mark FLEKKEN",
+          "posicao": "GK",
+          "nascimento": "1993-06-13"
+        },
+        {
+          "numero": 2,
+          "nome": "Lutsharel GEERTRUIDA",
+          "posicao": "DF",
+          "nascimento": "2000-07-18"
+        },
+        {
+          "numero": 4,
+          "nome": "Virgil van DIJK",
+          "posicao": "DF",
+          "nascimento": "1991-07-08"
+        },
+        {
+          "numero": 5,
+          "nome": "Nathan AKÉ",
+          "posicao": "DF",
+          "nascimento": "1995-02-18"
+        },
+        {
+          "numero": 6,
+          "nome": "Jan Paul van HECKE",
+          "posicao": "DF",
+          "nascimento": "2000-06-08"
+        },
+        {
+          "numero": 12,
+          "nome": "Mats WIEFFER",
+          "posicao": "DF",
+          "nascimento": "1999-11-16"
+        },
+        {
+          "numero": 15,
+          "nome": "Micky van de VEN",
+          "posicao": "DF",
+          "nascimento": "2001-04-19"
+        },
+        {
+          "numero": 22,
+          "nome": "Denzel DUMFRIES",
+          "posicao": "DF",
+          "nascimento": "1996-04-18"
+        },
+        {
+          "numero": 25,
+          "nome": "Jorrel HATO",
+          "posicao": "DF",
+          "nascimento": "2006-03-07"
+        },
+        {
+          "numero": 3,
+          "nome": "Marten de ROON",
+          "posicao": "MF",
+          "nascimento": "1991-03-29"
+        },
+        {
+          "numero": 7,
+          "nome": "Justin KLUIVERT",
+          "posicao": "MF",
+          "nascimento": "1999-05-05"
+        },
+        {
+          "numero": 8,
+          "nome": "Ryan GRAVENBERCH",
+          "posicao": "MF",
+          "nascimento": "2002-05-16"
+        },
+        {
+          "numero": 14,
+          "nome": "Tijjani REIJNDERS",
+          "posicao": "MF",
+          "nascimento": "1998-07-29"
+        },
+        {
+          "numero": 16,
+          "nome": "Guus TIL",
+          "posicao": "MF",
+          "nascimento": "1997-12-22"
+        },
+        {
+          "numero": 20,
+          "nome": "Teun KOOPMEINERS",
+          "posicao": "MF",
+          "nascimento": "1998-02-28"
+        },
+        {
+          "numero": 21,
+          "nome": "Frenkie de JONG",
+          "posicao": "MF",
+          "nascimento": "1997-05-12"
+        },
+        {
+          "numero": 26,
+          "nome": "Quinten TIMBER",
+          "posicao": "MF",
+          "nascimento": "2001-06-17"
+        },
+        {
+          "numero": 9,
+          "nome": "Wout WEGHORST",
+          "posicao": "FW",
+          "nascimento": "1992-08-07"
+        },
+        {
+          "numero": 10,
+          "nome": "Memphis DEPAY",
+          "posicao": "FW",
+          "nascimento": "1994-02-13"
+        },
+        {
+          "numero": 11,
+          "nome": "Cody GAKPO",
+          "posicao": "FW",
+          "nascimento": "1999-05-07"
+        },
+        {
+          "numero": 17,
+          "nome": "Noa LANG",
+          "posicao": "FW",
+          "nascimento": "1999-06-17"
+        },
+        {
+          "numero": 18,
+          "nome": "Donyell MALEN",
+          "posicao": "FW",
+          "nascimento": "1999-01-19"
+        },
+        {
+          "numero": 19,
+          "nome": "Brian BROBBEY",
+          "posicao": "FW",
+          "nascimento": "2002-02-01"
+        },
+        {
+          "numero": 24,
+          "nome": "Crysencio SUMMERVILLE",
+          "posicao": "FW",
+          "nascimento": "2001-10-30"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Sweden",
+      "time": "Suécia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Jacob WIDELL ZETTERSTRÖM",
+          "posicao": "GK",
+          "nascimento": "1998-07-11"
+        },
+        {
+          "numero": 12,
+          "nome": "Viktor JOHANSSON",
+          "posicao": "GK",
+          "nascimento": "1998-09-14"
+        },
+        {
+          "numero": 23,
+          "nome": "Kristoffer NORDFELDT",
+          "posicao": "GK",
+          "nascimento": "1989-06-23"
+        },
+        {
+          "numero": 2,
+          "nome": "Gustaf LAGERBIELKE",
+          "posicao": "DF",
+          "nascimento": "2000-04-10"
+        },
+        {
+          "numero": 3,
+          "nome": "Victor LINDELÖF",
+          "posicao": "DF",
+          "nascimento": "1994-07-17"
+        },
+        {
+          "numero": 4,
+          "nome": "Isak HIEN",
+          "posicao": "DF",
+          "nascimento": "1999-01-13"
+        },
+        {
+          "numero": 5,
+          "nome": "Gabriel GUDMUNDSSON",
+          "posicao": "DF",
+          "nascimento": "1999-04-29"
+        },
+        {
+          "numero": 6,
+          "nome": "Herman JOHANSSON",
+          "posicao": "DF",
+          "nascimento": "1997-10-16"
+        },
+        {
+          "numero": 8,
+          "nome": "Daniel SVENSSON",
+          "posicao": "DF",
+          "nascimento": "2002-02-12"
+        },
+        {
+          "numero": 14,
+          "nome": "Hjalmar EKDAL",
+          "posicao": "DF",
+          "nascimento": "1998-10-21"
+        },
+        {
+          "numero": 15,
+          "nome": "Carl STARFELT",
+          "posicao": "DF",
+          "nascimento": "1995-06-01"
+        },
+        {
+          "numero": 20,
+          "nome": "Eric SMITH",
+          "posicao": "DF",
+          "nascimento": "1997-01-08"
+        },
+        {
+          "numero": 21,
+          "nome": "Alexander BERNHARDSSON",
+          "posicao": "DF",
+          "nascimento": "1998-09-08"
+        },
+        {
+          "numero": 24,
+          "nome": "Elliot STROUD",
+          "posicao": "DF",
+          "nascimento": "2002-06-22"
+        },
+        {
+          "numero": 7,
+          "nome": "Lucas BERGVALL",
+          "posicao": "MF",
+          "nascimento": "2006-02-02"
+        },
+        {
+          "numero": 10,
+          "nome": "Benjamin NYGREN",
+          "posicao": "MF",
+          "nascimento": "2001-07-08"
+        },
+        {
+          "numero": 13,
+          "nome": "Ken SEMA",
+          "posicao": "MF",
+          "nascimento": "1993-09-30"
+        },
+        {
+          "numero": 16,
+          "nome": "Jesper KARLSTRÖM",
+          "posicao": "MF",
+          "nascimento": "1995-06-21"
+        },
+        {
+          "numero": 18,
+          "nome": "Yasin AYARI",
+          "posicao": "MF",
+          "nascimento": "2003-10-06"
+        },
+        {
+          "numero": 19,
+          "nome": "Mattias SVANBERG",
+          "posicao": "MF",
+          "nascimento": "1999-01-05"
+        },
+        {
+          "numero": 22,
+          "nome": "Besfort ZENELI",
+          "posicao": "MF",
+          "nascimento": "2002-11-21"
+        },
+        {
+          "numero": 9,
+          "nome": "Alexander ISAK",
+          "posicao": "FW",
+          "nascimento": "1999-09-21"
+        },
+        {
+          "numero": 11,
+          "nome": "Anthony ELANGA",
+          "posicao": "FW",
+          "nascimento": "2002-04-27"
+        },
+        {
+          "numero": 17,
+          "nome": "Viktor GYÖKERES",
+          "posicao": "FW",
+          "nascimento": "1998-06-04"
+        },
+        {
+          "numero": 25,
+          "nome": "Gustaf NILSSON",
+          "posicao": "FW",
+          "nascimento": "1997-05-23"
+        },
+        {
+          "numero": 26,
+          "nome": "Taha ALI",
+          "posicao": "FW",
+          "nascimento": "1998-07-01"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Tunisia",
+      "time": "Tunísia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Mouhib CHAMAKH",
+          "posicao": "GK",
+          "nascimento": "2001-08-25"
+        },
+        {
+          "numero": 16,
+          "nome": "Aymen DAHMEN",
+          "posicao": "GK",
+          "nascimento": "1997-01-28"
+        },
+        {
+          "numero": 22,
+          "nome": "Sabri BEN HESSEN",
+          "posicao": "GK",
+          "nascimento": "1996-06-13"
+        },
+        {
+          "numero": 2,
+          "nome": "Ali ABDI",
+          "posicao": "DF",
+          "nascimento": "1993-12-20"
+        },
+        {
+          "numero": 3,
+          "nome": "Montassar TALBI",
+          "posicao": "DF",
+          "nascimento": "1998-05-26"
+        },
+        {
+          "numero": 4,
+          "nome": "Omar REKIK",
+          "posicao": "DF",
+          "nascimento": "2001-12-20"
+        },
+        {
+          "numero": 5,
+          "nome": "Adem AROUS",
+          "posicao": "DF",
+          "nascimento": "2004-07-17"
+        },
+        {
+          "numero": 6,
+          "nome": "Dylan BRONN",
+          "posicao": "DF",
+          "nascimento": "1995-06-19"
+        },
+        {
+          "numero": 12,
+          "nome": "Mortadha BEN OUANES",
+          "posicao": "DF",
+          "nascimento": "1994-07-02"
+        },
+        {
+          "numero": 20,
+          "nome": "Yan VALERY",
+          "posicao": "DF",
+          "nascimento": "1999-02-22"
+        },
+        {
+          "numero": 21,
+          "nome": "Mohamed Amine BEN HAMIDA",
+          "posicao": "DF",
+          "nascimento": "1995-12-15"
+        },
+        {
+          "numero": 23,
+          "nome": "Moutaz NEFFATI",
+          "posicao": "DF",
+          "nascimento": "2004-09-04"
+        },
+        {
+          "numero": 24,
+          "nome": "Raed CHIKHAOUI",
+          "posicao": "DF",
+          "nascimento": "2004-06-09"
+        },
+        {
+          "numero": 10,
+          "nome": "Hannibal MEJBRI",
+          "posicao": "MF",
+          "nascimento": "2003-01-21"
+        },
+        {
+          "numero": 11,
+          "nome": "Ismaël GHARBI",
+          "posicao": "MF",
+          "nascimento": "2004-04-10"
+        },
+        {
+          "numero": 13,
+          "nome": "Rani KHEDIRA",
+          "posicao": "MF",
+          "nascimento": "1994-01-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Khalil AYARI",
+          "posicao": "MF",
+          "nascimento": "2005-02-02"
+        },
+        {
+          "numero": 15,
+          "nome": "Hadj MAHMOUD",
+          "posicao": "MF",
+          "nascimento": "2000-04-24"
+        },
+        {
+          "numero": 17,
+          "nome": "Ellyes SKHIRI",
+          "posicao": "MF",
+          "nascimento": "1995-05-10"
+        },
+        {
+          "numero": 25,
+          "nome": "Anis BEN SLIMANE",
+          "posicao": "MF",
+          "nascimento": "2001-03-16"
+        },
+        {
+          "numero": 26,
+          "nome": "Sebastian TOUNEKTI",
+          "posicao": "MF",
+          "nascimento": "2002-07-13"
+        },
+        {
+          "numero": 7,
+          "nome": "Elias ACHOURI",
+          "posicao": "FW",
+          "nascimento": "1999-02-10"
+        },
+        {
+          "numero": 8,
+          "nome": "Elias SAAD",
+          "posicao": "FW",
+          "nascimento": "1999-12-27"
+        },
+        {
+          "numero": 9,
+          "nome": "Hazem MASTOURI",
+          "posicao": "FW",
+          "nascimento": "1997-06-18"
+        },
+        {
+          "numero": 18,
+          "nome": "Rayan ELLOUMI",
+          "posicao": "FW",
+          "nascimento": "2007-09-17"
+        },
+        {
+          "numero": 19,
+          "nome": "Firas CHAOUAT",
+          "posicao": "FW",
+          "nascimento": "1996-05-08"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Belgium",
+      "time": "Bélgica",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Thibaut COURTOIS",
+          "posicao": "GK",
+          "nascimento": "1992-05-11"
+        },
+        {
+          "numero": 12,
+          "nome": "Senne LAMMENS",
+          "posicao": "GK",
+          "nascimento": "2002-07-07"
+        },
+        {
+          "numero": 13,
+          "nome": "Mike PENDERS",
+          "posicao": "GK",
+          "nascimento": "2005-07-31"
+        },
+        {
+          "numero": 2,
+          "nome": "Zeno DEBAST",
+          "posicao": "DF",
+          "nascimento": "2003-10-24"
+        },
+        {
+          "numero": 3,
+          "nome": "Arthur THEATE",
+          "posicao": "DF",
+          "nascimento": "2000-05-25"
+        },
+        {
+          "numero": 4,
+          "nome": "Brandon MECHELE",
+          "posicao": "DF",
+          "nascimento": "1993-01-28"
+        },
+        {
+          "numero": 5,
+          "nome": "Maxim DE CUYPER",
+          "posicao": "DF",
+          "nascimento": "2000-12-22"
+        },
+        {
+          "numero": 15,
+          "nome": "Thomas MEUNIER",
+          "posicao": "DF",
+          "nascimento": "1991-09-12"
+        },
+        {
+          "numero": 16,
+          "nome": "Koni DE WINTER",
+          "posicao": "DF",
+          "nascimento": "2002-06-12"
+        },
+        {
+          "numero": 18,
+          "nome": "Joaquin SEYS",
+          "posicao": "DF",
+          "nascimento": "2005-03-28"
+        },
+        {
+          "numero": 21,
+          "nome": "Timothy CASTAGNE",
+          "posicao": "DF",
+          "nascimento": "1995-12-05"
+        },
+        {
+          "numero": 25,
+          "nome": "Nathan NGOY",
+          "posicao": "DF",
+          "nascimento": "2003-06-10"
+        },
+        {
+          "numero": 6,
+          "nome": "Axel WITSEL",
+          "posicao": "MF",
+          "nascimento": "1989-01-12"
+        },
+        {
+          "numero": 7,
+          "nome": "Kevin DE BRUYNE",
+          "posicao": "MF",
+          "nascimento": "1991-06-28"
+        },
+        {
+          "numero": 8,
+          "nome": "Youri TIELEMANS",
+          "posicao": "MF",
+          "nascimento": "1997-05-07"
+        },
+        {
+          "numero": 19,
+          "nome": "Diego MOREIRA",
+          "posicao": "MF",
+          "nascimento": "2004-08-06"
+        },
+        {
+          "numero": 20,
+          "nome": "Hans VANAKEN",
+          "posicao": "MF",
+          "nascimento": "1992-08-24"
+        },
+        {
+          "numero": 22,
+          "nome": "Alexis SAELEMAEKERS",
+          "posicao": "MF",
+          "nascimento": "1999-06-27"
+        },
+        {
+          "numero": 23,
+          "nome": "Nicolas RASKIN",
+          "posicao": "MF",
+          "nascimento": "2001-02-23"
+        },
+        {
+          "numero": 24,
+          "nome": "Amadou ONANA",
+          "posicao": "MF",
+          "nascimento": "2001-08-16"
+        },
+        {
+          "numero": 9,
+          "nome": "Romelu LUKAKU",
+          "posicao": "FW",
+          "nascimento": "1993-05-13"
+        },
+        {
+          "numero": 10,
+          "nome": "Leandro TROSSARD",
+          "posicao": "FW",
+          "nascimento": "1994-12-04"
+        },
+        {
+          "numero": 11,
+          "nome": "Jérémy DOKU",
+          "posicao": "FW",
+          "nascimento": "2002-05-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Dodi LUKÉBAKIO",
+          "posicao": "FW",
+          "nascimento": "1997-09-24"
+        },
+        {
+          "numero": 17,
+          "nome": "Charles DE KETELAERE",
+          "posicao": "FW",
+          "nascimento": "2001-03-10"
+        },
+        {
+          "numero": 26,
+          "nome": "Matias FERNANDEZ-PARDO",
+          "posicao": "FW",
+          "nascimento": "2005-02-03"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Egypt",
+      "time": "Egito",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Mohamed El SHENAWY",
+          "posicao": "GK",
+          "nascimento": "1988-12-18"
+        },
+        {
+          "numero": 16,
+          "nome": "El Mahdy SOLIMAN",
+          "posicao": "GK",
+          "nascimento": "1987-06-08"
+        },
+        {
+          "numero": 23,
+          "nome": "Mostafa SHOBEIR",
+          "posicao": "GK",
+          "nascimento": "2000-05-15"
+        },
+        {
+          "numero": 26,
+          "nome": "Mohamed ALAA",
+          "posicao": "GK",
+          "nascimento": "1999-01-01"
+        },
+        {
+          "numero": 2,
+          "nome": "Yasser IBRAHIM",
+          "posicao": "DF",
+          "nascimento": "1993-02-10"
+        },
+        {
+          "numero": 3,
+          "nome": "Mohamed HANY",
+          "posicao": "DF",
+          "nascimento": "1996-02-02"
+        },
+        {
+          "numero": 4,
+          "nome": "Hossam ABDELMAGUID",
+          "posicao": "DF",
+          "nascimento": "2001-04-30"
+        },
+        {
+          "numero": 5,
+          "nome": "Ramy RABIA",
+          "posicao": "DF",
+          "nascimento": "1993-05-20"
+        },
+        {
+          "numero": 6,
+          "nome": "Mohamed ABDELMONEM",
+          "posicao": "DF",
+          "nascimento": "1999-02-01"
+        },
+        {
+          "numero": 13,
+          "nome": "Ahmed FATOUH",
+          "posicao": "DF",
+          "nascimento": "1998-03-22"
+        },
+        {
+          "numero": 15,
+          "nome": "Karim HAFEZ",
+          "posicao": "DF",
+          "nascimento": "1996-03-12"
+        },
+        {
+          "numero": 24,
+          "nome": "Tarek ALAA",
+          "posicao": "DF",
+          "nascimento": "2002-01-05"
+        },
+        {
+          "numero": 8,
+          "nome": "Emam ASHOUR",
+          "posicao": "MF",
+          "nascimento": "1998-02-20"
+        },
+        {
+          "numero": 11,
+          "nome": "Mostafa ZIKO",
+          "posicao": "MF",
+          "nascimento": "1997-04-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Hamdy FATHY",
+          "posicao": "MF",
+          "nascimento": "1994-09-29"
+        },
+        {
+          "numero": 17,
+          "nome": "Mohanad LASHEEN",
+          "posicao": "MF",
+          "nascimento": "1996-05-29"
+        },
+        {
+          "numero": 18,
+          "nome": "Nabil EMAD",
+          "posicao": "MF",
+          "nascimento": "1996-04-06"
+        },
+        {
+          "numero": 19,
+          "nome": "Marwan ATTIA",
+          "posicao": "MF",
+          "nascimento": "1998-08-01"
+        },
+        {
+          "numero": 21,
+          "nome": "Mahmoud SABER",
+          "posicao": "MF",
+          "nascimento": "2001-07-30"
+        },
+        {
+          "numero": 7,
+          "nome": "TRÉZÉGUET",
+          "posicao": "FW",
+          "nascimento": "1994-10-01"
+        },
+        {
+          "numero": 9,
+          "nome": "Hamza ABDELKARIM",
+          "posicao": "FW",
+          "nascimento": "2008-01-01"
+        },
+        {
+          "numero": 10,
+          "nome": "Mohamed SALAH",
+          "posicao": "FW",
+          "nascimento": "1992-06-15"
+        },
+        {
+          "numero": 12,
+          "nome": "Haissem HASSAN",
+          "posicao": "FW",
+          "nascimento": "2002-02-08"
+        },
+        {
+          "numero": 20,
+          "nome": "Ibrahim ADEL",
+          "posicao": "FW",
+          "nascimento": "2001-04-23"
+        },
+        {
+          "numero": 22,
+          "nome": "Omar MARMOUSH",
+          "posicao": "FW",
+          "nascimento": "1999-02-07"
+        },
+        {
+          "numero": 25,
+          "nome": "ZIZO",
+          "posicao": "FW",
+          "nascimento": "1996-01-10"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Iran",
+      "time": "Irã",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Alireza BEIRANVAND",
+          "posicao": "GK",
+          "nascimento": "1992-09-21"
+        },
+        {
+          "numero": 12,
+          "nome": "Payam NIAZMAND",
+          "posicao": "GK",
+          "nascimento": "1995-04-06"
+        },
+        {
+          "numero": 22,
+          "nome": "Hossein HOSSEINI",
+          "posicao": "GK",
+          "nascimento": "1992-06-30"
+        },
+        {
+          "numero": 2,
+          "nome": "Saleh HARDANI",
+          "posicao": "DF",
+          "nascimento": "1998-12-26"
+        },
+        {
+          "numero": 3,
+          "nome": "Ehsan HAJSAFI",
+          "posicao": "DF",
+          "nascimento": "1990-02-25"
+        },
+        {
+          "numero": 4,
+          "nome": "Shojae KHALILZADEH",
+          "posicao": "DF",
+          "nascimento": "1989-05-14"
+        },
+        {
+          "numero": 5,
+          "nome": "Milad MOHAMMADI",
+          "posicao": "DF",
+          "nascimento": "1993-09-29"
+        },
+        {
+          "numero": 13,
+          "nome": "Hossein KANAANIZADEGAN",
+          "posicao": "DF",
+          "nascimento": "1994-03-23"
+        },
+        {
+          "numero": 17,
+          "nome": "Aria YOUSEFI",
+          "posicao": "DF",
+          "nascimento": "2002-04-22"
+        },
+        {
+          "numero": 19,
+          "nome": "Ali NEMATI",
+          "posicao": "DF",
+          "nascimento": "1996-02-08"
+        },
+        {
+          "numero": 23,
+          "nome": "Ramin REZAEIAN",
+          "posicao": "DF",
+          "nascimento": "1990-03-21"
+        },
+        {
+          "numero": 25,
+          "nome": "Danial EIRI",
+          "posicao": "DF",
+          "nascimento": "2003-10-26"
+        },
+        {
+          "numero": 6,
+          "nome": "Saeid EZATOLAHI",
+          "posicao": "MF",
+          "nascimento": "1996-10-01"
+        },
+        {
+          "numero": 7,
+          "nome": "Alireza JAHANBAKHSH",
+          "posicao": "MF",
+          "nascimento": "1993-08-11"
+        },
+        {
+          "numero": 8,
+          "nome": "Mohammad MOHEBI",
+          "posicao": "MF",
+          "nascimento": "1998-12-20"
+        },
+        {
+          "numero": 14,
+          "nome": "Saman GHODDOS",
+          "posicao": "MF",
+          "nascimento": "1993-09-06"
+        },
+        {
+          "numero": 15,
+          "nome": "Rouzbeh CHESHMI",
+          "posicao": "MF",
+          "nascimento": "1993-07-24"
+        },
+        {
+          "numero": 16,
+          "nome": "Mehdi TORABI",
+          "posicao": "MF",
+          "nascimento": "1994-09-10"
+        },
+        {
+          "numero": 21,
+          "nome": "Mohammad GHORBANI",
+          "posicao": "MF",
+          "nascimento": "2001-10-07"
+        },
+        {
+          "numero": 26,
+          "nome": "Amirmohammad RAZZAGHINIA",
+          "posicao": "MF",
+          "nascimento": "2006-04-11"
+        },
+        {
+          "numero": 9,
+          "nome": "Mehdi TAREMI",
+          "posicao": "FW",
+          "nascimento": "1992-07-18"
+        },
+        {
+          "numero": 10,
+          "nome": "Mehdi GHAYEDI",
+          "posicao": "FW",
+          "nascimento": "1998-12-05"
+        },
+        {
+          "numero": 11,
+          "nome": "Ali ALIPOUR",
+          "posicao": "FW",
+          "nascimento": "1995-11-11"
+        },
+        {
+          "numero": 18,
+          "nome": "Amirhossein HOSSEINZADEH",
+          "posicao": "FW",
+          "nascimento": "2000-10-30"
+        },
+        {
+          "numero": 20,
+          "nome": "Shahriyar MOGHANLOU",
+          "posicao": "FW",
+          "nascimento": "1994-12-21"
+        },
+        {
+          "numero": 24,
+          "nome": "Dennis ECKERT",
+          "posicao": "FW",
+          "nascimento": "1997-01-09"
+        }
+      ]
+    },
+    {
+      "timeIngles": "New Zealand",
+      "time": "Nova Zelândia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Max CROCOMBE",
+          "posicao": "GK",
+          "nascimento": "1993-08-12"
+        },
+        {
+          "numero": 12,
+          "nome": "Alex PAULSEN",
+          "posicao": "GK",
+          "nascimento": "2002-07-04"
+        },
+        {
+          "numero": 22,
+          "nome": "Michael WOUD",
+          "posicao": "GK",
+          "nascimento": "1999-01-16"
+        },
+        {
+          "numero": 2,
+          "nome": "Tim PAYNE",
+          "posicao": "DF",
+          "nascimento": "1994-01-10"
+        },
+        {
+          "numero": 3,
+          "nome": "Francis DE VRIES",
+          "posicao": "DF",
+          "nascimento": "1994-11-28"
+        },
+        {
+          "numero": 4,
+          "nome": "Tyler BINDON",
+          "posicao": "DF",
+          "nascimento": "2005-01-27"
+        },
+        {
+          "numero": 5,
+          "nome": "Michael BOXALL",
+          "posicao": "DF",
+          "nascimento": "1988-08-18"
+        },
+        {
+          "numero": 13,
+          "nome": "Liberato CACACE",
+          "posicao": "DF",
+          "nascimento": "2000-09-27"
+        },
+        {
+          "numero": 15,
+          "nome": "Nando PIJNAKER",
+          "posicao": "DF",
+          "nascimento": "1999-02-25"
+        },
+        {
+          "numero": 16,
+          "nome": "Finn SURMAN",
+          "posicao": "DF",
+          "nascimento": "2003-09-23"
+        },
+        {
+          "numero": 24,
+          "nome": "Callan ELLIOT",
+          "posicao": "DF",
+          "nascimento": "1999-07-07"
+        },
+        {
+          "numero": 26,
+          "nome": "Tommy SMITH",
+          "posicao": "DF",
+          "nascimento": "1990-03-31"
+        },
+        {
+          "numero": 6,
+          "nome": "Joe BELL",
+          "posicao": "MF",
+          "nascimento": "1999-04-27"
+        },
+        {
+          "numero": 7,
+          "nome": "Matthew GARBETT",
+          "posicao": "MF",
+          "nascimento": "2002-04-13"
+        },
+        {
+          "numero": 8,
+          "nome": "Marko STAMENIĆ",
+          "posicao": "MF",
+          "nascimento": "2002-02-19"
+        },
+        {
+          "numero": 10,
+          "nome": "Sarpreet SINGH",
+          "posicao": "MF",
+          "nascimento": "1999-02-20"
+        },
+        {
+          "numero": 11,
+          "nome": "Elijah JUST",
+          "posicao": "MF",
+          "nascimento": "2000-05-01"
+        },
+        {
+          "numero": 14,
+          "nome": "Alex RUFER",
+          "posicao": "MF",
+          "nascimento": "1996-06-12"
+        },
+        {
+          "numero": 19,
+          "nome": "Ben OLD",
+          "posicao": "MF",
+          "nascimento": "2002-08-13"
+        },
+        {
+          "numero": 20,
+          "nome": "Callum MCCOWATT",
+          "posicao": "MF",
+          "nascimento": "1999-04-30"
+        },
+        {
+          "numero": 23,
+          "nome": "Ryan THOMAS",
+          "posicao": "MF",
+          "nascimento": "1994-12-20"
+        },
+        {
+          "numero": 25,
+          "nome": "Lachlan BAYLISS",
+          "posicao": "MF",
+          "nascimento": "2002-07-24"
+        },
+        {
+          "numero": 9,
+          "nome": "Chris WOOD",
+          "posicao": "FW",
+          "nascimento": "1991-12-07"
+        },
+        {
+          "numero": 17,
+          "nome": "Kosta BARBAROUSES",
+          "posicao": "FW",
+          "nascimento": "1990-02-19"
+        },
+        {
+          "numero": 18,
+          "nome": "Ben WAINE",
+          "posicao": "FW",
+          "nascimento": "2001-06-11"
+        },
+        {
+          "numero": 21,
+          "nome": "Jesse RANDALL",
+          "posicao": "FW",
+          "nascimento": "2002-08-19"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Cape Verde",
+      "time": "Cabo Verde",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "VOZINHA",
+          "posicao": "GK",
+          "nascimento": "1986-06-03"
+        },
+        {
+          "numero": 12,
+          "nome": "Márcio ROSA",
+          "posicao": "GK",
+          "nascimento": "1997-02-23"
+        },
+        {
+          "numero": 23,
+          "nome": "CJ DOS SANTOS",
+          "posicao": "GK",
+          "nascimento": "2000-08-24"
+        },
+        {
+          "numero": 2,
+          "nome": "STOPIRA",
+          "posicao": "DF",
+          "nascimento": "1988-05-20"
+        },
+        {
+          "numero": 3,
+          "nome": "DINEY",
+          "posicao": "DF",
+          "nascimento": "1995-01-17"
+        },
+        {
+          "numero": 4,
+          "nome": "Roberto LOPES",
+          "posicao": "DF",
+          "nascimento": "1992-06-17"
+        },
+        {
+          "numero": 5,
+          "nome": "Logan COSTA",
+          "posicao": "DF",
+          "nascimento": "2001-04-01"
+        },
+        {
+          "numero": 13,
+          "nome": "Sidny LOPES CABRAL",
+          "posicao": "DF",
+          "nascimento": "2002-09-18"
+        },
+        {
+          "numero": 22,
+          "nome": "Steven MOREIRA",
+          "posicao": "DF",
+          "nascimento": "1994-08-13"
+        },
+        {
+          "numero": 24,
+          "nome": "Wagner PINA",
+          "posicao": "DF",
+          "nascimento": "2002-11-03"
+        },
+        {
+          "numero": 25,
+          "nome": "Kelvin PIRES",
+          "posicao": "DF",
+          "nascimento": "2000-06-05"
+        },
+        {
+          "numero": 6,
+          "nome": "Kevin PINA",
+          "posicao": "MF",
+          "nascimento": "1997-01-27"
+        },
+        {
+          "numero": 7,
+          "nome": "Jovane CABRAL",
+          "posicao": "MF",
+          "nascimento": "1998-06-14"
+        },
+        {
+          "numero": 8,
+          "nome": "JOÃO PAULO",
+          "posicao": "MF",
+          "nascimento": "1998-05-26"
+        },
+        {
+          "numero": 10,
+          "nome": "Jamiro MONTEIRO",
+          "posicao": "MF",
+          "nascimento": "1993-11-23"
+        },
+        {
+          "numero": 11,
+          "nome": "Garry RODRIGUES",
+          "posicao": "MF",
+          "nascimento": "1990-11-27"
+        },
+        {
+          "numero": 14,
+          "nome": "Deroy DUARTE",
+          "posicao": "MF",
+          "nascimento": "1999-07-04"
+        },
+        {
+          "numero": 15,
+          "nome": "Laros DUARTE",
+          "posicao": "MF",
+          "nascimento": "1997-02-28"
+        },
+        {
+          "numero": 16,
+          "nome": "Yannick SEMEDO",
+          "posicao": "MF",
+          "nascimento": "1995-12-29"
+        },
+        {
+          "numero": 17,
+          "nome": "Willy SEMEDO",
+          "posicao": "MF",
+          "nascimento": "1994-04-27"
+        },
+        {
+          "numero": 18,
+          "nome": "Telmo ARCANJO",
+          "posicao": "MF",
+          "nascimento": "2001-06-21"
+        },
+        {
+          "numero": 21,
+          "nome": "Nuno DA COSTA",
+          "posicao": "MF",
+          "nascimento": "1991-02-10"
+        },
+        {
+          "numero": 26,
+          "nome": "Hélio VARELA",
+          "posicao": "MF",
+          "nascimento": "2002-05-03"
+        },
+        {
+          "numero": 9,
+          "nome": "Gilson BENCHIMOL",
+          "posicao": "FW",
+          "nascimento": "2001-12-29"
+        },
+        {
+          "numero": 19,
+          "nome": "Dailon LIVRAMENTO",
+          "posicao": "FW",
+          "nascimento": "2001-05-04"
+        },
+        {
+          "numero": 20,
+          "nome": "Ryan MENDES",
+          "posicao": "FW",
+          "nascimento": "1990-01-08"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Saudi Arabia",
+      "time": "Arábia Saudita",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Nawaf AL-AQIDI",
+          "posicao": "GK",
+          "nascimento": "2000-05-10"
+        },
+        {
+          "numero": 21,
+          "nome": "Mohammed AL-OWAIS",
+          "posicao": "GK",
+          "nascimento": "1991-10-10"
+        },
+        {
+          "numero": 22,
+          "nome": "Ahmed AL-KASSAR",
+          "posicao": "GK",
+          "nascimento": "1991-05-08"
+        },
+        {
+          "numero": 2,
+          "nome": "Ali MAJRASHI",
+          "posicao": "DF",
+          "nascimento": "1999-10-02"
+        },
+        {
+          "numero": 3,
+          "nome": "Ali LAJAMI",
+          "posicao": "DF",
+          "nascimento": "1996-04-24"
+        },
+        {
+          "numero": 4,
+          "nome": "Abdulelah AL-AMRI",
+          "posicao": "DF",
+          "nascimento": "1997-01-15"
+        },
+        {
+          "numero": 5,
+          "nome": "Hassan AL-TAMBAKTI",
+          "posicao": "DF",
+          "nascimento": "1999-02-09"
+        },
+        {
+          "numero": 12,
+          "nome": "Saud ABDULHAMID",
+          "posicao": "DF",
+          "nascimento": "1999-07-18"
+        },
+        {
+          "numero": 13,
+          "nome": "Nawaf BOUSHAL",
+          "posicao": "DF",
+          "nascimento": "1999-09-16"
+        },
+        {
+          "numero": 14,
+          "nome": "Hassan KADESH",
+          "posicao": "DF",
+          "nascimento": "1992-09-26"
+        },
+        {
+          "numero": 24,
+          "nome": "Moteb AL-HARBI",
+          "posicao": "DF",
+          "nascimento": "2000-02-20"
+        },
+        {
+          "numero": 25,
+          "nome": "Jehad THAKRI",
+          "posicao": "DF",
+          "nascimento": "2001-07-21"
+        },
+        {
+          "numero": 26,
+          "nome": "Mohammed ABU AL-SHAMAT",
+          "posicao": "DF",
+          "nascimento": "2002-08-11"
+        },
+        {
+          "numero": 6,
+          "nome": "Nasser AL-DAWSARI",
+          "posicao": "MF",
+          "nascimento": "1998-12-19"
+        },
+        {
+          "numero": 7,
+          "nome": "Musab AL-JUWAYR",
+          "posicao": "MF",
+          "nascimento": "2003-06-20"
+        },
+        {
+          "numero": 15,
+          "nome": "Abdullah AL-KHAIBARI",
+          "posicao": "MF",
+          "nascimento": "1996-08-16"
+        },
+        {
+          "numero": 16,
+          "nome": "Ziyad AL-JOHANI",
+          "posicao": "MF",
+          "nascimento": "2001-11-11"
+        },
+        {
+          "numero": 18,
+          "nome": "Alaa AL-HEJJI",
+          "posicao": "MF",
+          "nascimento": "1995-12-03"
+        },
+        {
+          "numero": 23,
+          "nome": "Mohamed KANNO",
+          "posicao": "MF",
+          "nascimento": "1994-09-22"
+        },
+        {
+          "numero": 8,
+          "nome": "Ayman YAHYA",
+          "posicao": "FW",
+          "nascimento": "2001-05-14"
+        },
+        {
+          "numero": 9,
+          "nome": "Firas AL-BURAIKAN",
+          "posicao": "FW",
+          "nascimento": "2000-05-14"
+        },
+        {
+          "numero": 10,
+          "nome": "Salem AL-DAWSARI",
+          "posicao": "FW",
+          "nascimento": "1991-08-19"
+        },
+        {
+          "numero": 11,
+          "nome": "Saleh AL-SHEHRI",
+          "posicao": "FW",
+          "nascimento": "1993-11-01"
+        },
+        {
+          "numero": 17,
+          "nome": "Khalid AL-GHANNAM",
+          "posicao": "FW",
+          "nascimento": "2000-11-08"
+        },
+        {
+          "numero": 19,
+          "nome": "Abdullah AL-HAMDAN",
+          "posicao": "FW",
+          "nascimento": "1999-09-13"
+        },
+        {
+          "numero": 20,
+          "nome": "Sultan MANDASH",
+          "posicao": "FW",
+          "nascimento": "1994-10-17"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Spain",
+      "time": "Espanha",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "David RAYA",
+          "posicao": "GK",
+          "nascimento": "1995-09-15"
+        },
+        {
+          "numero": 13,
+          "nome": "Joan GARCIA",
+          "posicao": "GK",
+          "nascimento": "2001-05-04"
+        },
+        {
+          "numero": 23,
+          "nome": "Unai SIMÓN",
+          "posicao": "GK",
+          "nascimento": "1997-06-11"
+        },
+        {
+          "numero": 2,
+          "nome": "Marc PUBILL",
+          "posicao": "DF",
+          "nascimento": "2003-06-20"
+        },
+        {
+          "numero": 3,
+          "nome": "Álex GRIMALDO",
+          "posicao": "DF",
+          "nascimento": "1995-09-20"
+        },
+        {
+          "numero": 4,
+          "nome": "Eric GARCÍA",
+          "posicao": "DF",
+          "nascimento": "2001-01-09"
+        },
+        {
+          "numero": 5,
+          "nome": "Marcos LLORENTE",
+          "posicao": "DF",
+          "nascimento": "1995-01-30"
+        },
+        {
+          "numero": 12,
+          "nome": "Pedro PORRO",
+          "posicao": "DF",
+          "nascimento": "1999-09-13"
+        },
+        {
+          "numero": 14,
+          "nome": "Aymeric LAPORTE",
+          "posicao": "DF",
+          "nascimento": "1994-05-27"
+        },
+        {
+          "numero": 22,
+          "nome": "Pau CUBARSÍ",
+          "posicao": "DF",
+          "nascimento": "2007-01-22"
+        },
+        {
+          "numero": 24,
+          "nome": "Marc CUCURELLA",
+          "posicao": "DF",
+          "nascimento": "1998-07-22"
+        },
+        {
+          "numero": 6,
+          "nome": "Mikel MERINO",
+          "posicao": "MF",
+          "nascimento": "1996-06-22"
+        },
+        {
+          "numero": 8,
+          "nome": "Fabián RUIZ",
+          "posicao": "MF",
+          "nascimento": "1996-04-03"
+        },
+        {
+          "numero": 9,
+          "nome": "GAVI",
+          "posicao": "MF",
+          "nascimento": "2004-08-05"
+        },
+        {
+          "numero": 15,
+          "nome": "Álex BAENA",
+          "posicao": "MF",
+          "nascimento": "2001-07-20"
+        },
+        {
+          "numero": 16,
+          "nome": "RODRI",
+          "posicao": "MF",
+          "nascimento": "1996-06-22"
+        },
+        {
+          "numero": 18,
+          "nome": "Martín ZUBIMENDI",
+          "posicao": "MF",
+          "nascimento": "1999-02-02"
+        },
+        {
+          "numero": 20,
+          "nome": "PEDRI",
+          "posicao": "MF",
+          "nascimento": "2002-11-25"
+        },
+        {
+          "numero": 7,
+          "nome": "Ferran TORRES",
+          "posicao": "FW",
+          "nascimento": "2000-02-29"
+        },
+        {
+          "numero": 10,
+          "nome": "Dani OLMO",
+          "posicao": "FW",
+          "nascimento": "1998-05-07"
+        },
+        {
+          "numero": 11,
+          "nome": "Yéremy PINO",
+          "posicao": "FW",
+          "nascimento": "2002-10-20"
+        },
+        {
+          "numero": 17,
+          "nome": "Nico WILLIAMS",
+          "posicao": "FW",
+          "nascimento": "2002-07-12"
+        },
+        {
+          "numero": 19,
+          "nome": "Lamine YAMAL",
+          "posicao": "FW",
+          "nascimento": "2007-07-13"
+        },
+        {
+          "numero": 21,
+          "nome": "Mikel OYARZABAL",
+          "posicao": "FW",
+          "nascimento": "1997-04-21"
+        },
+        {
+          "numero": 25,
+          "nome": "Víctor MUÑOZ",
+          "posicao": "FW",
+          "nascimento": "2003-07-13"
+        },
+        {
+          "numero": 26,
+          "nome": "Borja IGLESIAS",
+          "posicao": "FW",
+          "nascimento": "1993-01-17"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Uruguay",
+      "time": "Uruguai",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Sergio ROCHET",
+          "posicao": "GK",
+          "nascimento": "1993-03-23"
+        },
+        {
+          "numero": 12,
+          "nome": "Santiago MELE",
+          "posicao": "GK",
+          "nascimento": "1997-09-06"
+        },
+        {
+          "numero": 23,
+          "nome": "Fernando MUSLERA",
+          "posicao": "GK",
+          "nascimento": "1986-06-16"
+        },
+        {
+          "numero": 2,
+          "nome": "José GIMÉNEZ",
+          "posicao": "DF",
+          "nascimento": "1995-01-20"
+        },
+        {
+          "numero": 3,
+          "nome": "Sebastián CÁCERES",
+          "posicao": "DF",
+          "nascimento": "1999-08-18"
+        },
+        {
+          "numero": 4,
+          "nome": "Ronald ARAÚJO",
+          "posicao": "DF",
+          "nascimento": "1999-03-07"
+        },
+        {
+          "numero": 13,
+          "nome": "Guillermo VARELA",
+          "posicao": "DF",
+          "nascimento": "1993-03-24"
+        },
+        {
+          "numero": 16,
+          "nome": "Mathías OLIVERA",
+          "posicao": "DF",
+          "nascimento": "1997-10-31"
+        },
+        {
+          "numero": 17,
+          "nome": "Matías VIÑA",
+          "posicao": "DF",
+          "nascimento": "1997-11-09"
+        },
+        {
+          "numero": 24,
+          "nome": "Santiago BUENO",
+          "posicao": "DF",
+          "nascimento": "1998-11-09"
+        },
+        {
+          "numero": 5,
+          "nome": "Manuel UGARTE",
+          "posicao": "MF",
+          "nascimento": "2001-04-11"
+        },
+        {
+          "numero": 6,
+          "nome": "Rodrigo BENTANCUR",
+          "posicao": "MF",
+          "nascimento": "1997-06-25"
+        },
+        {
+          "numero": 7,
+          "nome": "Nicolás de la CRUZ",
+          "posicao": "MF",
+          "nascimento": "1997-06-01"
+        },
+        {
+          "numero": 8,
+          "nome": "Federico VALVERDE",
+          "posicao": "MF",
+          "nascimento": "1998-07-22"
+        },
+        {
+          "numero": 10,
+          "nome": "Giorgian de ARRASCAETA",
+          "posicao": "MF",
+          "nascimento": "1994-06-01"
+        },
+        {
+          "numero": 14,
+          "nome": "Agustín CANOBBIO",
+          "posicao": "MF",
+          "nascimento": "1998-10-01"
+        },
+        {
+          "numero": 15,
+          "nome": "Emiliano MARTÍNEZ",
+          "posicao": "MF",
+          "nascimento": "1999-08-17"
+        },
+        {
+          "numero": 20,
+          "nome": "Maximiliano ARAÚJO",
+          "posicao": "MF",
+          "nascimento": "2000-02-15"
+        },
+        {
+          "numero": 22,
+          "nome": "Joaquín PIQUEREZ",
+          "posicao": "MF",
+          "nascimento": "1998-08-24"
+        },
+        {
+          "numero": 25,
+          "nome": "Juan Manuel SANABRIA",
+          "posicao": "MF",
+          "nascimento": "2000-03-29"
+        },
+        {
+          "numero": 26,
+          "nome": "Rodrigo ZALAZAR",
+          "posicao": "MF",
+          "nascimento": "1999-08-12"
+        },
+        {
+          "numero": 9,
+          "nome": "Darwin NÚÑEZ",
+          "posicao": "FW",
+          "nascimento": "1999-06-24"
+        },
+        {
+          "numero": 11,
+          "nome": "Facundo PELLISTRI",
+          "posicao": "FW",
+          "nascimento": "2001-12-20"
+        },
+        {
+          "numero": 18,
+          "nome": "Brian RODRÍGUEZ",
+          "posicao": "FW",
+          "nascimento": "2000-05-20"
+        },
+        {
+          "numero": 19,
+          "nome": "Rodrigo AGUIRRE",
+          "posicao": "FW",
+          "nascimento": "1994-10-01"
+        },
+        {
+          "numero": 21,
+          "nome": "Federico VIÑAS",
+          "posicao": "FW",
+          "nascimento": "1998-06-30"
+        }
+      ]
+    },
+    {
+      "timeIngles": "France",
+      "time": "França",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Brice SAMBA",
+          "posicao": "GK",
+          "nascimento": "1994-04-25"
+        },
+        {
+          "numero": 16,
+          "nome": "Mike MAIGNAN",
+          "posicao": "GK",
+          "nascimento": "1995-07-03"
+        },
+        {
+          "numero": 23,
+          "nome": "Robin RISSER",
+          "posicao": "GK",
+          "nascimento": "2004-12-02"
+        },
+        {
+          "numero": 2,
+          "nome": "Malo GUSTO",
+          "posicao": "DF",
+          "nascimento": "2003-05-19"
+        },
+        {
+          "numero": 3,
+          "nome": "Lucas DIGNE",
+          "posicao": "DF",
+          "nascimento": "1993-07-20"
+        },
+        {
+          "numero": 4,
+          "nome": "Dayot UPAMECANO",
+          "posicao": "DF",
+          "nascimento": "1998-10-27"
+        },
+        {
+          "numero": 5,
+          "nome": "Jules KOUNDÉ",
+          "posicao": "DF",
+          "nascimento": "1998-11-12"
+        },
+        {
+          "numero": 15,
+          "nome": "Ibrahima KONATÉ",
+          "posicao": "DF",
+          "nascimento": "1999-05-25"
+        },
+        {
+          "numero": 17,
+          "nome": "William SALIBA",
+          "posicao": "DF",
+          "nascimento": "2001-03-24"
+        },
+        {
+          "numero": 19,
+          "nome": "Théo HERNANDEZ",
+          "posicao": "DF",
+          "nascimento": "1997-10-06"
+        },
+        {
+          "numero": 21,
+          "nome": "Lucas HERNANDEZ",
+          "posicao": "DF",
+          "nascimento": "1996-02-14"
+        },
+        {
+          "numero": 26,
+          "nome": "Maxence LACROIX",
+          "posicao": "DF",
+          "nascimento": "2000-04-06"
+        },
+        {
+          "numero": 6,
+          "nome": "Manu KONÉ",
+          "posicao": "MF",
+          "nascimento": "2001-05-17"
+        },
+        {
+          "numero": 8,
+          "nome": "Aurélien TCHOUAMÉNI",
+          "posicao": "MF",
+          "nascimento": "2000-01-27"
+        },
+        {
+          "numero": 13,
+          "nome": "N'Golo KANTÉ",
+          "posicao": "MF",
+          "nascimento": "1991-03-29"
+        },
+        {
+          "numero": 14,
+          "nome": "Adrien RABIOT",
+          "posicao": "MF",
+          "nascimento": "1995-04-03"
+        },
+        {
+          "numero": 18,
+          "nome": "Warren ZAÏRE-EMERY",
+          "posicao": "MF",
+          "nascimento": "2006-03-08"
+        },
+        {
+          "numero": 24,
+          "nome": "Rayan CHERKI",
+          "posicao": "MF",
+          "nascimento": "2003-08-17"
+        },
+        {
+          "numero": 25,
+          "nome": "Maghnes AKLIOUCHE",
+          "posicao": "MF",
+          "nascimento": "2002-02-25"
+        },
+        {
+          "numero": 7,
+          "nome": "Ousmane DEMBÉLÉ",
+          "posicao": "FW",
+          "nascimento": "1997-05-15"
+        },
+        {
+          "numero": 9,
+          "nome": "Marcus THURAM",
+          "posicao": "FW",
+          "nascimento": "1997-08-06"
+        },
+        {
+          "numero": 10,
+          "nome": "Kylian MBAPPÉ",
+          "posicao": "FW",
+          "nascimento": "1998-12-20"
+        },
+        {
+          "numero": 11,
+          "nome": "Michael OLISE",
+          "posicao": "FW",
+          "nascimento": "2001-12-12"
+        },
+        {
+          "numero": 12,
+          "nome": "Bradley BARCOLA",
+          "posicao": "FW",
+          "nascimento": "2002-09-02"
+        },
+        {
+          "numero": 20,
+          "nome": "Désiré DOUÉ",
+          "posicao": "FW",
+          "nascimento": "2005-06-03"
+        },
+        {
+          "numero": 22,
+          "nome": "Jean-Philippe MATETA",
+          "posicao": "FW",
+          "nascimento": "1997-06-28"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Iraq",
+      "time": "Iraque",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Fahad TALIB",
+          "posicao": "GK",
+          "nascimento": "1994-10-21"
+        },
+        {
+          "numero": 12,
+          "nome": "Jalal HASSAN",
+          "posicao": "GK",
+          "nascimento": "1991-05-18"
+        },
+        {
+          "numero": 22,
+          "nome": "Ahmed BASIL",
+          "posicao": "GK",
+          "nascimento": "1996-08-19"
+        },
+        {
+          "numero": 2,
+          "nome": "Rebin SULAKA",
+          "posicao": "DF",
+          "nascimento": "1992-04-12"
+        },
+        {
+          "numero": 3,
+          "nome": "Hussein ALI",
+          "posicao": "DF",
+          "nascimento": "2002-03-01"
+        },
+        {
+          "numero": 4,
+          "nome": "Zaid TAHSEEN",
+          "posicao": "DF",
+          "nascimento": "2001-01-29"
+        },
+        {
+          "numero": 5,
+          "nome": "Akam HASHIM",
+          "posicao": "DF",
+          "nascimento": "1998-08-16"
+        },
+        {
+          "numero": 6,
+          "nome": "Manaf YOUNIS",
+          "posicao": "DF",
+          "nascimento": "1996-11-16"
+        },
+        {
+          "numero": 15,
+          "nome": "Ahmed MAKNZI",
+          "posicao": "DF",
+          "nascimento": "2001-09-24"
+        },
+        {
+          "numero": 23,
+          "nome": "Merchas DOSKI",
+          "posicao": "DF",
+          "nascimento": "1999-12-07"
+        },
+        {
+          "numero": 25,
+          "nome": "Mustafa SAADOON",
+          "posicao": "DF",
+          "nascimento": "2001-05-25"
+        },
+        {
+          "numero": 26,
+          "nome": "Frans PUTROS",
+          "posicao": "DF",
+          "nascimento": "1993-07-14"
+        },
+        {
+          "numero": 7,
+          "nome": "Youssef AMYN",
+          "posicao": "MF",
+          "nascimento": "2003-08-21"
+        },
+        {
+          "numero": 8,
+          "nome": "Ibrahim BAYESH",
+          "posicao": "MF",
+          "nascimento": "2000-05-01"
+        },
+        {
+          "numero": 14,
+          "nome": "Zidane IQBAL",
+          "posicao": "MF",
+          "nascimento": "2003-04-27"
+        },
+        {
+          "numero": 16,
+          "nome": "Amir AL-AMMARI",
+          "posicao": "MF",
+          "nascimento": "1997-07-27"
+        },
+        {
+          "numero": 19,
+          "nome": "Kevin YAKOB",
+          "posicao": "MF",
+          "nascimento": "2000-10-10"
+        },
+        {
+          "numero": 20,
+          "nome": "Aimar SHER",
+          "posicao": "MF",
+          "nascimento": "2002-12-20"
+        },
+        {
+          "numero": 24,
+          "nome": "Zaid ISMAIL",
+          "posicao": "MF",
+          "nascimento": "2002-01-03"
+        },
+        {
+          "numero": 9,
+          "nome": "Ali AL-HAMADI",
+          "posicao": "FW",
+          "nascimento": "2002-03-01"
+        },
+        {
+          "numero": 10,
+          "nome": "Mohanad ALI",
+          "posicao": "FW",
+          "nascimento": "2000-06-20"
+        },
+        {
+          "numero": 11,
+          "nome": "Ahmed QASEM",
+          "posicao": "FW",
+          "nascimento": "2003-07-12"
+        },
+        {
+          "numero": 13,
+          "nome": "Ali YOUSIF",
+          "posicao": "FW",
+          "nascimento": "1996-01-19"
+        },
+        {
+          "numero": 17,
+          "nome": "Ali JASIM",
+          "posicao": "FW",
+          "nascimento": "2004-01-20"
+        },
+        {
+          "numero": 18,
+          "nome": "Aymen HUSSEIN",
+          "posicao": "FW",
+          "nascimento": "1996-03-22"
+        },
+        {
+          "numero": 21,
+          "nome": "Marko FARJI",
+          "posicao": "FW",
+          "nascimento": "2004-03-16"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Norway",
+      "time": "Noruega",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Ørjan NYLAND",
+          "posicao": "GK",
+          "nascimento": "1990-09-10"
+        },
+        {
+          "numero": 12,
+          "nome": "Sander TANGVIK",
+          "posicao": "GK",
+          "nascimento": "2002-11-29"
+        },
+        {
+          "numero": 13,
+          "nome": "Egil SELVIK",
+          "posicao": "GK",
+          "nascimento": "1997-07-30"
+        },
+        {
+          "numero": 3,
+          "nome": "Kristoffer AJER",
+          "posicao": "DF",
+          "nascimento": "1998-04-17"
+        },
+        {
+          "numero": 4,
+          "nome": "Leo ØSTIGÅRD",
+          "posicao": "DF",
+          "nascimento": "1999-11-28"
+        },
+        {
+          "numero": 5,
+          "nome": "David MØLLER WOLFE",
+          "posicao": "DF",
+          "nascimento": "2002-04-23"
+        },
+        {
+          "numero": 15,
+          "nome": "Fredrik André BJØRKAN",
+          "posicao": "DF",
+          "nascimento": "1998-08-21"
+        },
+        {
+          "numero": 16,
+          "nome": "Marcus Holmgren PEDERSEN",
+          "posicao": "DF",
+          "nascimento": "2000-07-16"
+        },
+        {
+          "numero": 17,
+          "nome": "Torbjørn HEGGEM",
+          "posicao": "DF",
+          "nascimento": "1999-01-12"
+        },
+        {
+          "numero": 24,
+          "nome": "Sondre LANGÅS",
+          "posicao": "DF",
+          "nascimento": "2001-02-02"
+        },
+        {
+          "numero": 25,
+          "nome": "Henrik FALCHENER",
+          "posicao": "DF",
+          "nascimento": "2003-05-08"
+        },
+        {
+          "numero": 2,
+          "nome": "Morten THORSBY",
+          "posicao": "MF",
+          "nascimento": "1996-05-05"
+        },
+        {
+          "numero": 6,
+          "nome": "Patrick BERG",
+          "posicao": "MF",
+          "nascimento": "1997-11-24"
+        },
+        {
+          "numero": 8,
+          "nome": "Sander BERGE",
+          "posicao": "MF",
+          "nascimento": "1998-02-14"
+        },
+        {
+          "numero": 10,
+          "nome": "Martin ØDEGAARD",
+          "posicao": "MF",
+          "nascimento": "1998-12-17"
+        },
+        {
+          "numero": 14,
+          "nome": "Fredrik AURSNES",
+          "posicao": "MF",
+          "nascimento": "1995-12-10"
+        },
+        {
+          "numero": 18,
+          "nome": "Kristian THORSTVEDT",
+          "posicao": "MF",
+          "nascimento": "1999-03-13"
+        },
+        {
+          "numero": 19,
+          "nome": "Thelo AASGAARD",
+          "posicao": "MF",
+          "nascimento": "2002-05-02"
+        },
+        {
+          "numero": 21,
+          "nome": "Andreas SCHJELDERUP",
+          "posicao": "MF",
+          "nascimento": "2004-06-01"
+        },
+        {
+          "numero": 22,
+          "nome": "Oscar BOBB",
+          "posicao": "MF",
+          "nascimento": "2003-07-12"
+        },
+        {
+          "numero": 23,
+          "nome": "Jens Petter HAUGE",
+          "posicao": "MF",
+          "nascimento": "1999-10-12"
+        },
+        {
+          "numero": 7,
+          "nome": "Alexander SØRLOTH",
+          "posicao": "FW",
+          "nascimento": "1995-12-05"
+        },
+        {
+          "numero": 9,
+          "nome": "Erling HAALAND",
+          "posicao": "FW",
+          "nascimento": "2000-07-21"
+        },
+        {
+          "numero": 11,
+          "nome": "Jørgen STRAND LARSEN",
+          "posicao": "FW",
+          "nascimento": "2000-02-06"
+        },
+        {
+          "numero": 20,
+          "nome": "Antonio NUSA",
+          "posicao": "FW",
+          "nascimento": "2005-04-17"
+        },
+        {
+          "numero": 26,
+          "nome": "Julian RYERSON",
+          "posicao": "FW",
+          "nascimento": "1997-11-17"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Senegal",
+      "time": "Senegal",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Yehvann DIOUF",
+          "posicao": "GK",
+          "nascimento": "1999-11-16"
+        },
+        {
+          "numero": 16,
+          "nome": "Édouard MENDY",
+          "posicao": "GK",
+          "nascimento": "1992-03-01"
+        },
+        {
+          "numero": 23,
+          "nome": "Mory DIAW",
+          "posicao": "GK",
+          "nascimento": "1993-06-22"
+        },
+        {
+          "numero": 2,
+          "nome": "Mamadou SARR",
+          "posicao": "DF",
+          "nascimento": "2005-08-29"
+        },
+        {
+          "numero": 3,
+          "nome": "Kalidou KOULIBALY",
+          "posicao": "DF",
+          "nascimento": "1991-06-20"
+        },
+        {
+          "numero": 4,
+          "nome": "Abdoulaye SECK",
+          "posicao": "DF",
+          "nascimento": "1992-06-04"
+        },
+        {
+          "numero": 14,
+          "nome": "Ismail JAKOBS",
+          "posicao": "DF",
+          "nascimento": "1999-08-17"
+        },
+        {
+          "numero": 15,
+          "nome": "Krépin DIATTA",
+          "posicao": "DF",
+          "nascimento": "1999-02-25"
+        },
+        {
+          "numero": 19,
+          "nome": "Moussa NIAKHATÉ",
+          "posicao": "DF",
+          "nascimento": "1996-03-08"
+        },
+        {
+          "numero": 24,
+          "nome": "Antoine MENDY",
+          "posicao": "DF",
+          "nascimento": "2004-05-27"
+        },
+        {
+          "numero": 25,
+          "nome": "El Hadji Malick DIOUF",
+          "posicao": "DF",
+          "nascimento": "2004-12-29"
+        },
+        {
+          "numero": 5,
+          "nome": "Idrissa GUEYE",
+          "posicao": "MF",
+          "nascimento": "1989-09-26"
+        },
+        {
+          "numero": 6,
+          "nome": "Pathé CISS",
+          "posicao": "MF",
+          "nascimento": "1994-03-16"
+        },
+        {
+          "numero": 8,
+          "nome": "Lamine CAMARA",
+          "posicao": "MF",
+          "nascimento": "2004-01-01"
+        },
+        {
+          "numero": 17,
+          "nome": "Pape Matar SARR",
+          "posicao": "MF",
+          "nascimento": "2002-09-14"
+        },
+        {
+          "numero": 21,
+          "nome": "Habib DIARRA",
+          "posicao": "MF",
+          "nascimento": "2004-01-03"
+        },
+        {
+          "numero": 22,
+          "nome": "Bara SAPOKO NDIAYE",
+          "posicao": "MF",
+          "nascimento": "2007-12-31"
+        },
+        {
+          "numero": 26,
+          "nome": "Pape GUEYE",
+          "posicao": "MF",
+          "nascimento": "1999-01-24"
+        },
+        {
+          "numero": 7,
+          "nome": "Assane DIAO",
+          "posicao": "FW",
+          "nascimento": "2005-09-07"
+        },
+        {
+          "numero": 9,
+          "nome": "Bamba DIENG",
+          "posicao": "FW",
+          "nascimento": "2000-03-23"
+        },
+        {
+          "numero": 10,
+          "nome": "Sadio MANÉ",
+          "posicao": "FW",
+          "nascimento": "1992-04-10"
+        },
+        {
+          "numero": 11,
+          "nome": "Nicolas JACKSON",
+          "posicao": "FW",
+          "nascimento": "2001-06-20"
+        },
+        {
+          "numero": 12,
+          "nome": "Cherif NDIAYE",
+          "posicao": "FW",
+          "nascimento": "1996-01-23"
+        },
+        {
+          "numero": 13,
+          "nome": "Iliman NDIAYE",
+          "posicao": "FW",
+          "nascimento": "2000-03-06"
+        },
+        {
+          "numero": 18,
+          "nome": "Ismaïla SARR",
+          "posicao": "FW",
+          "nascimento": "1998-02-25"
+        },
+        {
+          "numero": 20,
+          "nome": "Ibrahim MBAYE",
+          "posicao": "FW",
+          "nascimento": "2008-01-24"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Algeria",
+      "time": "Argélia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Melvin MASTIL",
+          "posicao": "GK",
+          "nascimento": "2000-02-19"
+        },
+        {
+          "numero": 16,
+          "nome": "Oussama BENBOT",
+          "posicao": "GK",
+          "nascimento": "1994-10-11"
+        },
+        {
+          "numero": 23,
+          "nome": "Luca ZIDANE",
+          "posicao": "GK",
+          "nascimento": "1998-05-13"
+        },
+        {
+          "numero": 2,
+          "nome": "Aïssa MANDI",
+          "posicao": "DF",
+          "nascimento": "1991-10-22"
+        },
+        {
+          "numero": 3,
+          "nome": "Achref ABADA",
+          "posicao": "DF",
+          "nascimento": "1999-06-15"
+        },
+        {
+          "numero": 4,
+          "nome": "Mohamed Amine TOUGAI",
+          "posicao": "DF",
+          "nascimento": "2000-01-22"
+        },
+        {
+          "numero": 5,
+          "nome": "Zineddine BELAÏD",
+          "posicao": "DF",
+          "nascimento": "1999-03-20"
+        },
+        {
+          "numero": 13,
+          "nome": "Jaouen HADJAM",
+          "posicao": "DF",
+          "nascimento": "2003-03-26"
+        },
+        {
+          "numero": 15,
+          "nome": "Rayan AÏT-NOURI",
+          "posicao": "DF",
+          "nascimento": "2001-06-06"
+        },
+        {
+          "numero": 17,
+          "nome": "Rafik BELGHALI",
+          "posicao": "DF",
+          "nascimento": "2002-06-07"
+        },
+        {
+          "numero": 21,
+          "nome": "Ramy BENSEBAINI",
+          "posicao": "DF",
+          "nascimento": "1995-04-16"
+        },
+        {
+          "numero": 26,
+          "nome": "Samir CHERGUI",
+          "posicao": "DF",
+          "nascimento": "1999-02-06"
+        },
+        {
+          "numero": 6,
+          "nome": "Ramiz ZERROUKI",
+          "posicao": "MF",
+          "nascimento": "1998-05-26"
+        },
+        {
+          "numero": 8,
+          "nome": "Houssem AOUAR",
+          "posicao": "MF",
+          "nascimento": "1998-06-30"
+        },
+        {
+          "numero": 10,
+          "nome": "Farès CHAÏBI",
+          "posicao": "MF",
+          "nascimento": "2002-11-28"
+        },
+        {
+          "numero": 14,
+          "nome": "Hicham BOUDAOUI",
+          "posicao": "MF",
+          "nascimento": "1999-09-23"
+        },
+        {
+          "numero": 19,
+          "nome": "Nabil BENTALEB",
+          "posicao": "MF",
+          "nascimento": "1994-11-24"
+        },
+        {
+          "numero": 22,
+          "nome": "Ibrahim MAZA",
+          "posicao": "MF",
+          "nascimento": "2005-11-24"
+        },
+        {
+          "numero": 24,
+          "nome": "Yacine TITRAOUI",
+          "posicao": "MF",
+          "nascimento": "2003-08-26"
+        },
+        {
+          "numero": 7,
+          "nome": "Riyad MAHREZ",
+          "posicao": "FW",
+          "nascimento": "1991-02-21"
+        },
+        {
+          "numero": 9,
+          "nome": "Amine GOUIRI",
+          "posicao": "FW",
+          "nascimento": "2000-02-16"
+        },
+        {
+          "numero": 11,
+          "nome": "Anis HADJ MOUSSA",
+          "posicao": "FW",
+          "nascimento": "2002-02-11"
+        },
+        {
+          "numero": 12,
+          "nome": "Nadhir BENBOUALI",
+          "posicao": "FW",
+          "nascimento": "2000-04-17"
+        },
+        {
+          "numero": 18,
+          "nome": "Mohamed AMOURA",
+          "posicao": "FW",
+          "nascimento": "2000-05-09"
+        },
+        {
+          "numero": 20,
+          "nome": "Adil BOULBINA",
+          "posicao": "FW",
+          "nascimento": "2003-05-02"
+        },
+        {
+          "numero": 25,
+          "nome": "Farès GHEDJEMIS",
+          "posicao": "FW",
+          "nascimento": "2002-09-06"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Argentina",
+      "time": "Argentina",
+      "totalJogadores": 25,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Juan MUSSO",
+          "posicao": "GK",
+          "nascimento": "1994-05-06"
+        },
+        {
+          "numero": 12,
+          "nome": "Gerónimo RULLI",
+          "posicao": "GK",
+          "nascimento": "1992-05-20"
+        },
+        {
+          "numero": 23,
+          "nome": "Emiliano MARTÍNEZ",
+          "posicao": "GK",
+          "nascimento": "1992-09-02"
+        },
+        {
+          "numero": 3,
+          "nome": "Nicolás TAGLIAFICO",
+          "posicao": "DF",
+          "nascimento": "1992-08-31"
+        },
+        {
+          "numero": 4,
+          "nome": "Gonzalo MONTIEL",
+          "posicao": "DF",
+          "nascimento": "1997-01-01"
+        },
+        {
+          "numero": 6,
+          "nome": "Lisandro MARTÍNEZ",
+          "posicao": "DF",
+          "nascimento": "1998-01-18"
+        },
+        {
+          "numero": 13,
+          "nome": "Cristian ROMERO",
+          "posicao": "DF",
+          "nascimento": "1998-04-27"
+        },
+        {
+          "numero": 19,
+          "nome": "Nicolás OTAMENDI",
+          "posicao": "DF",
+          "nascimento": "1988-02-12"
+        },
+        {
+          "numero": 25,
+          "nome": "Facundo MEDINA",
+          "posicao": "DF",
+          "nascimento": "1999-05-28"
+        },
+        {
+          "numero": 26,
+          "nome": "Nahuel MOLINA",
+          "posicao": "DF",
+          "nascimento": "1998-04-06"
+        },
+        {
+          "numero": 5,
+          "nome": "Leandro PAREDES",
+          "posicao": "MF",
+          "nascimento": "1994-06-29"
+        },
+        {
+          "numero": 7,
+          "nome": "Rodrigo DE PAUL",
+          "posicao": "MF",
+          "nascimento": "1994-05-24"
+        },
+        {
+          "numero": 8,
+          "nome": "Valentín BARCO",
+          "posicao": "MF",
+          "nascimento": "2004-07-23"
+        },
+        {
+          "numero": 11,
+          "nome": "Giovani LO CELSO",
+          "posicao": "MF",
+          "nascimento": "1996-04-09"
+        },
+        {
+          "numero": 14,
+          "nome": "Exequiel PALACIOS",
+          "posicao": "MF",
+          "nascimento": "1998-10-05"
+        },
+        {
+          "numero": 15,
+          "nome": "Nicolás GONZÁLEZ",
+          "posicao": "MF",
+          "nascimento": "1998-04-06"
+        },
+        {
+          "numero": 20,
+          "nome": "Alexis MAC ALLISTER",
+          "posicao": "MF",
+          "nascimento": "1998-12-24"
+        },
+        {
+          "numero": 24,
+          "nome": "Enzo FERNÁNDEZ",
+          "posicao": "MF",
+          "nascimento": "2001-01-17"
+        },
+        {
+          "numero": 9,
+          "nome": "Julián ALVAREZ",
+          "posicao": "FW",
+          "nascimento": "2000-01-31"
+        },
+        {
+          "numero": 10,
+          "nome": "Lionel MESSI",
+          "posicao": "FW",
+          "nascimento": "1987-06-24"
+        },
+        {
+          "numero": 16,
+          "nome": "Thiago ALMADA",
+          "posicao": "FW",
+          "nascimento": "2001-04-26"
+        },
+        {
+          "numero": 17,
+          "nome": "Giuliano SIMEONE",
+          "posicao": "FW",
+          "nascimento": "2002-12-18"
+        },
+        {
+          "numero": 18,
+          "nome": "Nico PAZ",
+          "posicao": "FW",
+          "nascimento": "2004-09-08"
+        },
+        {
+          "numero": 21,
+          "nome": "José Manuel LÓPEZ",
+          "posicao": "FW",
+          "nascimento": "2000-12-06"
+        },
+        {
+          "numero": 22,
+          "nome": "Lautaro MARTÍNEZ",
+          "posicao": "FW",
+          "nascimento": "1997-08-22"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Austria",
+      "time": "Áustria",
+      "totalJogadores": 25,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Alexander SCHLAGER",
+          "posicao": "GK",
+          "nascimento": "1996-02-01"
+        },
+        {
+          "numero": 12,
+          "nome": "Florian WIEGELE",
+          "posicao": "GK",
+          "nascimento": "2001-03-21"
+        },
+        {
+          "numero": 13,
+          "nome": "Patrick PENTZ",
+          "posicao": "GK",
+          "nascimento": "1997-01-02"
+        },
+        {
+          "numero": 2,
+          "nome": "David AFFENGRUBER",
+          "posicao": "DF",
+          "nascimento": "2001-03-19"
+        },
+        {
+          "numero": 3,
+          "nome": "Kevin DANSO",
+          "posicao": "DF",
+          "nascimento": "1998-09-19"
+        },
+        {
+          "numero": 5,
+          "nome": "Stefan POSCH",
+          "posicao": "DF",
+          "nascimento": "1997-05-14"
+        },
+        {
+          "numero": 8,
+          "nome": "David ALABA",
+          "posicao": "DF",
+          "nascimento": "1992-06-24"
+        },
+        {
+          "numero": 15,
+          "nome": "Philipp LIENHART",
+          "posicao": "DF",
+          "nascimento": "1996-07-11"
+        },
+        {
+          "numero": 16,
+          "nome": "Phillipp MWENE",
+          "posicao": "DF",
+          "nascimento": "1994-01-29"
+        },
+        {
+          "numero": 23,
+          "nome": "Marco FRIEDL",
+          "posicao": "DF",
+          "nascimento": "1998-03-16"
+        },
+        {
+          "numero": 25,
+          "nome": "Michael SVOBODA",
+          "posicao": "DF",
+          "nascimento": "1998-10-15"
+        },
+        {
+          "numero": 4,
+          "nome": "Xaver SCHLAGER",
+          "posicao": "MF",
+          "nascimento": "1997-09-28"
+        },
+        {
+          "numero": 6,
+          "nome": "Nicolas SEIWALD",
+          "posicao": "MF",
+          "nascimento": "2001-05-04"
+        },
+        {
+          "numero": 9,
+          "nome": "Marcel SABITZER",
+          "posicao": "MF",
+          "nascimento": "1994-03-17"
+        },
+        {
+          "numero": 10,
+          "nome": "Florian GRILLITSCH",
+          "posicao": "MF",
+          "nascimento": "1995-08-07"
+        },
+        {
+          "numero": 17,
+          "nome": "Carney CHUKWUEMEKA",
+          "posicao": "MF",
+          "nascimento": "2003-10-20"
+        },
+        {
+          "numero": 18,
+          "nome": "Romano SCHMID",
+          "posicao": "MF",
+          "nascimento": "2000-01-27"
+        },
+        {
+          "numero": 20,
+          "nome": "Konrad LAIMER",
+          "posicao": "MF",
+          "nascimento": "1997-05-27"
+        },
+        {
+          "numero": 22,
+          "nome": "Alexander PRASS",
+          "posicao": "MF",
+          "nascimento": "2001-05-26"
+        },
+        {
+          "numero": 24,
+          "nome": "Paul WANNER",
+          "posicao": "MF",
+          "nascimento": "2005-12-23"
+        },
+        {
+          "numero": 26,
+          "nome": "Alessandro SCHÖPF",
+          "posicao": "MF",
+          "nascimento": "1994-02-07"
+        },
+        {
+          "numero": 7,
+          "nome": "Marko ARNAUTOVIĆ",
+          "posicao": "FW",
+          "nascimento": "1989-04-19"
+        },
+        {
+          "numero": 11,
+          "nome": "Michael GREGORITSCH",
+          "posicao": "FW",
+          "nascimento": "1994-04-18"
+        },
+        {
+          "numero": 14,
+          "nome": "Saša KALAJDŽIĆ",
+          "posicao": "FW",
+          "nascimento": "1997-07-07"
+        },
+        {
+          "numero": 21,
+          "nome": "Patrick WIMMER",
+          "posicao": "FW",
+          "nascimento": "2001-05-30"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Jordan",
+      "time": "Jordânia",
+      "totalJogadores": 25,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Yazeed ABULAILA",
+          "posicao": "GK",
+          "nascimento": "1993-01-08"
+        },
+        {
+          "numero": 12,
+          "nome": "Nour BANI ATTIAH",
+          "posicao": "GK",
+          "nascimento": "1993-01-25"
+        },
+        {
+          "numero": 22,
+          "nome": "Abdallah AL-FAKHOURI",
+          "posicao": "GK",
+          "nascimento": "2000-01-22"
+        },
+        {
+          "numero": 2,
+          "nome": "Mohammad ABU HASHISH",
+          "posicao": "DF",
+          "nascimento": "1995-05-09"
+        },
+        {
+          "numero": 3,
+          "nome": "Abdallah NASIB",
+          "posicao": "DF",
+          "nascimento": "1994-02-25"
+        },
+        {
+          "numero": 4,
+          "nome": "Husam ABU DAHAB",
+          "posicao": "DF",
+          "nascimento": "2000-05-13"
+        },
+        {
+          "numero": 5,
+          "nome": "Yazan AL-ARAB",
+          "posicao": "DF",
+          "nascimento": "1996-01-31"
+        },
+        {
+          "numero": 16,
+          "nome": "Mo ABUALNADI",
+          "posicao": "DF",
+          "nascimento": "2001-02-08"
+        },
+        {
+          "numero": 17,
+          "nome": "Salim OBAID",
+          "posicao": "DF",
+          "nascimento": "1992-01-17"
+        },
+        {
+          "numero": 19,
+          "nome": "Saed AL-ROSAN",
+          "posicao": "DF",
+          "nascimento": "1997-02-01"
+        },
+        {
+          "numero": 23,
+          "nome": "Ihsan HADDAD",
+          "posicao": "DF",
+          "nascimento": "1994-02-05"
+        },
+        {
+          "numero": 26,
+          "nome": "Anas BADAWI",
+          "posicao": "DF",
+          "nascimento": "1997-09-13"
+        },
+        {
+          "numero": 6,
+          "nome": "Amer JAMOUS",
+          "posicao": "MF",
+          "nascimento": "2002-07-03"
+        },
+        {
+          "numero": 8,
+          "nome": "Noor AL-RAWABDEH",
+          "posicao": "MF",
+          "nascimento": "1997-02-24"
+        },
+        {
+          "numero": 14,
+          "nome": "Rajaei AYED",
+          "posicao": "MF",
+          "nascimento": "1993-07-25"
+        },
+        {
+          "numero": 15,
+          "nome": "Ibrahim SADEH",
+          "posicao": "MF",
+          "nascimento": "2000-04-27"
+        },
+        {
+          "numero": 20,
+          "nome": "Mohannad ABU TAHA",
+          "posicao": "MF",
+          "nascimento": "2003-02-02"
+        },
+        {
+          "numero": 21,
+          "nome": "Nizar AL-RASHDAN",
+          "posicao": "MF",
+          "nascimento": "1999-03-23"
+        },
+        {
+          "numero": 25,
+          "nome": "Mohammad AL-DAWOUD",
+          "posicao": "MF",
+          "nascimento": "1992-04-12"
+        },
+        {
+          "numero": 7,
+          "nome": "Mohammad ABU ZRAYQ",
+          "posicao": "FW",
+          "nascimento": "1997-12-30"
+        },
+        {
+          "numero": 9,
+          "nome": "Ali OLWAN",
+          "posicao": "FW",
+          "nascimento": "2000-03-26"
+        },
+        {
+          "numero": 10,
+          "nome": "Musa AL-TAAMARI",
+          "posicao": "FW",
+          "nascimento": "1997-06-10"
+        },
+        {
+          "numero": 11,
+          "nome": "Odeh AL-FAKHOURI",
+          "posicao": "FW",
+          "nascimento": "2005-11-22"
+        },
+        {
+          "numero": 13,
+          "nome": "Mahmoud AL-MARDI",
+          "posicao": "FW",
+          "nascimento": "1993-10-06"
+        },
+        {
+          "numero": 24,
+          "nome": "Ali AZAIZEH",
+          "posicao": "FW",
+          "nascimento": "2004-04-13"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Colombia",
+      "time": "Colômbia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "David OSPINA",
+          "posicao": "GK",
+          "nascimento": "1988-08-31"
+        },
+        {
+          "numero": 12,
+          "nome": "Camilo VARGAS",
+          "posicao": "GK",
+          "nascimento": "1989-03-09"
+        },
+        {
+          "numero": 24,
+          "nome": "Álvaro MONTERO",
+          "posicao": "GK",
+          "nascimento": "1995-03-29"
+        },
+        {
+          "numero": 2,
+          "nome": "Daniel MUÑOZ",
+          "posicao": "DF",
+          "nascimento": "1996-05-26"
+        },
+        {
+          "numero": 3,
+          "nome": "Jhon LUCUMÍ",
+          "posicao": "DF",
+          "nascimento": "1998-06-26"
+        },
+        {
+          "numero": 4,
+          "nome": "Santiago ARIAS",
+          "posicao": "DF",
+          "nascimento": "1992-01-13"
+        },
+        {
+          "numero": 13,
+          "nome": "Yerry MINA",
+          "posicao": "DF",
+          "nascimento": "1994-09-23"
+        },
+        {
+          "numero": 14,
+          "nome": "Gustavo PUERTA",
+          "posicao": "DF",
+          "nascimento": "2003-07-23"
+        },
+        {
+          "numero": 17,
+          "nome": "Johan MOJICA",
+          "posicao": "DF",
+          "nascimento": "1992-08-21"
+        },
+        {
+          "numero": 18,
+          "nome": "Willer DITTA",
+          "posicao": "DF",
+          "nascimento": "1998-01-23"
+        },
+        {
+          "numero": 22,
+          "nome": "Deiver MACHADO",
+          "posicao": "DF",
+          "nascimento": "1993-09-02"
+        },
+        {
+          "numero": 23,
+          "nome": "Davinson SÁNCHEZ",
+          "posicao": "DF",
+          "nascimento": "1996-06-12"
+        },
+        {
+          "numero": 5,
+          "nome": "Kevin CASTAÑO",
+          "posicao": "MF",
+          "nascimento": "2000-09-29"
+        },
+        {
+          "numero": 6,
+          "nome": "Richard RÍOS",
+          "posicao": "MF",
+          "nascimento": "2000-06-02"
+        },
+        {
+          "numero": 8,
+          "nome": "Jorge CARRASCAL",
+          "posicao": "MF",
+          "nascimento": "1998-05-25"
+        },
+        {
+          "numero": 10,
+          "nome": "James RODRÍGUEZ",
+          "posicao": "MF",
+          "nascimento": "1991-07-12"
+        },
+        {
+          "numero": 11,
+          "nome": "Jhon ARIAS",
+          "posicao": "MF",
+          "nascimento": "1997-09-21"
+        },
+        {
+          "numero": 15,
+          "nome": "Juan PORTILLA",
+          "posicao": "MF",
+          "nascimento": "1998-09-12"
+        },
+        {
+          "numero": 16,
+          "nome": "Jefferson LERMA",
+          "posicao": "MF",
+          "nascimento": "1994-10-25"
+        },
+        {
+          "numero": 20,
+          "nome": "Juan Fernando QUINTERO",
+          "posicao": "MF",
+          "nascimento": "1993-01-18"
+        },
+        {
+          "numero": 7,
+          "nome": "Luis DÍAZ",
+          "posicao": "FW",
+          "nascimento": "1997-01-13"
+        },
+        {
+          "numero": 9,
+          "nome": "Jhon CÓRDOBA",
+          "posicao": "FW",
+          "nascimento": "1993-05-11"
+        },
+        {
+          "numero": 19,
+          "nome": "Cucho HERNÁNDEZ",
+          "posicao": "FW",
+          "nascimento": "1999-04-20"
+        },
+        {
+          "numero": 21,
+          "nome": "Jaminton CAMPAZ",
+          "posicao": "FW",
+          "nascimento": "2000-05-24"
+        },
+        {
+          "numero": 25,
+          "nome": "Luis SUÁREZ",
+          "posicao": "FW",
+          "nascimento": "1997-12-02"
+        },
+        {
+          "numero": 26,
+          "nome": "Andrés GÓMEZ",
+          "posicao": "FW",
+          "nascimento": "2002-09-12"
+        }
+      ]
+    },
+    {
+      "timeIngles": "DR Congo",
+      "time": "RD Congo",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Lionel MPASI",
+          "posicao": "GK",
+          "nascimento": "1994-08-01"
+        },
+        {
+          "numero": 16,
+          "nome": "Timothy FAYULU",
+          "posicao": "GK",
+          "nascimento": "1999-07-24"
+        },
+        {
+          "numero": 21,
+          "nome": "Matthieu EPOLO",
+          "posicao": "GK",
+          "nascimento": "2005-01-15"
+        },
+        {
+          "numero": 2,
+          "nome": "Aaron WAN-BISSAKA",
+          "posicao": "DF",
+          "nascimento": "1997-11-26"
+        },
+        {
+          "numero": 3,
+          "nome": "Steve KAPUADI",
+          "posicao": "DF",
+          "nascimento": "1998-04-30"
+        },
+        {
+          "numero": 4,
+          "nome": "Axel TUANZEBE",
+          "posicao": "DF",
+          "nascimento": "1997-11-14"
+        },
+        {
+          "numero": 5,
+          "nome": "Dylan BATUBINSIKA",
+          "posicao": "DF",
+          "nascimento": "1996-02-15"
+        },
+        {
+          "numero": 12,
+          "nome": "Joris KAYEMBE",
+          "posicao": "DF",
+          "nascimento": "1994-08-08"
+        },
+        {
+          "numero": 22,
+          "nome": "Chancel MBEMBA",
+          "posicao": "DF",
+          "nascimento": "1994-08-08"
+        },
+        {
+          "numero": 24,
+          "nome": "Gédéon KALULU",
+          "posicao": "DF",
+          "nascimento": "1997-08-29"
+        },
+        {
+          "numero": 26,
+          "nome": "Arthur MASUAKU",
+          "posicao": "DF",
+          "nascimento": "1993-11-07"
+        },
+        {
+          "numero": 6,
+          "nome": "Ngal'ayel MUKAU",
+          "posicao": "MF",
+          "nascimento": "2004-11-03"
+        },
+        {
+          "numero": 7,
+          "nome": "Nathanaël MBUKU",
+          "posicao": "MF",
+          "nascimento": "2002-03-16"
+        },
+        {
+          "numero": 8,
+          "nome": "Samuel MOUTOUSSAMY",
+          "posicao": "MF",
+          "nascimento": "1996-08-12"
+        },
+        {
+          "numero": 10,
+          "nome": "Théo BONGONDA",
+          "posicao": "MF",
+          "nascimento": "1995-11-20"
+        },
+        {
+          "numero": 14,
+          "nome": "Noah SADIKI",
+          "posicao": "MF",
+          "nascimento": "2004-12-17"
+        },
+        {
+          "numero": 15,
+          "nome": "Aaron TSHIBOLA",
+          "posicao": "MF",
+          "nascimento": "1995-01-02"
+        },
+        {
+          "numero": 18,
+          "nome": "Charles PICKEL",
+          "posicao": "MF",
+          "nascimento": "1997-05-15"
+        },
+        {
+          "numero": 25,
+          "nome": "Edo KAYEMBE",
+          "posicao": "MF",
+          "nascimento": "1998-06-03"
+        },
+        {
+          "numero": 9,
+          "nome": "Brian CIPENGA",
+          "posicao": "FW",
+          "nascimento": "1998-03-11"
+        },
+        {
+          "numero": 11,
+          "nome": "Gaël KAKUTA",
+          "posicao": "FW",
+          "nascimento": "1991-06-21"
+        },
+        {
+          "numero": 13,
+          "nome": "Meschak ELIA",
+          "posicao": "FW",
+          "nascimento": "1997-08-06"
+        },
+        {
+          "numero": 17,
+          "nome": "Cédric BAKAMBU",
+          "posicao": "FW",
+          "nascimento": "1991-04-11"
+        },
+        {
+          "numero": 19,
+          "nome": "Fiston MAYELE",
+          "posicao": "FW",
+          "nascimento": "1994-06-24"
+        },
+        {
+          "numero": 20,
+          "nome": "Yoane WISSA",
+          "posicao": "FW",
+          "nascimento": "1996-09-03"
+        },
+        {
+          "numero": 23,
+          "nome": "Simon BANZA",
+          "posicao": "FW",
+          "nascimento": "1996-08-13"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Portugal",
+      "time": "Portugal",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Diogo COSTA",
+          "posicao": "GK",
+          "nascimento": "1999-09-19"
+        },
+        {
+          "numero": 12,
+          "nome": "José SÁ",
+          "posicao": "GK",
+          "nascimento": "1993-01-17"
+        },
+        {
+          "numero": 22,
+          "nome": "Rui SILVA",
+          "posicao": "GK",
+          "nascimento": "1994-02-07"
+        },
+        {
+          "numero": 2,
+          "nome": "Nélson SEMEDO",
+          "posicao": "DF",
+          "nascimento": "1993-11-16"
+        },
+        {
+          "numero": 3,
+          "nome": "Rúben DIAS",
+          "posicao": "DF",
+          "nascimento": "1997-05-14"
+        },
+        {
+          "numero": 4,
+          "nome": "Tomás ARAÚJO",
+          "posicao": "DF",
+          "nascimento": "2002-05-16"
+        },
+        {
+          "numero": 5,
+          "nome": "Diogo DALOT",
+          "posicao": "DF",
+          "nascimento": "1999-03-18"
+        },
+        {
+          "numero": 13,
+          "nome": "Renato VEIGA",
+          "posicao": "DF",
+          "nascimento": "2003-07-29"
+        },
+        {
+          "numero": 14,
+          "nome": "Gonçalo INÁCIO",
+          "posicao": "DF",
+          "nascimento": "2001-08-25"
+        },
+        {
+          "numero": 20,
+          "nome": "João CANCELO",
+          "posicao": "DF",
+          "nascimento": "1994-05-27"
+        },
+        {
+          "numero": 24,
+          "nome": "Samú COSTA",
+          "posicao": "DF",
+          "nascimento": "2000-11-27"
+        },
+        {
+          "numero": 25,
+          "nome": "Nuno MENDES",
+          "posicao": "DF",
+          "nascimento": "2002-06-19"
+        },
+        {
+          "numero": 6,
+          "nome": "Matheus NUNES",
+          "posicao": "MF",
+          "nascimento": "1998-08-27"
+        },
+        {
+          "numero": 8,
+          "nome": "Bruno FERNANDES",
+          "posicao": "MF",
+          "nascimento": "1994-09-08"
+        },
+        {
+          "numero": 10,
+          "nome": "Bernardo SILVA",
+          "posicao": "MF",
+          "nascimento": "1994-08-10"
+        },
+        {
+          "numero": 15,
+          "nome": "João NEVES",
+          "posicao": "MF",
+          "nascimento": "2004-09-27"
+        },
+        {
+          "numero": 21,
+          "nome": "Rúben NEVES",
+          "posicao": "MF",
+          "nascimento": "1997-03-13"
+        },
+        {
+          "numero": 23,
+          "nome": "VITINHA",
+          "posicao": "MF",
+          "nascimento": "2000-02-13"
+        },
+        {
+          "numero": 7,
+          "nome": "Cristiano RONALDO",
+          "posicao": "FW",
+          "nascimento": "1985-02-05"
+        },
+        {
+          "numero": 9,
+          "nome": "Gonçalo RAMOS",
+          "posicao": "FW",
+          "nascimento": "2001-06-20"
+        },
+        {
+          "numero": 11,
+          "nome": "João FÉLIX",
+          "posicao": "FW",
+          "nascimento": "1999-11-10"
+        },
+        {
+          "numero": 16,
+          "nome": "Francisco TRINCÃO",
+          "posicao": "FW",
+          "nascimento": "1999-12-29"
+        },
+        {
+          "numero": 17,
+          "nome": "Rafael LEÃO",
+          "posicao": "FW",
+          "nascimento": "1999-06-10"
+        },
+        {
+          "numero": 18,
+          "nome": "Pedro NETO",
+          "posicao": "FW",
+          "nascimento": "2000-03-09"
+        },
+        {
+          "numero": 19,
+          "nome": "Gonçalo GUEDES",
+          "posicao": "FW",
+          "nascimento": "1996-11-29"
+        },
+        {
+          "numero": 26,
+          "nome": "Francisco CONCEIÇÃO",
+          "posicao": "FW",
+          "nascimento": "2002-12-14"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Uzbekistan",
+      "time": "Uzbequistão",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Utkir YUSUPOV",
+          "posicao": "GK",
+          "nascimento": "1991-01-04"
+        },
+        {
+          "numero": 12,
+          "nome": "Abduvohid NEMATOV",
+          "posicao": "GK",
+          "nascimento": "2001-03-20"
+        },
+        {
+          "numero": 16,
+          "nome": "Botirali ERGASHEV",
+          "posicao": "GK",
+          "nascimento": "1995-06-23"
+        },
+        {
+          "numero": 2,
+          "nome": "Abdukodir KHUSANOV",
+          "posicao": "DF",
+          "nascimento": "2004-02-29"
+        },
+        {
+          "numero": 3,
+          "nome": "Khojiakbar ALIJONOV",
+          "posicao": "DF",
+          "nascimento": "1997-04-19"
+        },
+        {
+          "numero": 4,
+          "nome": "Farrukh SAYFIEV",
+          "posicao": "DF",
+          "nascimento": "1991-01-17"
+        },
+        {
+          "numero": 5,
+          "nome": "Rustam ASHURMATOV",
+          "posicao": "DF",
+          "nascimento": "1996-07-07"
+        },
+        {
+          "numero": 13,
+          "nome": "Sherzod NASRULLAEV",
+          "posicao": "DF",
+          "nascimento": "1998-07-23"
+        },
+        {
+          "numero": 15,
+          "nome": "Umar ESHMURODOV",
+          "posicao": "DF",
+          "nascimento": "1992-11-30"
+        },
+        {
+          "numero": 18,
+          "nome": "Abdulla ABDULLAEV",
+          "posicao": "DF",
+          "nascimento": "1997-09-01"
+        },
+        {
+          "numero": 24,
+          "nome": "Bekhruz KARIMOV",
+          "posicao": "DF",
+          "nascimento": "2007-08-07"
+        },
+        {
+          "numero": 25,
+          "nome": "Avazbek ULMASALIEV",
+          "posicao": "DF",
+          "nascimento": "2000-03-27"
+        },
+        {
+          "numero": 26,
+          "nome": "Jakhongir UROZOV",
+          "posicao": "DF",
+          "nascimento": "2004-01-18"
+        },
+        {
+          "numero": 6,
+          "nome": "Akmal MOZGOVOY",
+          "posicao": "MF",
+          "nascimento": "1999-04-02"
+        },
+        {
+          "numero": 7,
+          "nome": "Otabek SHUKUROV",
+          "posicao": "MF",
+          "nascimento": "1996-06-22"
+        },
+        {
+          "numero": 8,
+          "nome": "Jamshid ISKANDEROV",
+          "posicao": "MF",
+          "nascimento": "1993-10-16"
+        },
+        {
+          "numero": 9,
+          "nome": "Odiljon HAMROBEKOV",
+          "posicao": "MF",
+          "nascimento": "1996-02-13"
+        },
+        {
+          "numero": 10,
+          "nome": "Jaloliddin MASHARIPOV",
+          "posicao": "MF",
+          "nascimento": "1993-09-01"
+        },
+        {
+          "numero": 11,
+          "nome": "Oston URUNOV",
+          "posicao": "MF",
+          "nascimento": "2000-12-19"
+        },
+        {
+          "numero": 17,
+          "nome": "Dostonbek KHAMDAMOV",
+          "posicao": "MF",
+          "nascimento": "1996-07-24"
+        },
+        {
+          "numero": 19,
+          "nome": "Azizjon GANIEV",
+          "posicao": "MF",
+          "nascimento": "1998-02-22"
+        },
+        {
+          "numero": 22,
+          "nome": "Abbosbek FAYZULLAEV",
+          "posicao": "MF",
+          "nascimento": "2003-10-03"
+        },
+        {
+          "numero": 23,
+          "nome": "Sherzod ESANOV",
+          "posicao": "MF",
+          "nascimento": "2003-02-01"
+        },
+        {
+          "numero": 14,
+          "nome": "Eldor SHOMURODOV",
+          "posicao": "FW",
+          "nascimento": "1995-06-29"
+        },
+        {
+          "numero": 20,
+          "nome": "Azizbek AMONOV",
+          "posicao": "FW",
+          "nascimento": "1997-10-30"
+        },
+        {
+          "numero": 21,
+          "nome": "Igor SERGEEV",
+          "posicao": "FW",
+          "nascimento": "1993-04-30"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Croatia",
+      "time": "Croácia",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Dominik LIVAKOVIĆ",
+          "posicao": "GK",
+          "nascimento": "1995-01-09"
+        },
+        {
+          "numero": 12,
+          "nome": "Ivor PANDUR",
+          "posicao": "GK",
+          "nascimento": "2000-03-25"
+        },
+        {
+          "numero": 23,
+          "nome": "Dominik KOTARSKI",
+          "posicao": "GK",
+          "nascimento": "2000-02-10"
+        },
+        {
+          "numero": 2,
+          "nome": "Josip STANIŠIĆ",
+          "posicao": "DF",
+          "nascimento": "2000-04-02"
+        },
+        {
+          "numero": 3,
+          "nome": "Marin PONGRAČIĆ",
+          "posicao": "DF",
+          "nascimento": "1997-09-11"
+        },
+        {
+          "numero": 4,
+          "nome": "Joško GVARDIOL",
+          "posicao": "DF",
+          "nascimento": "2002-01-23"
+        },
+        {
+          "numero": 5,
+          "nome": "Duje ĆALETA-CAR",
+          "posicao": "DF",
+          "nascimento": "1996-09-17"
+        },
+        {
+          "numero": 6,
+          "nome": "Josip ŠUTALO",
+          "posicao": "DF",
+          "nascimento": "2000-02-28"
+        },
+        {
+          "numero": 18,
+          "nome": "Kristijan JAKIĆ",
+          "posicao": "DF",
+          "nascimento": "1997-05-14"
+        },
+        {
+          "numero": 22,
+          "nome": "Luka VUŠKOVIĆ",
+          "posicao": "DF",
+          "nascimento": "2007-02-24"
+        },
+        {
+          "numero": 25,
+          "nome": "Martin ERLIĆ",
+          "posicao": "DF",
+          "nascimento": "1998-01-24"
+        },
+        {
+          "numero": 7,
+          "nome": "Nikola MORO",
+          "posicao": "MF",
+          "nascimento": "1998-03-12"
+        },
+        {
+          "numero": 8,
+          "nome": "Mateo KOVAČIĆ",
+          "posicao": "MF",
+          "nascimento": "1994-05-06"
+        },
+        {
+          "numero": 10,
+          "nome": "Luka MODRIĆ",
+          "posicao": "MF",
+          "nascimento": "1985-09-09"
+        },
+        {
+          "numero": 13,
+          "nome": "Nikola VLAŠIĆ",
+          "posicao": "MF",
+          "nascimento": "1997-10-04"
+        },
+        {
+          "numero": 15,
+          "nome": "Mario PAŠALIĆ",
+          "posicao": "MF",
+          "nascimento": "1995-02-09"
+        },
+        {
+          "numero": 16,
+          "nome": "Martin BATURINA",
+          "posicao": "MF",
+          "nascimento": "2003-02-16"
+        },
+        {
+          "numero": 17,
+          "nome": "Petar SUČIĆ",
+          "posicao": "MF",
+          "nascimento": "2003-10-25"
+        },
+        {
+          "numero": 19,
+          "nome": "Toni FRUK",
+          "posicao": "MF",
+          "nascimento": "2001-03-09"
+        },
+        {
+          "numero": 21,
+          "nome": "Luka SUČIĆ",
+          "posicao": "MF",
+          "nascimento": "2002-09-08"
+        },
+        {
+          "numero": 9,
+          "nome": "Andrej KRAMARIĆ",
+          "posicao": "FW",
+          "nascimento": "1991-06-19"
+        },
+        {
+          "numero": 11,
+          "nome": "Ante BUDIMIR",
+          "posicao": "FW",
+          "nascimento": "1991-07-22"
+        },
+        {
+          "numero": 14,
+          "nome": "Ivan PERIŠIĆ",
+          "posicao": "FW",
+          "nascimento": "1989-02-02"
+        },
+        {
+          "numero": 20,
+          "nome": "Igor MATANOVIĆ",
+          "posicao": "FW",
+          "nascimento": "2003-03-31"
+        },
+        {
+          "numero": 24,
+          "nome": "Marco PAŠALIĆ",
+          "posicao": "FW",
+          "nascimento": "2000-09-14"
+        },
+        {
+          "numero": 26,
+          "nome": "Petar MUSA",
+          "posicao": "FW",
+          "nascimento": "1998-03-04"
+        }
+      ]
+    },
+    {
+      "timeIngles": "England",
+      "time": "Inglaterra",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Jordan PICKFORD",
+          "posicao": "GK",
+          "nascimento": "1994-03-07"
+        },
+        {
+          "numero": 13,
+          "nome": "Dean HENDERSON",
+          "posicao": "GK",
+          "nascimento": "1997-03-12"
+        },
+        {
+          "numero": 23,
+          "nome": "James TRAFFORD",
+          "posicao": "GK",
+          "nascimento": "2002-10-10"
+        },
+        {
+          "numero": 2,
+          "nome": "Ezri KONSA",
+          "posicao": "DF",
+          "nascimento": "1997-10-23"
+        },
+        {
+          "numero": 3,
+          "nome": "Nico O'REILLY",
+          "posicao": "DF",
+          "nascimento": "2005-03-21"
+        },
+        {
+          "numero": 5,
+          "nome": "John STONES",
+          "posicao": "DF",
+          "nascimento": "1994-05-28"
+        },
+        {
+          "numero": 6,
+          "nome": "Marc GUÉHI",
+          "posicao": "DF",
+          "nascimento": "2000-07-13"
+        },
+        {
+          "numero": 12,
+          "nome": "Tino LIVRAMENTO",
+          "posicao": "DF",
+          "nascimento": "2002-11-12"
+        },
+        {
+          "numero": 15,
+          "nome": "Dan BURN",
+          "posicao": "DF",
+          "nascimento": "1992-05-09"
+        },
+        {
+          "numero": 24,
+          "nome": "Reece JAMES",
+          "posicao": "DF",
+          "nascimento": "1999-12-08"
+        },
+        {
+          "numero": 25,
+          "nome": "Djed SPENCE",
+          "posicao": "DF",
+          "nascimento": "2000-08-09"
+        },
+        {
+          "numero": 26,
+          "nome": "Jarell QUANSAH",
+          "posicao": "DF",
+          "nascimento": "2003-01-29"
+        },
+        {
+          "numero": 4,
+          "nome": "Declan RICE",
+          "posicao": "MF",
+          "nascimento": "1999-01-14"
+        },
+        {
+          "numero": 8,
+          "nome": "Elliot ANDERSON",
+          "posicao": "MF",
+          "nascimento": "2002-11-06"
+        },
+        {
+          "numero": 10,
+          "nome": "Jude BELLINGHAM",
+          "posicao": "MF",
+          "nascimento": "2003-06-29"
+        },
+        {
+          "numero": 14,
+          "nome": "Jordan HENDERSON",
+          "posicao": "MF",
+          "nascimento": "1990-06-17"
+        },
+        {
+          "numero": 16,
+          "nome": "Kobbie MAINOO",
+          "posicao": "MF",
+          "nascimento": "2005-04-19"
+        },
+        {
+          "numero": 17,
+          "nome": "Morgan ROGERS",
+          "posicao": "MF",
+          "nascimento": "2002-07-26"
+        },
+        {
+          "numero": 21,
+          "nome": "Eberechi EZE",
+          "posicao": "MF",
+          "nascimento": "1998-06-29"
+        },
+        {
+          "numero": 7,
+          "nome": "Bukayo SAKA",
+          "posicao": "FW",
+          "nascimento": "2001-09-05"
+        },
+        {
+          "numero": 9,
+          "nome": "Harry KANE",
+          "posicao": "FW",
+          "nascimento": "1993-07-28"
+        },
+        {
+          "numero": 11,
+          "nome": "Marcus RASHFORD",
+          "posicao": "FW",
+          "nascimento": "1997-10-31"
+        },
+        {
+          "numero": 18,
+          "nome": "Anthony GORDON",
+          "posicao": "FW",
+          "nascimento": "2001-02-24"
+        },
+        {
+          "numero": 19,
+          "nome": "Ollie WATKINS",
+          "posicao": "FW",
+          "nascimento": "1995-12-30"
+        },
+        {
+          "numero": 20,
+          "nome": "Noni MADUEKE",
+          "posicao": "FW",
+          "nascimento": "2002-03-10"
+        },
+        {
+          "numero": 22,
+          "nome": "Ivan TONEY",
+          "posicao": "FW",
+          "nascimento": "1996-03-16"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Ghana",
+      "time": "Gana",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Lawrence ATI-ZIGI",
+          "posicao": "GK",
+          "nascimento": "1996-11-29"
+        },
+        {
+          "numero": 12,
+          "nome": "Joseph ANANG",
+          "posicao": "GK",
+          "nascimento": "2000-06-08"
+        },
+        {
+          "numero": 16,
+          "nome": "Benjamin ASARE",
+          "posicao": "GK",
+          "nascimento": "1992-07-13"
+        },
+        {
+          "numero": 2,
+          "nome": "Alidu SEIDU",
+          "posicao": "DF",
+          "nascimento": "2000-06-04"
+        },
+        {
+          "numero": 4,
+          "nome": "Jonas ADJETEY",
+          "posicao": "DF",
+          "nascimento": "2003-12-13"
+        },
+        {
+          "numero": 6,
+          "nome": "Abdul MUMIN",
+          "posicao": "DF",
+          "nascimento": "1998-06-06"
+        },
+        {
+          "numero": 14,
+          "nome": "Gideon MENSAH",
+          "posicao": "DF",
+          "nascimento": "1998-07-18"
+        },
+        {
+          "numero": 17,
+          "nome": "Abdul Rahman BABA",
+          "posicao": "DF",
+          "nascimento": "1994-07-02"
+        },
+        {
+          "numero": 18,
+          "nome": "Jerome OPOKU",
+          "posicao": "DF",
+          "nascimento": "1998-10-14"
+        },
+        {
+          "numero": 21,
+          "nome": "Kojo PEPRAH OPPONG",
+          "posicao": "DF",
+          "nascimento": "2004-06-04"
+        },
+        {
+          "numero": 23,
+          "nome": "Derrick LUCKASSEN",
+          "posicao": "DF",
+          "nascimento": "1995-07-03"
+        },
+        {
+          "numero": 26,
+          "nome": "Marvin SENAYA",
+          "posicao": "DF",
+          "nascimento": "2001-01-28"
+        },
+        {
+          "numero": 3,
+          "nome": "Caleb YIRENKYI",
+          "posicao": "MF",
+          "nascimento": "2006-01-15"
+        },
+        {
+          "numero": 5,
+          "nome": "Thomas PARTEY",
+          "posicao": "MF",
+          "nascimento": "1993-06-13"
+        },
+        {
+          "numero": 8,
+          "nome": "Kwasi SIBO",
+          "posicao": "MF",
+          "nascimento": "1998-06-24"
+        },
+        {
+          "numero": 11,
+          "nome": "Antoine SEMENYO",
+          "posicao": "MF",
+          "nascimento": "2000-01-07"
+        },
+        {
+          "numero": 15,
+          "nome": "Elisha OWUSU",
+          "posicao": "MF",
+          "nascimento": "1997-11-07"
+        },
+        {
+          "numero": 20,
+          "nome": "Augustine BOAKYE",
+          "posicao": "MF",
+          "nascimento": "2000-11-03"
+        },
+        {
+          "numero": 7,
+          "nome": "Abdul FATAWU",
+          "posicao": "FW",
+          "nascimento": "2004-03-08"
+        },
+        {
+          "numero": 9,
+          "nome": "Jordan AYEW",
+          "posicao": "FW",
+          "nascimento": "1991-09-11"
+        },
+        {
+          "numero": 10,
+          "nome": "Brandon THOMAS-ASANTE",
+          "posicao": "FW",
+          "nascimento": "1998-12-29"
+        },
+        {
+          "numero": 13,
+          "nome": "Christopher BONSU BAAH",
+          "posicao": "FW",
+          "nascimento": "2004-12-14"
+        },
+        {
+          "numero": 19,
+          "nome": "Iñaki WILLIAMS",
+          "posicao": "FW",
+          "nascimento": "1994-06-15"
+        },
+        {
+          "numero": 22,
+          "nome": "Kamaldeen SULEMANA",
+          "posicao": "FW",
+          "nascimento": "2002-02-15"
+        },
+        {
+          "numero": 24,
+          "nome": "Ernest NUAMAH",
+          "posicao": "FW",
+          "nascimento": "2003-11-01"
+        },
+        {
+          "numero": 25,
+          "nome": "Prince Kwabena ADU",
+          "posicao": "FW",
+          "nascimento": "2003-09-23"
+        }
+      ]
+    },
+    {
+      "timeIngles": "Panama",
+      "time": "Panamá",
+      "totalJogadores": 26,
+      "jogadores": [
+        {
+          "numero": 1,
+          "nome": "Luis MEJÍA",
+          "posicao": "GK",
+          "nascimento": "1991-03-16"
+        },
+        {
+          "numero": 12,
+          "nome": "César SAMUDIO",
+          "posicao": "GK",
+          "nascimento": "1994-02-23"
+        },
+        {
+          "numero": 22,
+          "nome": "Orlando MOSQUERA",
+          "posicao": "GK",
+          "nascimento": "1994-12-25"
+        },
+        {
+          "numero": 2,
+          "nome": "César BLACKMAN",
+          "posicao": "DF",
+          "nascimento": "1998-04-02"
+        },
+        {
+          "numero": 3,
+          "nome": "José CÓRDOBA",
+          "posicao": "DF",
+          "nascimento": "2001-06-03"
+        },
+        {
+          "numero": 4,
+          "nome": "Fidel ESCOBAR",
+          "posicao": "DF",
+          "nascimento": "1995-01-09"
+        },
+        {
+          "numero": 5,
+          "nome": "Edgardo FARIÑA",
+          "posicao": "DF",
+          "nascimento": "2001-10-19"
+        },
+        {
+          "numero": 13,
+          "nome": "Jiovany RAMOS",
+          "posicao": "DF",
+          "nascimento": "1997-01-26"
+        },
+        {
+          "numero": 14,
+          "nome": "Carlos HARVEY",
+          "posicao": "DF",
+          "nascimento": "2000-02-03"
+        },
+        {
+          "numero": 15,
+          "nome": "Eric DAVIS",
+          "posicao": "DF",
+          "nascimento": "1991-03-31"
+        },
+        {
+          "numero": 16,
+          "nome": "Andrés ANDRADE",
+          "posicao": "DF",
+          "nascimento": "1998-10-16"
+        },
+        {
+          "numero": 23,
+          "nome": "Michael Amir MURILLO",
+          "posicao": "DF",
+          "nascimento": "1996-02-11"
+        },
+        {
+          "numero": 25,
+          "nome": "Roderick MILLER",
+          "posicao": "DF",
+          "nascimento": "1992-04-03"
+        },
+        {
+          "numero": 26,
+          "nome": "Jorge GUTIÉRREZ",
+          "posicao": "DF",
+          "nascimento": "1998-09-01"
+        },
+        {
+          "numero": 6,
+          "nome": "Cristian MARTÍNEZ",
+          "posicao": "MF",
+          "nascimento": "1997-02-06"
+        },
+        {
+          "numero": 7,
+          "nome": "José Luis RODRÍGUEZ",
+          "posicao": "MF",
+          "nascimento": "1998-06-19"
+        },
+        {
+          "numero": 8,
+          "nome": "Adalberto CARRASQUILLA",
+          "posicao": "MF",
+          "nascimento": "1998-11-28"
+        },
+        {
+          "numero": 10,
+          "nome": "Ismael DÍAZ",
+          "posicao": "MF",
+          "nascimento": "1997-05-12"
+        },
+        {
+          "numero": 11,
+          "nome": "Yoel BÁRCENAS",
+          "posicao": "MF",
+          "nascimento": "1993-10-23"
+        },
+        {
+          "numero": 19,
+          "nome": "Alberto QUINTERO",
+          "posicao": "MF",
+          "nascimento": "1987-12-18"
+        },
+        {
+          "numero": 20,
+          "nome": "Aníbal GODOY",
+          "posicao": "MF",
+          "nascimento": "1990-02-10"
+        },
+        {
+          "numero": 21,
+          "nome": "César YANIS",
+          "posicao": "MF",
+          "nascimento": "1996-01-28"
+        },
+        {
+          "numero": 9,
+          "nome": "Tomás RODRÍGUEZ",
+          "posicao": "FW",
+          "nascimento": "1999-03-09"
+        },
+        {
+          "numero": 17,
+          "nome": "José FAJARDO",
+          "posicao": "FW",
+          "nascimento": "1993-08-18"
+        },
+        {
+          "numero": 18,
+          "nome": "Cecilio WATERMAN",
+          "posicao": "FW",
+          "nascimento": "1991-04-13"
+        },
+        {
+          "numero": 24,
+          "nome": "Azarias LONDOÑO",
+          "posicao": "FW",
+          "nascimento": "2001-06-21"
+        }
+      ]
+    }
+  ]
+}

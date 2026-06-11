@@ -2,7 +2,7 @@
   "campeonatoId": "copa-2026-fase-grupos",
   "campeonatoNome": "Copa do Mundo FIFA 2026 - Fase de Grupos",
   "fonte": "openfootball/worldcup.json (https://github.com/openfootball/worldcup.json/blob/master/2026/worldcup.json)",
-  "atualizadoEm": "2026-05-21",
+  "atualizadoEm": "2026-06-11",
   "totalJogos": 72,
   "jogos": [
     {

@@ -123,6 +123,9 @@ Vários de uma vez, um por linha — eu mostro preview e você confirma.
 • *bolão padrão* — define qual usar por default
 Comandos como ranking, meus pontos passam a usar ele direto.
 
+🔒 *Privacidade*:
+• Palpite seu = *só você vê*. Nem outros participantes, nem o admin do bolão. Admin vê apenas a contagem de palpites por pessoa (ex: "Maria: 5/10").
+
 🍀 *Tá perdido(a)?* (novato no bolão):
 • *dicas* — dicas pra montar palpite (placares comuns, estratégia)
 • *como funciona* — visão geral do bot

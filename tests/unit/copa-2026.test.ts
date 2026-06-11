@@ -6,6 +6,8 @@ import {
   getEstadio,
   getEstadios,
   getGrupoDoTime,
+  getJogadoresDoTime,
+  buscarJogador,
   getJogosDoGrupo,
   getJogosDoTime,
   getJogosNaData,
@@ -190,5 +192,51 @@ describe('getJogosDoTime — inclui mata-mata quando time aparece com nome', () 
     // têm o nome literal "Inglaterra", então não aparecem aqui.
     expect(jogos.length).toBe(3);
     jogos.forEach((j) => expect(j.fase).toBe('FASE_GRUPOS'));
+  });
+
+  describe('v3.11.0 — squads/convocações', () => {
+    it('getJogadoresDoTime("Brasil") retorna 26 jogadores', () => {
+      const j = getJogadoresDoTime('Brasil');
+      expect(j).not.toBeNull();
+      expect(j!.length).toBeGreaterThanOrEqual(23); // mínimo FIFA 23, geralmente 26
+      expect(j!.length).toBeLessThanOrEqual(26);
+      // Tem ao menos 1 GK, 1 DF, 1 MF, 1 FW
+      expect(j!.some((p) => p.posicao === 'GK')).toBe(true);
+      expect(j!.some((p) => p.posicao === 'DF')).toBe(true);
+      expect(j!.some((p) => p.posicao === 'MF')).toBe(true);
+      expect(j!.some((p) => p.posicao === 'FW')).toBe(true);
+    });
+
+    it('getJogadoresDoTime aceita alias ("canarinha")', () => {
+      expect(getJogadoresDoTime('canarinha')).not.toBeNull();
+    });
+
+    it('getJogadoresDoTime aceita nome em inglês ("Mexico")', () => {
+      const j = getJogadoresDoTime('Mexico');
+      expect(j).not.toBeNull();
+    });
+
+    it('getJogadoresDoTime de seleção que não existe retorna null', () => {
+      expect(getJogadoresDoTime('Lugar Nenhum')).toBeNull();
+    });
+
+    it('buscarJogador acha por sobrenome ("ALISSON" no Brasil)', () => {
+      const hit = buscarJogador('ALISSON');
+      expect(hit).not.toBeNull();
+      expect(hit!.time).toBe('Brasil');
+      expect(hit!.jogador.posicao).toBe('GK');
+    });
+
+    it('buscarJogador é case/acentos-insensitive', () => {
+      // "Raúl Jiménez" no México
+      const hit = buscarJogador('jimenez');
+      expect(hit).not.toBeNull();
+      // Não exigir Mexico específico — qualquer time com "JIMÉNEZ"
+      expect(hit!.jogador.nome.toLowerCase()).toContain('jim');
+    });
+
+    it('buscarJogador retorna null pra nome inventado', () => {
+      expect(buscarJogador('Xyzaaa Zzqqq')).toBeNull();
+    });
   });
 });

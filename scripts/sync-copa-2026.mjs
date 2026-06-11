@@ -40,12 +40,71 @@ const SOURCES = {
   teams: `${BASE}/worldcup.teams.json`,
   stadiums: `${BASE}/worldcup.stadiums.json`,
   qualiPlayoffs: `${BASE}/worldcup.quali_playoffs.json`,
+  // v3.11.0 — squads vêm do repo `openfootball/worldcup` (texto plain),
+  // não do worldcup.json (estruturado). Formato simples documentado em
+  // parseSquadsTxt() abaixo.
+  squadsTxt: 'https://raw.githubusercontent.com/openfootball/worldcup/master/more/2026_squads.txt',
 };
 
 async function fetchJson(url) {
   const res = await fetch(url, { headers: { 'User-Agent': 'var-do-bolao/sync-copa-2026' } });
   if (!res.ok) throw new Error(`fetch ${url} -> HTTP ${res.status}`);
   return res.json();
+}
+
+async function fetchText(url) {
+  const res = await fetch(url, { headers: { 'User-Agent': 'var-do-bolao/sync-copa-2026' } });
+  if (!res.ok) throw new Error(`fetch ${url} -> HTTP ${res.status}`);
+  return res.text();
+}
+
+/**
+ * Parseia o formato `2026_squads.txt` do openfootball:
+ *
+ *   = World Cup 2026     # 48 Teams
+ *
+ *   == Czech Republic     # 26 Players
+ *
+ *      1, Matěj KOVÁŘ                      GK,  b. 2000/05/17
+ *     16, Jindřich STANĚK                  GK,  b. 1996/04/27
+ *      ...
+ *
+ *   == Mexico     # 26 Players
+ *      ...
+ *
+ * Retorna `[{ timeIngles, time, totalJogadores, jogadores: [{numero, nome, posicao, nascimento}] }]`.
+ */
+function parseSquadsTxt(texto) {
+  const linhas = texto.split('\n');
+  const squads = [];
+  let atual = null;
+  for (const linhaCru of linhas) {
+    const linha = linhaCru.trimEnd();
+    if (!linha) continue;
+    // Cabeçalho de seleção: "== Country Name     # 26 Players"
+    const mTime = /^==\s+(.+?)(?:\s+#.*)?$/.exec(linha);
+    if (mTime) {
+      const timeIngles = mTime[1].trim();
+      atual = { timeIngles, time: traduzTime(timeIngles), totalJogadores: 0, jogadores: [] };
+      squads.push(atual);
+      continue;
+    }
+    // Linha de jogador: " N, Nome SOBRENOME    POS, b. YYYY/MM/DD"
+    const mJog = /^\s*(\d+),\s+(.+?)\s{2,}(GK|DF|MF|FW),\s+b\.\s+(\d{4}\/\d{2}\/\d{2})\s*$/.exec(linha);
+    if (mJog && atual) {
+      const [, num, nome, pos, nasc] = mJog;
+      atual.jogadores.push({
+        numero: parseInt(num, 10),
+        nome: nome.trim(),
+        posicao: pos,
+        nascimento: nasc.replace(/\//g, '-'),
+      });
+      atual.totalJogadores = atual.jogadores.length;
+      continue;
+    }
+    // Cabeçalho do torneio ou comentário — ignora
+  }
+  return squads;
 }
 
 // Dicionário PT-BR. Único lugar de tradução de seleção no projeto.
@@ -198,10 +257,11 @@ function ehPlaceholder(tok) {
 // ============================================================
 
 console.log('🌐 Baixando dados do openfootball/worldcup.json (2026)...');
-const [worldcup, teamsRaw, stadiumsRaw] = await Promise.all([
+const [worldcup, teamsRaw, stadiumsRaw, squadsTxt] = await Promise.all([
   fetchJson(SOURCES.worldcup),
   fetchJson(SOURCES.teams),
   fetchJson(SOURCES.stadiums),
+  fetchText(SOURCES.squadsTxt),
 ]);
 
 const atualizadoEm = new Date().toISOString();
@@ -342,17 +402,38 @@ writeFileSync(
 );
 console.log(`✅ matches.json — ${jogos.length} jogos`);
 
+// --- squads.json (v3.11.0 — convocados) ---
+const squads = parseSquadsTxt(squadsTxt);
+writeFileSync(
+  join(dataDir, 'squads.json'),
+  JSON.stringify(
+    {
+      fonte: 'openfootball/worldcup',
+      fonteUrl: SOURCES.squadsTxt,
+      atualizadoEm,
+      totalTimes: squads.length,
+      totalJogadores: squads.reduce((acc, s) => acc + s.jogadores.length, 0),
+      squads,
+    },
+    null,
+    2,
+  ) + '\n',
+);
+console.log(
+  `✅ squads.json — ${squads.length} seleções, ${squads.reduce((a, s) => a + s.jogadores.length, 0)} jogadores`,
+);
+
 // --- metadata.json ---
 writeFileSync(
   join(dataDir, 'metadata.json'),
   JSON.stringify(
     {
-      fonte: 'openfootball/worldcup.json',
+      fonte: 'openfootball/worldcup.json + openfootball/worldcup',
       fonteUrl: 'https://github.com/openfootball/worldcup.json/tree/master/2026',
       atualizadoEm,
-      arquivos: ['matches.json', 'teams.json', 'stadiums.json'],
+      arquivos: ['matches.json', 'teams.json', 'stadiums.json', 'squads.json'],
       observacao:
-        'Snapshot baixado via npm run sync:copa-2026. Re-rode quando o openfootball publicar mudanças (mata-mata, datas).',
+        'Snapshot baixado via npm run sync:copa-2026. Re-rode quando o openfootball publicar mudanças (mata-mata, datas, convocações).',
     },
     null,
     2,

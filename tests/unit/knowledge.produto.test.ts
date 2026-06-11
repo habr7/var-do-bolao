@@ -96,6 +96,18 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/placar.*privado/);
   });
 
+  it('v3.11.0 — privacidade diz EXPLICITAMENTE que admin NÃO vê palpite (caso Jeni 11/06)', () => {
+    // Bug: bot falou pra um participante que admin vê palpite — alucinação.
+    // Knowledge tinha "(nem outros participantes)" ambíguo. Agora explícito.
+    const lower = KNOWLEDGE_PRODUTO.toLowerCase();
+    // Cita o caso real
+    expect(lower).toMatch(/jeni|11\/06/);
+    // Frase categórica: admin NÃO vê
+    expect(lower).toMatch(/admin n[ãa]o v[êe]/);
+    // E direciona a resposta correta pra pergunta canônica
+    expect(lower).toMatch(/admin v[êe] meu palpite|admin v[êe] o palpite|admin v[êe]/);
+  });
+
   it('v3.10.0 — knowledge tem PROIBIÇÃO ABSOLUTA de confirmar registro (bug Valéria 22/05 11:23)', () => {
     // O LLM mentiu "Entendi! Seus palpites foram registrados. Bora pra Copa 2026!"
     // sem ter registrado nada. Knowledge deve PROIBIR esse comportamento.

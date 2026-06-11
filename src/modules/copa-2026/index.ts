@@ -67,6 +67,25 @@ export interface Metadata {
   observacao: string;
 }
 
+// v3.11.0 — convocações oficiais (squads)
+export type Posicao = 'GK' | 'DF' | 'MF' | 'FW';
+
+export interface Jogador {
+  numero: number;
+  nome: string;
+  posicao: Posicao;
+  /** Formato YYYY-MM-DD */
+  nascimento: string;
+}
+
+export interface SquadTime {
+  timeIngles: string;
+  /** Nome PT-BR (consistente com `Time.nome`). */
+  time: string;
+  totalJogadores: number;
+  jogadores: Jogador[];
+}
+
 // ============================================================
 // Carregamento lazy
 // ============================================================
@@ -80,6 +99,7 @@ let cacheTimes: Time[] | null = null;
 let cacheJogos: Jogo[] | null = null;
 let cacheEstadios: Estadio[] | null = null;
 let cacheMetadata: Metadata | null = null;
+let cacheSquads: SquadTime[] | null = null;
 
 function loadJson<T>(filename: string): T {
   const raw = readFileSync(join(DATA_DIR, filename), 'utf-8');
@@ -349,4 +369,55 @@ export function getDataInicio(): string {
 export function getDataFinal(): string {
   const final = getJogosRaw().find((j) => j.fase === 'FINAL');
   return final?.dataHora ?? getJogosRaw()[getJogosRaw().length - 1].dataHora;
+}
+
+// ============================================================
+// v3.11.0 — Convocações (squads)
+// ============================================================
+
+function getSquadsRaw(): SquadTime[] {
+  if (!cacheSquads) {
+    const d = loadJson<{ squads: SquadTime[] }>('squads.json');
+    cacheSquads = d.squads;
+  }
+  return cacheSquads;
+}
+
+/** Lista de jogadores convocados pra seleção informada (PT/EN/apelido). */
+export function getJogadoresDoTime(busca: string): Jogador[] | null {
+  const nome = normalizarNomeTime(busca);
+  if (!nome) return null;
+  const squad = getSquadsRaw().find((s) => s.time === nome);
+  return squad ? [...squad.jogadores] : null;
+}
+
+const POSICAO_LABEL: Record<Posicao, string> = {
+  GK: 'Goleiro',
+  DF: 'Zagueiro/Lateral',
+  MF: 'Meio-campo',
+  FW: 'Atacante',
+};
+
+export function getPosicaoLabel(p: Posicao): string {
+  return POSICAO_LABEL[p];
+}
+
+/**
+ * Busca jogador por nome aproximado em TODAS as seleções. Retorna o
+ * primeiro match (case/acentos-insensitive). Usa substring porque
+ * jogadores são costumeiramente referidos só pelo sobrenome ("Vinicius",
+ * "Mbappé").
+ */
+export function buscarJogador(busca: string): { time: string; jogador: Jogador } | null {
+  const norm = normalizar(busca);
+  if (!norm) return null;
+  for (const squad of getSquadsRaw()) {
+    for (const jog of squad.jogadores) {
+      const n = normalizar(jog.nome);
+      if (n === norm || n.includes(norm) || norm.includes(n)) {
+        return { time: squad.time, jogador: jog };
+      }
+    }
+  }
+  return null;
 }
