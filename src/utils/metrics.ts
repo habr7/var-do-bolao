@@ -62,7 +62,10 @@ export type MotivoNaoEntendido =
   | 'regex_fail'
   | 'llm_fail'
   | 'final_fallback'
-  | 'low_confidence';
+  | 'low_confidence'
+  // v3.15.0 — user reportou erro/bug ("meus pontos estão errados").
+  // Logado pra revisão offline — ouro pra achar bugs reais de pontuação.
+  | 'reclamacao_bug';
 
 export interface ExtrasNaoEntendido {
   /** whatsappId em claro — vai virar hash antes de persistir. */

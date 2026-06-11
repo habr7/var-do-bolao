@@ -1,7 +1,7 @@
 import { prisma } from '../config/database.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
-import { setSession } from '../whatsapp/session.manager.js';
+import { setSession, getSession } from '../whatsapp/session.manager.js';
 import { env } from '../config/env.js';
 import { chamadaPalpite } from '../utils/football.terms.js';
 
@@ -26,8 +26,6 @@ export async function sendPalpiteCallJob() {
   const HORARIO_MIN = 9; // nao envia antes das 09:00 da manha de Brasilia
 
   const agora = new Date();
-  const inicioHoje = new Date(agora);
-  inicioHoje.setHours(0, 0, 0, 0);
   const fimAmanha = new Date(agora);
   fimAmanha.setHours(0, 0, 0, 0);
   fimAmanha.setDate(fimAmanha.getDate() + 2); // janela ampla pra pegar jogos da madrugada
@@ -110,15 +108,27 @@ export async function sendPalpiteCallJob() {
       // Flag compartilhada com send-bom-dia. Evita dupla notificação.
       const flagCross = `aviso_jogo:${p.usuario.whatsappId}`;
       if (await redis.get(flagCross)) continue;
+
+      // v3.15.0 — BUG: setSession incondicional ATROPELAVA sessão em
+      // andamento. User no meio de criar bolão / confirmar palpites
+      // perdia todo o contexto quando o job disparava. Agora só seta
+      // PALPITANDO se o user está IDLE (sem fluxo em curso). Quem está
+      // em outro fluxo ainda RECEBE a mensagem (não perde o aviso),
+      // mas a sessão dele fica intacta — os palpites dele vão pelo
+      // fluxo inline normal quando ele mandar.
+      const sessaoAtual = await getSession(p.usuario.whatsappId);
+      const podeSetarSessao = sessaoAtual.state === 'IDLE';
       try {
-        await setSession(p.usuario.whatsappId, {
-          state: 'PALPITANDO',
-          ctx: {
-            bolaoId: rodada.bolaoId,
-            rodadaId: rodada.id,
-            jogosPendentes: jogosParaPalpitar.map((j) => j.id),
-          },
-        });
+        if (podeSetarSessao) {
+          await setSession(p.usuario.whatsappId, {
+            state: 'PALPITANDO',
+            ctx: {
+              bolaoId: rodada.bolaoId,
+              rodadaId: rodada.id,
+              jogosPendentes: jogosParaPalpitar.map((j) => j.id),
+            },
+          });
+        }
         await sendText({ to: p.usuario.whatsappId, text: mensagem });
         await redis.set(flagCross, '1', 'EX', 24 * 3600);
         enviados++;

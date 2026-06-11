@@ -55,6 +55,14 @@ interface EvolutionWebhookEvent {
       extendedTextMessage?: { text?: string };
       buttonsResponseMessage?: { selectedButtonId?: string; selectedDisplayText?: string };
       listResponseMessage?: { singleSelectReply?: { selectedRowId?: string }; title?: string };
+      // v3.15.0 — tipos de mídia detectados pra resposta amigável
+      // (antes: silêncio total quando user mandava áudio/figurinha)
+      audioMessage?: unknown;
+      imageMessage?: unknown;
+      videoMessage?: unknown;
+      stickerMessage?: unknown;
+      documentMessage?: unknown;
+      pttMessage?: unknown;
     };
     messageType?: string;
     messageTimestamp?: number;
@@ -152,7 +160,17 @@ export async function webhookMessageHandler(
     }
 
     const text = extractText(data.message);
-    if (!text) return;
+    if (!text) {
+      // v3.15.0 — BUG: mensagem sem texto (áudio, figurinha, imagem,
+      // vídeo, documento) era ignorada em SILÊNCIO TOTAL. Público
+      // não-técnico manda áudio o tempo todo. Agora responde amigável,
+      // com rate-limit Redis (1x/h por user) pra não floodar quem
+      // manda figurinha em sequência.
+      if (detectouMidia(data.message)) {
+        await responderMidiaNaoSuportada(waId);
+      }
+      return;
+    }
 
     const messageId = data.key.id ?? '';
     const senderName = data.pushName?.trim() || 'Craque';
@@ -182,4 +200,43 @@ function extractText(message: EvolutionMessageBody | undefined): string | null {
   if (message.buttonsResponseMessage?.selectedDisplayText) return message.buttonsResponseMessage.selectedDisplayText.trim();
   if (message.listResponseMessage?.title) return message.listResponseMessage.title.trim();
   return null;
+}
+
+/**
+ * v3.15.0 — detecta se a mensagem sem texto é mídia (áudio, imagem,
+ * vídeo, figurinha, documento). Distingue de eventos de protocolo
+ * (reações, deletes) que devem continuar silenciosos.
+ */
+function detectouMidia(message: EvolutionMessageBody | undefined): boolean {
+  if (!message) return false;
+  return Boolean(
+    message.audioMessage ||
+    message.pttMessage ||
+    message.imageMessage ||
+    message.videoMessage ||
+    message.stickerMessage ||
+    message.documentMessage,
+  );
+}
+
+/**
+ * v3.15.0 — resposta amigável pra mídia, com rate-limit Redis de 1h
+ * por usuário (quem manda 5 figurinhas seguidas recebe 1 resposta só).
+ */
+async function responderMidiaNaoSuportada(waId: string): Promise<void> {
+  try {
+    const { redis } = await import('../config/redis.js');
+    const { sendText } = await import('./evolution.client.js');
+    const flag = `midia_aviso:${waId}`;
+    if (await redis.get(flag)) return;
+    await redis.set(flag, '1', 'EX', 3600);
+    await sendText({
+      to: waId,
+      text:
+        '😅 Áudio, foto e figurinha eu ainda não entendo — só *texto*.\n\n' +
+        'Me manda digitando! Ex: `Brasil 2x1 Marrocos` ou *próximos jogos*.',
+    });
+  } catch (error) {
+    console.error('[webhook] falha ao responder mídia não suportada:', (error as Error).message);
+  }
 }

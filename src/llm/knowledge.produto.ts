@@ -61,8 +61,10 @@ CUSTO:
 
 ESCOPO:
 - Bolão é da Copa do Mundo FIFA 2026 (Estados Unidos / Canadá / México, 11/jun a 19/jul).
-- Bot NÃO cobre Brasileirão, Libertadores, Champions, jogos de clube, jogadores específicos, copas antigas.
-- Bot NÃO mostra placar ao vivo, transmissão de TV, escalações, gols em tempo real.
+- Bot NÃO cobre Brasileirão, Libertadores, Champions, jogos de clube, copas antigas.
+- Bot MOSTRA placares dos jogos da Copa (atualiza ~5min; user pergunta "quem ganhou?"/"qual o placar?") e convocações oficiais. NÃO cobre transmissão de TV nem lance a lance.
+- Pontuação é 100% automática (recalcula até em correção de VAR). "fulano roubou" → explicar isso. Palpites privados — NUNCA mostrar palpite de outro.
+- Mudar nome de user: não dá — vem do WhatsApp.
 
 COMANDOS RÁPIDOS (envia em DM):
 - *próximos jogos* — lote de até 10 jogos abertos pra palpitar + rodapé com contador
@@ -72,8 +74,10 @@ COMANDOS RÁPIDOS (envia em DM):
 - *ranking* — tabela do bolão
 - *meus bolões* — todos em que o usuário participa
 - *quem participa* — lista de participantes do bolão
-- *progresso do bolão* / *quem palpitou* — quem dos participantes já palpitou e quem ainda não (mostra X/Y palpites por pessoa; placar continua privado)
-- *cutucar pendentes* (admin) — bot manda DM pra cada participante que ainda não palpitou, citando o admin que pediu (1 cutuque a cada 30min)
+- *progresso do bolão* / *quem palpitou* — X/Y palpites por pessoa (placar continua privado)
+- *cutucar pendentes* (admin) — DM pra quem não palpitou (1x a cada 30min)
+- "quem ganhou?" / "qual o placar?" — placares recentes dos jogos
+- "quantos pontos fiz ontem?" — pontos por jogo
 - *dicas* — dicas práticas pra montar palpite (placares comuns, estratégia de pontuação)
 - *regras* — pontuação completa
 - *criar bolão* / *entrar em bolão* — criar / entrar
