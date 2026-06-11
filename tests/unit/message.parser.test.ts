@@ -697,6 +697,39 @@ describe('parseIntencao', () => {
     it('"saiu o resultado?" → PLACAR_JOGO', () => {
       expect(parseIntencao('saiu o resultado?').intencao).toBe(Intencao.PLACAR_JOGO);
     });
+
+    describe('v3.21.0 — termos curtos/ambíguos (caso Bruna 11/06)', () => {
+      it('"Placares de todos" → PLACAR_JOGO', () => {
+        expect(parseIntencao('Placares de todos').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"placares" sozinho → PLACAR_JOGO', () => {
+        expect(parseIntencao('placares').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"placar" sozinho → PLACAR_JOGO', () => {
+        expect(parseIntencao('placar').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"Mostrar placar" → PLACAR_JOGO', () => {
+        expect(parseIntencao('Mostrar placar').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"me mostra o placar" → PLACAR_JOGO', () => {
+        expect(parseIntencao('me mostra o placar').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"resultados" sozinho → PLACAR_JOGO', () => {
+        expect(parseIntencao('resultados').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"como tão os placares" → PLACAR_JOGO', () => {
+        expect(parseIntencao('como tão os placares').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      // Anti-falsos-positivos
+      it('"resultados foram bons" NÃO casa PLACAR_JOGO', () => {
+        expect(parseIntencao('resultados foram bons').intencao).not.toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"quero ver placar do palpite" continua roteando normalmente', () => {
+        // Casa "placar" inicial mas é continuação, não ambíguo "placar sozinho"
+        // Esse caso deve cair em PLACAR_JOGO (ok) ou outro — só não pode crashar
+        expect(parseIntencao('quero ver placar do palpite').intencao).toBeDefined();
+      });
+    });
   });
 
   describe('v3.15.0 — PONTOS_DETALHE', () => {

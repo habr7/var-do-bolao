@@ -344,6 +344,16 @@ const PLACAR_JOGO_PATTERNS: RegExp[] = [
   /\bdeu quanto\b/,
   /\bja (?:acabou|terminou) o jogo\b/,
   /\bsaiu (?:o )?(?:placar|resultado)\b/,
+  // v3.21.0 (caso Bruna 11/06 16:39) — termos curtos/ambíguos que NÃO
+  // mencionam jogo nem time. Bot trata como pergunta ambígua: mostra
+  // placares dos jogos + sugere `ranking` pro bolão.
+  /^placar(es)?\??$/, // "placar" / "placares" / "placar?" sozinho
+  /^placar(es)?\s+de\s+todos\b/, // "placares de todos"
+  /^mostrar (?:o |os )?placar/, // "mostrar placar" / "mostrar os placares"
+  /\bme mostra (?:o |os )?placar/, // "me mostra o placar"
+  /^resultados?\??$/, // "resultados" sozinho (não casa "resultados foram bons")
+  /\bcomo (?:estao|estão|tao|tão|ta|tá) (?:o |os )?placar/, // "como tao os placares"
+  /^como (?:foram|estao|estão) os jogos\??$/, // "como foram os jogos"
 ];
 
 // v3.15.0 — PONTOS_DETALHE: breakdown de pontos por jogo recente.

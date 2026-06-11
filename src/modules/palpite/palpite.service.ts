@@ -43,8 +43,21 @@ export async function registrarPalpiteEmRodada(
     include: { jogos: true, bolao: true },
   });
   if (!rodada) throw new Error('Rodada nao encontrada.');
-  if (new Date() > rodada.dataFechamento) {
-    throw new Error('rodada fechada');
+  // v3.21.0 (bug R. 11/06 16:25 — Copa rolando): antes este check
+  // bloqueava palpites quando `new Date() > rodada.dataFechamento`,
+  // mas `dataFechamento` é setado em `rodada.service.ts:32` como o
+  // kickoff do PRIMEIRO jogo da rodada. Pra Copa 2026 (1 rodada com
+  // 72 jogos em 15 dias), isso travava TUDO após o 1º jogo —
+  // inclusive os 71 jogos que ainda não começaram.
+  //
+  // A trava correta é POR JOGO INDIVIDUAL (linhas 63-68) que já existe
+  // desde a v3.7.0. Aqui mantemos apenas defesa em profundidade contra
+  // rodada FINALIZADA (todos os jogos terminaram — não faz sentido
+  // aceitar palpite novo). `rodada.status` é setado pra FINALIZADA em
+  // `rodada.repository.ts:finalizarRodada` quando o pipeline detecta
+  // que todos os jogos viraram FINALIZADO/ADIADO/CANCELADO.
+  if (rodada.status === 'FINALIZADA') {
+    throw new Error('rodada finalizada');
   }
 
   // Verifica se usuario participa do bolao
@@ -445,7 +458,10 @@ async function registrarComRetry(input: Parameters<typeof registrarPalpiteEmRoda
       msg.includes('nao encontrado') ||
       msg.includes('não encontrado') ||
       msg.includes('placar') ||
-      msg.includes('rodada fechada');
+      msg.includes('rodada fechada') ||
+      msg.includes('rodada finalizada') || // v3.21.0
+      msg.includes('ja iniciou') ||
+      msg.includes('ja terminou');
     if (ehDominio) throw err;
     // Erro transitório — 1 retry
     await new Promise((r) => setTimeout(r, 200));
