@@ -33,8 +33,10 @@ export function regrasTexto(): string {
     '━━━━━━━━━━━━━━━━━━━\n' +
     '⏰ *PRAZO DOS PALPITES*\n' +
     '━━━━━━━━━━━━━━━━━━━\n\n' +
-    'Os palpites de uma rodada travam quando *o primeiro jogo da rodada começa*.\n' +
-    'Pode editar quantas vezes quiser até lá. 🔄\n\n' +
+    'Cada palpite trava quando *o jogo dele começa* (kickoff da hora marcada).\n' +
+    'Cada jogo tem seu próprio prazo — depois de um jogo começar, você ainda pode palpitar nos próximos do mesmo dia.\n' +
+    'Pode editar quantas vezes quiser até o kickoff. 🔄\n' +
+    'Horários em *fuso de Brasília* 🇧🇷\n\n' +
     '━━━━━━━━━━━━━━━━━━━\n' +
     '💬 *COMO MANDAR PALPITE*\n' +
     '━━━━━━━━━━━━━━━━━━━\n\n' +

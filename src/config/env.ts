@@ -56,6 +56,12 @@ const baseSchema = z.object({
   HORARIO_BOM_DIA: z.string().default('09:00'),
   // Quantas horas antes do 1o jogo do dia disparar a chamada de palpites.
   PALPITE_CALL_HORAS_ANTES: z.coerce.number().default(6),
+  // v3.13.0 — flags pra desabilitar canais de comunicacao isoladamente
+  // sem mexer em DRY_RUN_WHATSAPP (que afeta TODO envio). Util pra
+  // staging onde queremos jobs rodando mas sem cutucar usuario.
+  ENABLE_BOM_DIA: z.coerce.boolean().default(true),
+  ENABLE_PALPITE_CALL: z.coerce.boolean().default(true),
+  ENABLE_REMINDERS: z.coerce.boolean().default(true),
   // Numero do bot em formato amigavel ("+55 11 97827-7516") — usado nas
   // mensagens-convite que o admin encaminha pros convidados. Opcional;
   // se vazio, a mensagem usa "do VAR do Bolão" como fallback.

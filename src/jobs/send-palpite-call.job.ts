@@ -21,6 +21,7 @@ import { chamadaPalpite } from '../utils/football.terms.js';
  *   - Idempotente: flag Redis `palpite-call:{bolaoId}:{YYYY-MM-DD}`.
  */
 export async function sendPalpiteCallJob() {
+  if (!env.ENABLE_PALPITE_CALL) return;
   const HORAS_ANTES = env.PALPITE_CALL_HORAS_ANTES;
   const HORARIO_MIN = 9; // nao envia antes das 09:00 da manha de Brasilia
 
@@ -105,6 +106,10 @@ export async function sendPalpiteCallJob() {
 
     let enviados = 0;
     for (const p of targets) {
+      // v3.13.0 — cross-job: pula se já mandei aviso de jogo nas últimas 24h.
+      // Flag compartilhada com send-bom-dia. Evita dupla notificação.
+      const flagCross = `aviso_jogo:${p.usuario.whatsappId}`;
+      if (await redis.get(flagCross)) continue;
       try {
         await setSession(p.usuario.whatsappId, {
           state: 'PALPITANDO',
@@ -115,6 +120,7 @@ export async function sendPalpiteCallJob() {
           },
         });
         await sendText({ to: p.usuario.whatsappId, text: mensagem });
+        await redis.set(flagCross, '1', 'EX', 24 * 3600);
         enviados++;
       } catch (error) {
         console.error(

@@ -1,12 +1,14 @@
 import { prisma } from '../config/database.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { lembrete } from '../utils/football.terms.js';
+import { env } from '../config/env.js';
 
 /**
  * Cutuca via DM quem ainda tem jogosPendentes em rodada cuja data de fechamento
  * esta proxima (ate 3h). Nao manda pros que ja palpitaram tudo.
  */
 export async function sendRemindersJob() {
+  if (!env.ENABLE_REMINDERS) return;
   const limite = new Date();
   limite.setHours(limite.getHours() + 3);
 

@@ -4916,7 +4916,9 @@ async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw:
     return;
   }
 
-  // Vários bolões e placar inline: guardar o placar e pedir só pra escolher bolão
+  // Vários bolões e placar inline: guardar o placar e pedir só pra escolher bolão.
+  // v3.13.0: oferece opção EXTRA "⭐ TODOS" — extensão da v3.12.0 do registro
+  // pra correção também (caso solicitado: "corrigir em 1 ou todos os bolões").
   if (placarInline && !bolaoAlvo) {
     await setSession(msg.waId, {
       state: 'EDITANDO_PALPITE_ESCOLHA_BOLAO',
@@ -4928,11 +4930,13 @@ async function handleEditarPalpite(msg: IncomingMessage, usuarioId: string, raw:
     const lista = formatarBoloesNumerados(
       boloesAbertos.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
     );
+    const opcaoTodos = `\n${boloesAbertos.length + 1}. ⭐ *TODOS* (corrige em todos os ${boloesAbertos.length} bolões de uma vez)`;
+    const dicaTodos = `\n_(responda *${boloesAbertos.length + 1}* ou *todos* pra aplicar em todos)_`;
     await sendText({
       to: msg.waId,
       text:
         `✏️ Em qual bolão você quer atualizar pra *${placarInline.timeCasa} ${placarInline.golsCasa} × ${placarInline.golsVisitante} ${placarInline.timeVisitante}*?\n\n` +
-        `${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+        `${lista}${opcaoTodos}\n\n${DICA_RESPOSTA_NUMERICA}${dicaTodos}`,
     });
     return;
   }
@@ -5000,6 +5004,47 @@ async function registrarEdicaoDireta(
   }
 }
 
+/**
+ * v3.13.0 — corrige o placar em TODOS os bolões abertos do user que
+ * tenham o jogo. Extensão direta da v3.12.0 (que cobria REGISTRO) pro
+ * caso de EDIÇÃO. Idempotente via UPSERT (mesmo path do registro —
+ * "corrigir" e "registrar" são a mesma operação no banco).
+ */
+async function registrarEdicaoEmTodosBoloes(
+  msg: IncomingMessage,
+  usuarioId: string,
+  p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number },
+) {
+  const { registrados, erros } = await palpiteService.corrigirPalpiteEmTodosBoloes({
+    usuarioId,
+    timeCasa: p.timeCasa,
+    timeVisitante: p.timeVisitante,
+    golsCasa: p.golsCasa,
+    golsVisitante: p.golsVisitante,
+  });
+  await resetSession(msg.waId);
+
+  if (registrados.length === 0) {
+    const detalhes = erros.length > 0
+      ? `\n\n⚠️ Não consegui em nenhum bolão:\n${erros.slice(0, 4).map((e) => `• ${e.bolaoNome}: ${e.motivo}`).join('\n')}`
+      : `\n\n_(Não achei esse jogo em nenhum bolão seu com rodada aberta.)_`;
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não atualizei nada pra *${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}*.${detalhes}`,
+    });
+    return;
+  }
+
+  const linhasOK = registrados.map((r) => `• *${r.bolaoNome}* ✅`).join('\n');
+  let resumo =
+    `📺 *VAR confirmou*: palpite atualizado pra *${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}* em ${registrados.length} bolão(ões)!\n\n${linhasOK}`;
+  if (erros.length > 0) {
+    const linhasErr = erros.slice(0, 4).map((e) => `• *${e.bolaoNome}*: ${e.motivo}`).join('\n');
+    resumo += `\n\n⚠️ Falhou em ${erros.length} bolão(ões):\n${linhasErr}\n\n_Manda *corrigir ${p.timeCasa} ${p.golsCasa}x${p.golsVisitante} ${p.timeVisitante}* de novo pra tentar — registros já feitos não duplicam._`;
+  }
+  await sendText({ to: msg.waId, text: resumo });
+}
+
 async function iniciarEdicaoPalpite(
   msg: IncomingMessage,
   bolaoId: string,
@@ -5030,6 +5075,16 @@ async function handleEscolhendoBolaoEditarPalpite(
     await sendText({ to: msg.waId, text: 'Sessão expirou.' });
     return;
   }
+
+  // v3.13.0 — opção TODOS: só faz sentido se há placar inline guardado
+  // (sem placar, "corrigir em todos" precisa de mais 1 passo escolhendo
+  // jogo — mais complexo; deixamos só pro caso direto com placar inline).
+  const palpiteInline = session.ctx?.palpiteInline;
+  if (palpiteInline && ehEscolhaTodos(msg.text, opcoes.length)) {
+    await registrarEdicaoEmTodosBoloes(msg, usuarioId, palpiteInline);
+    return;
+  }
+
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
     const lista = formatarBoloesNumerados(opcoes);
@@ -5050,7 +5105,6 @@ async function handleEscolhendoBolaoEditarPalpite(
   }
   // v3.7.0: se o user já tinha mandado placar inline ("corrigir Brasil 3x1"),
   // aplicamos direto após ele escolher o bolão.
-  const palpiteInline = session.ctx?.palpiteInline;
   if (palpiteInline) {
     await registrarEdicaoDireta(msg, usuarioId, escolhido.id, escolhido.nome, rodada.id, palpiteInline);
     return;
