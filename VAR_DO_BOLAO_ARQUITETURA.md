@@ -5,7 +5,7 @@
 > para entender mensagens em português coloquial.
 
 **Versão do documento:** 3.21.0
-**Última atualização:** 2026-06-11 (v3.23.0 — Janela de polling: API só na janela ativa do jogo [AO_VIVO ou AGENDADO com kickoff passado]; finalizado lê do banco, zero fetch entre dias de jogo + rede de segurança pra finalizado sem placar. v3.22.0 — Placar AO VIVO via `api.fifa.com` + provider `hybrid` [FIFA primário → openfootball fallback], status codes corrigidos, trava de pontuação só FINALIZADO. 797 tests)
+**Última atualização:** 2026-06-11 (v3.24.0 — Revelação de palpites no kickoff: quando o jogo começa, manda pros integrantes os palpites de todos do bolão pra aquele jogo [push job time-driven + resposta sob demanda no PALPITE_OUTROS]. Privacidade vira TEMPORAL [privado antes, revelado depois]. `MAX_AVISOS_DIA` 2→8. v3.23.0 — Janela de polling [API só na janela ativa do jogo]. v3.22.0 — Placar AO VIVO via `api.fifa.com` + provider `hybrid`. 806 tests)
 **Integração WhatsApp:** Evolution API v2.x (fork `evoapicloud`, com Baileys override)
 **LLM:** Google Gemini (`gemini-2.5-flash-lite`) com fallback pra Ollama Cloud
 
@@ -200,7 +200,7 @@ var_do_bolao/
 │   │   ├── pagamento/               # PIX (desativado — schema presente, fluxo skip)
 │   │   ├── solicitacao/             # PENDENTE → APROVADA/RECUSADA
 │   │   ├── rodada/
-│   │   ├── palpite/                 # registrarPalpiteEmRodada + status
+│   │   ├── palpite/                 # registrarPalpiteEmRodada + status + revelacao.service (revela palpites no kickoff)
 │   │   ├── ranking/
 │   │   │   ├── ranking.types.ts     # PONTUACAO_PADRAO (10/7/5/3/0)
 │   │   │   └── pontuacao.calc.ts    # função pura — testada isolada
@@ -216,6 +216,7 @@ var_do_bolao/
 │   │   ├── send-bom-dia.job.ts      # 0 * * * * — saudação nos dias com jogo
 │   │   ├── send-palpite-call.job.ts # 5 * * * * — chamada N horas antes do 1o jogo
 │   │   ├── send-reminders.job.ts    # */30min — cutuca quem não palpitou
+│   │   ├── send-palpite-reveal.job.ts # */2min — revela palpites de todos no kickoff
 │   │   ├── send-ranking.job.ts      # 0 * * * * — ranking hourly
 │   │   ├── repair-broken-boloes.job.ts # boot + 0 3 * * * — repara bolões sem rodada/vazia
 │   │   └── validate-pix.job.ts      # (comentado — PIX desativado)
@@ -854,6 +855,7 @@ ID do bolão: #K3MZ8P
 | `fetch-results` | `*/5 * * * *` | Puxa placares da FIFA API/scraping, atualiza `Jogo` |
 | `calculate-scores` | `*/10 * * * *` | Calcula pontos de rodadas finalizadas |
 | `send-reminders` | `*/30 * * * *` | Cutuca quem tem `jogosPendentes` |
+| `send-palpite-reveal` | `*/2 * * * *` | No kickoff, revela pros integrantes os palpites de todos do bolão pra aquele jogo. Time-driven, idempotente por `(user, jogo)`, conta no `MAX_AVISOS_DIA`. |
 | `send-ranking` | `0 * * * *` | Ranking hourly (cards em imagem via sharp/SVG) |
 | `send-bom-dia` | `0 * * * *` | Saudação nos dias com jogo (decide horário internamente) |
 | `send-palpite-call` | `5 * * * *` | Chamada de palpites `PALPITE_CALL_HORAS_ANTES` (6h) antes do 1o jogo do dia |
@@ -1174,6 +1176,7 @@ criação bolão, 035 cooldown solicitação após recusa, 036 sanitização nom
 
 | Versão | Data | Mudanças principais |
 |--------|------|---------------------|
+| **3.24.0** | **2026-06-11** | **Revelação de palpites no kickoff — privacidade vira TEMPORAL.** Quando um jogo COMEÇA (palpite travado), o bot manda pros integrantes do bolão os palpites de TODOS daquele bolão pra AQUELE jogo — assim todo mundo acompanha sabendo o que cada um cravou. Antes, palpite era privado pra sempre; agora é privado ATÉ o kickoff e revelado depois (justo: ninguém copia, já que trava no início do jogo). **Escopo seguro por construção**: a revelação vem de `PalpiteJogo where jogoId` — escopada a 1 jogo × 1 bolão (porque `Jogo.apiJogoId` é único por rodada/bolão), impossível vazar palpite de outro jogo ou de bolão que a pessoa não participa. Quem não palpitou aparece como "não palpitou". Multi-bolão: 1 mensagem com 1 bloco por bolão. **Duas vias**: (1) **push automático** — novo `send-palpite-reveal.job.ts` (cron */2min, time-driven, NÃO depende da FIFA), idempotente por `reveal:{wa}:{apiJogoId}` em Redis, **conta no `MAX_AVISOS_DIA`** (subido 2→8 pra caber bom-dia+chamada+revelações de um dia de grupos); (2) **sob demanda** — `handlePalpiteOutros` agora REVELA se há jogo iniciado nos bolões do user (opcional filtro por time citado) e só explica a regra se nenhum começou — essa via **não conta no cap** (user pediu). Builder puro em `src/utils/palpite-reveal.ts` (montarBloco/montarMensagemRevelacao); query compartilhada em `src/modules/palpite/revelacao.service.ts`. **Privacidade reconciliada** (temporal) em `knowledge.produto.ts`, `system-prompts.ts` e `handlePalpiteOutros` — mantém "admin NÃO vê ANTES do kickoff". Nova env `ENABLE_PALPITE_REVEAL` (default true). Parser: `PALPITE_OUTROS` ganhou patterns "palpites de todos / do jogo" (aditivo). **9 testes novos** (`palpite-reveal.test.ts` 5 — ordenação Você/palpiteiros/não-palpitou, multi-bloco; `revelacao.service.test.ts` 4 — escopo, filtro por time, skip bolão solo / sem palpite). **806 tests (era 797, +9)**. Typecheck OK. `audit:prompts` 0 warnings. Sem migration. |
 | 1.0 | 2026-03 | Versão inicial baseada em grupos do WhatsApp |
 | 2.0 | 2026-04 | Migração pra DM-only + integração Meta Cloud API |
 | 2.1 | 2026-04 | Troca Meta → Evolution API (Baileys) |

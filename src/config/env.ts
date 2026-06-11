@@ -71,10 +71,15 @@ const baseSchema = z.object({
   ENABLE_BOM_DIA: z.coerce.boolean().default(true),
   ENABLE_PALPITE_CALL: z.coerce.boolean().default(true),
   ENABLE_REMINDERS: z.coerce.boolean().default(true),
+  // v3.24.0 — revelação de palpites no kickoff (push automático).
+  ENABLE_PALPITE_REVEAL: z.coerce.boolean().default(true),
   // v3.17.0 — cap absoluto de avisos por user por dia (cross-job).
   // Resolve o problema da Camila 11/06 (3 msgs em 3.5h) e protege custo
-  // na futura migração Meta Cloud API. Default conservador: 2/dia.
-  MAX_AVISOS_DIA: z.coerce.number().int().min(0).default(2),
+  // na futura migração Meta Cloud API.
+  // v3.24.0 — subido de 2 → 8: a revelação de palpites no kickoff CONTA
+  // neste cap, e em dia de fase de grupos há até ~4 jogos. 8 dá folga pra
+  // bom-dia + chamada + as revelações do dia sem suprimir.
+  MAX_AVISOS_DIA: z.coerce.number().int().min(0).default(8),
   // Numero do bot em formato amigavel ("+55 11 97827-7516") — usado nas
   // mensagens-convite que o admin encaminha pros convidados. Opcional;
   // se vazio, a mensagem usa "do VAR do Bolão" como fallback.

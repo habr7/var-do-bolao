@@ -30,6 +30,8 @@ import * as bolaoService from '../modules/bolao/bolao.service.js';
 // import * as pagamentoService from '../modules/pagamento/pagamento.service.js';
 import * as solicitacaoService from '../modules/solicitacao/solicitacao.service.js';
 import * as palpiteService from '../modules/palpite/palpite.service.js';
+import { revelacoesParaUsuario } from '../modules/palpite/revelacao.service.js';
+import { montarMensagemRevelacao } from '../utils/palpite-reveal.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
@@ -607,9 +609,10 @@ async function dispatchIntencao(
       await handleReclamacaoBug(msg, usuarioId, raw);
       return true;
 
-    // v3.17.0 — caso Camila 11/06: explica público vs privado de palpites
+    // v3.17.0 — caso Camila 11/06: explica público vs privado de palpites.
+    // v3.24.0: se já tem jogo iniciado, REVELA os palpites de todos.
     case Intencao.PALPITE_OUTROS:
-      await handlePalpiteOutros(msg, usuarioId);
+      await handlePalpiteOutros(msg, usuarioId, raw);
       return true;
 
     case Intencao.QUANDO_COMECA:
@@ -1462,37 +1465,46 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
 }
 
 /**
- * v3.17.0 — PALPITE_OUTROS: usuário perguntando se vai ver palpite/
- * desempenho dos outros participantes em cada jogo.
+ * v3.17.0 — PALPITE_OUTROS: usuário perguntando se vai ver palpite dos
+ * outros participantes.
  *
- * Bug motivador (Camila 11/06, print 1): bot respondeu "não" duas vezes
- * defensivo, sem distinguir o que é público (total no ranking) do que é
- * privado (placar individual). A pergunta dela ("vai falar quem pontuou
- * em cada jogo?") era razoável porque o ranking JÁ mostra quem está em
- * primeiro com X pts — confusão natural.
+ * v3.24.0 — privacidade TEMPORAL. Antes do kickoff o palpite é secreto;
+ * quando o jogo começa (palpite travado) ele vira público pro bolão.
+ * Então o handler agora:
+ *   1. Se já tem jogo INICIADO nos bolões do user (opcionalmente filtrado
+ *      pelo time citado) → REVELA os palpites de todos daquele(s) jogo(s).
+ *      (Resposta sob demanda NÃO conta no cap de avisos — é o user que pediu.)
+ *   2. Senão → explica a regra: privado até começar, revelado depois.
  *
- * Resposta calibrada:
- *   1. Acolhe (não defensivo)
- *   2. Distingue público vs privado de forma EXPLÍCITA
- *   3. Oferece alternativa útil (pontos do próprio user por jogo)
+ * Segurança: a revelação vem de `revelacoesParaUsuario`, que escopa por
+ * (jogo, bolão do user) — nunca vaza palpite de outro jogo nem de bolão
+ * que a pessoa não participa.
  */
-async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string) {
+async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string, raw = '') {
   void incContador('intent.PALPITE_OUTROS');
-  void usuarioId;
+
+  let filtroTimes: string[] = [];
+  try {
+    const ground = construirFatosCopa2026(raw);
+    filtroTimes = ground?.detectado?.times ?? [];
+  } catch {
+    filtroTimes = [];
+  }
+
+  const blocos = await revelacoesParaUsuario(usuarioId, filtroTimes);
+  if (blocos.length > 0) {
+    await sendText({ to: msg.waId, text: montarMensagemRevelacao(blocos) });
+    return;
+  }
+
+  // Nenhum jogo começou ainda → explica a regra (temporal).
   await sendText({
     to: msg.waId,
     text:
-      `🔐 *Boa pergunta — vou explicar como funciona:*\n\n` +
-      `🔓 *Público* (todo mundo do bolão vê):\n` +
-      `• A *pontuação total* de cada participante no *ranking* — isso é necessário pro ranqueamento funcionar.\n\n` +
-      `🔒 *Privado* (só a própria pessoa vê):\n` +
-      `• *O placar específico* que cada um palpitou em cada jogo.\n` +
-      `• Quantos pontos cada um fez *em cada jogo individual*.\n\n` +
-      `Ou seja: você vai saber que a Maria está em 1º com 80 pts — mas não vai saber o que ela palpitou em Brasil x Marrocos.\n\n` +
-      `*Pra ver seu próprio desempenho jogo a jogo*, manda:\n` +
-      `• *pontos de ontem* — quanto você fez em cada jogo recente\n` +
-      `• *meus pontos* — seu total geral\n` +
-      `• *ranking* — classificação do bolão`,
+      `🔐 *Como funciona a privacidade dos palpites:*\n\n` +
+      `🔒 *Antes do jogo começar:* o palpite de cada um é secreto — ninguém vê o do outro (nem o admin). Assim ninguém copia. 😉\n\n` +
+      `🔓 *Quando a bola rola:* o palpite trava e eu mando aqui os palpites de *todos* do bolão pra aquele jogo! Aí você vê o que cada um cravou e curte o jogo junto. 🍿\n\n` +
+      `📊 No *ranking* o total de cada um é sempre público. Manda *meus pontos* pra ver seu desempenho.`,
   });
 }
 

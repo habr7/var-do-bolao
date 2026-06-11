@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**797+ tests** distribuídos em `tests/unit/`. Cobre:
+**806+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -44,6 +44,8 @@ npm test
 | `hybrid.fetcher.test.ts` | **(v3.22.0)** `HybridFootballAdapter`: FIFA OK usa FIFA; FIFA fora (500/rede) cai pro openfootball. 3 testes. |
 | `scoring-gate.test.ts` | **(v3.22.0)** `calcularPontuacaoRodada` pontua só `FINALIZADO` — jogo AO_VIVO (placar parcial) e AGENDADO contam 0 até o apito. 2 testes. |
 | `polling-window.test.ts` | **(v3.23.0)** Janela de polling do `fetch-results`: API só consulta jogo AO_VIVO ou AGENDADO com kickoff passado (finalizado lê do banco); rede de segurança re-busca FINALIZADO sem placar. 2 testes. |
+| `palpite-reveal.test.ts` | **(v3.24.0)** Builder da revelação de palpites no kickoff: ordenação (Você → palpiteiros → "não palpitou"), placar parcial null vira "não palpitou", multi-bloco por bolão. 5 testes. |
+| `revelacao.service.test.ts` | **(v3.24.0)** `revelacoesParaUsuario` (sob demanda): escopo por jogo/bolão, filtro por time, skip bolão solo (<2) e jogo sem palpite. 4 testes. |
 
 Tempo: ~5s. Não toca rede nem DB.
 
