@@ -110,6 +110,13 @@ Se a FIFA cair, aparece o fallback e o log do openfootball:
 A **pontuação só conta no FINALIZADO** (`calcularPontuacaoRodada` ignora
 AO_VIVO/AGENDADO) — pontos não oscilam durante o jogo; recalculam no apito.
 
+**Janela de polling (v3.23.0):** o `fetch-results` só consulta a API por
+jogo realmente em andamento — `AO_VIVO`, ou `AGENDADO` com kickoff já passado.
+Jogo FUTURO e jogo FINALIZADO **não** disparam fetch (placar de finalizado é
+lido direto do banco — `prisma.jogo`). Entre dias de jogo, com o próximo jogo a
+horas/dias de distância, o job é no-op (zero chamadas à FIFA). Rede de
+segurança: um eventual `FINALIZADO` sem placar volta a ser buscado até preencher.
+
 #### Se openfootball estiver fora ou demorar demais
 - **Fallback**: admin atualiza placar manualmente via Prisma Studio ou SQL direto:
   ```sql

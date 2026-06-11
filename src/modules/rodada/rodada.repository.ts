@@ -140,16 +140,35 @@ export async function buscarRodadasComJogosEmAndamento() {
   // antigo dependia de admin fechar a rodada manualmente, mas isso
   // nunca acontecia (função `fecharRodada` existe mas nunca era
   // chamada). Resultado: placares nunca eram buscados, pontuação
-  // nunca calculada. Agora processamos qualquer rodada com jogos
-  // pendentes — segurança da trava por jogo (`palpite.service.ts:66`)
-  // garante que ninguém palpita em jogo já iniciado mesmo com rodada
-  // ABERTA.
+  // nunca calculada.
+  //
+  // v3.23.0 — JANELA DE POLLING. Antes retornava qualquer rodada com
+  // jogo AGENDADO/AO_VIVO. Pra Copa (1 rodada, 72 jogos em 15 dias) isso
+  // fazia o `fetch-results` bater na FIFA a cada 5 min por ~15 dias
+  // seguidos — inclusive de madrugada entre dias de jogo, com o próximo
+  // jogo a dias de distância. Agora só retorna rodada que tem jogo
+  // realmente "em andamento":
+  //   - AO_VIVO (sempre, até finalizar), OU
+  //   - AGENDADO cujo kickoff JÁ passou (rolando ou recém-encerrado,
+  //     aguardando a API confirmar o placar final).
+  // Jogo FUTURO (kickoff > agora) e jogo FINALIZADO NÃO disparam fetch —
+  // o banco é a fonte de verdade pra finalizados, então não precisa
+  // ficar batendo na API por eles. Resultado: a API só é consultada
+  // durante/após o kickoff de cada jogo, até ele finalizar.
+  const agora = new Date();
   return prisma.rodada.findMany({
     where: {
       status: { in: ['ABERTA', 'FECHADA'] },
       jogos: {
         some: {
-          status: { in: ['AGENDADO', 'AO_VIVO'] },
+          OR: [
+            { status: 'AO_VIVO' },
+            { status: 'AGENDADO', dataHora: { lte: agora } },
+            // Rede de segurança: FINALIZADO sem placar (anomalia que os
+            // adapters já previnem com null-guard) continua sendo buscado
+            // até preencher. Garante "todo FINALIZADO tem placar no banco".
+            { status: 'FINALIZADO', golsCasa: null },
+          ],
         },
       },
     },

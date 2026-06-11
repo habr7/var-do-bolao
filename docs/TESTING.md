@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**795+ tests** distribuídos em `tests/unit/`. Cobre:
+**797+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -43,6 +43,7 @@ npm test
 | `fifa.fetcher.test.ts` | **(v3.22.0)** Adapter FIFA (`api.fifa.com`): status codes 0/1/3/4, lê `Home.Score`/`HomeTeamScore`, match por par de código FIFA (MEX×RSA→WC2026_A_1), código a-definir pulado, null-guard, throw em HTTP 500/rede. 11 testes. |
 | `hybrid.fetcher.test.ts` | **(v3.22.0)** `HybridFootballAdapter`: FIFA OK usa FIFA; FIFA fora (500/rede) cai pro openfootball. 3 testes. |
 | `scoring-gate.test.ts` | **(v3.22.0)** `calcularPontuacaoRodada` pontua só `FINALIZADO` — jogo AO_VIVO (placar parcial) e AGENDADO contam 0 até o apito. 2 testes. |
+| `polling-window.test.ts` | **(v3.23.0)** Janela de polling do `fetch-results`: API só consulta jogo AO_VIVO ou AGENDADO com kickoff passado (finalizado lê do banco); rede de segurança re-busca FINALIZADO sem placar. 2 testes. |
 
 Tempo: ~5s. Não toca rede nem DB.
 
