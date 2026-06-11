@@ -7,7 +7,8 @@ import {
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA, ehEscolhaTodos } from './lista.helper.js';
 import { normalizeTeamName, validarPlacar } from '../utils/validators.js';
-import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR } from '../utils/datetime.js';
+import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarHoraBR } from '../utils/datetime.js';
+import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import {
   getSession,
@@ -1189,13 +1190,21 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     return;
   }
 
-  const corte = new Date(Date.now() - 48 * 3600_000);
+  const agora = new Date();
+  const corte = new Date(agora.getTime() - 48 * 3600_000);
+  // v3.20.0 — openfootball NÃO dá placar ao vivo, então status AO_VIVO
+  // nunca existe no banco durante o jogo. Derivamos "rolando" por
+  // HORÁRIO: jogos AGENDADOS cujo kickoff já passou também entram
+  // (análise feita com México x África ROLANDO — antes respondia
+  // "não achei jogo rolando").
   const jogos = await prisma.jogo.findMany({
     where: {
       rodada: { bolao: { participacoes: { some: { usuarioId } } } },
       OR: [
         { status: 'AO_VIVO' },
         { status: 'FINALIZADO', dataHora: { gte: corte } },
+        // AGENDADO com kickoff já passado (rolando ou aguardando placar)
+        { status: 'AGENDADO', dataHora: { gte: corte, lte: agora } },
       ],
     },
     orderBy: { dataHora: 'desc' },
@@ -1236,14 +1245,22 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
   }
 
   const linhas = unicos.slice(0, 10).map((j) => {
-    if (j.status === 'AO_VIVO') {
+    // v3.20.0 — 4 estados de exibição:
+    //   🔴 rolando (status AO_VIVO no banco OU derivado por horário)
+    //   ⏳ encerrado aguardando placar oficial (passou 2.5h, sem placar)
+    //   ✅ finalizado com placar
+    if (j.status === 'FINALIZADO') {
+      return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
+    }
+    if (jogoEstaRolandoPorHorario(j, agora)) {
       const placar =
         j.golsCasa !== null && j.golsVisitante !== null
           ? `${j.golsCasa} × ${j.golsVisitante}`
-          : 'em andamento';
-      return `🔴 *AO VIVO*: ${j.timeCasa} ${placar} ${j.timeVisitante}`;
+          : `_(começou às ${formatarHoraBR(j.dataHora)} — placar parcial não disponível)_`;
+      return `🔴 *ROLANDO AGORA*: ${j.timeCasa} x ${j.timeVisitante} ${placar}`;
     }
-    return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
+    // Passou da janela de 2.5h mas openfootball ainda não commitou
+    return `⏳ ${j.timeCasa} x ${j.timeVisitante} — encerrado, _aguardando placar oficial_ _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
   });
 
   await sendText({
@@ -1319,15 +1336,24 @@ async function handlePontosDetalhe(msg: IncomingMessage, usuarioId: string) {
 async function handleStatusRodada(msg: IncomingMessage, usuarioId: string) {
   void incContador('intent.STATUS_RODADA');
 
+  // v3.20.0 — "rolando" derivado por HORÁRIO (status AO_VIVO nunca é
+  // setado durante o jogo porque openfootball não dá placar ao vivo).
+  // Busca jogos AGENDADO/AO_VIVO cujo kickoff já passou (janela 2.5h).
+  const agora = new Date();
+  const inicioJanela = new Date(agora.getTime() - JANELA_JOGO_ROLANDO_MS);
   const aoVivo = await prisma.jogo.findFirst({
     where: {
       rodada: { bolao: { participacoes: { some: { usuarioId } } } },
-      status: 'AO_VIVO',
+      status: { in: ['AGENDADO', 'AO_VIVO'] },
+      dataHora: { gte: inicioJanela, lte: agora },
     },
+    orderBy: { dataHora: 'desc' },
   });
 
   const blocoAoVivo = aoVivo
-    ? `\n🔴 Agora mesmo: *${aoVivo.timeCasa} ${aoVivo.golsCasa ?? 0} × ${aoVivo.golsVisitante ?? 0} ${aoVivo.timeVisitante}* (ao vivo)\n`
+    ? aoVivo.golsCasa !== null && aoVivo.golsVisitante !== null
+      ? `\n🔴 Agora mesmo: *${aoVivo.timeCasa} ${aoVivo.golsCasa} × ${aoVivo.golsVisitante} ${aoVivo.timeVisitante}* (ao vivo)\n`
+      : `\n🔴 Agora mesmo: *${aoVivo.timeCasa} x ${aoVivo.timeVisitante}* rolando — começou às ${formatarHoraBR(aoVivo.dataHora)} _(placar parcial não disponível)_\n`
     : '';
 
   await sendText({
@@ -2403,7 +2429,18 @@ async function iniciarConfirmacaoPalpites(
     }
   }
 
-  const palpitesParaConfirmar = [...acumulado.values()];
+  // v3.20.0 — separa palpites pra jogos JÁ INICIADOS (kickoff passou).
+  // Antes: o preview mostrava o jogo, user confirmava, e SÓ DEPOIS do
+  // "sim" o erro "ja comecou" aparecia. Agora avisamos NO PREVIEW e
+  // só pedimos confirmação dos válidos. (Análise feita com México x
+  // África ROLANDO — palpite incluindo esse jogo falhava pós-sim.)
+  const agoraPreview = new Date();
+  const jogosIniciadosIds = new Set(
+    jogos.filter((j) => j.dataHora.getTime() <= agoraPreview.getTime()).map((j) => j.id),
+  );
+  const todosExtraidos = [...acumulado.values()];
+  const palpitesParaConfirmar = todosExtraidos.filter((p) => !jogosIniciadosIds.has(p.jogoId));
+  const palpitesJaIniciados = todosExtraidos.filter((p) => jogosIniciadosIds.has(p.jogoId));
 
   // Linhas descartadas pelo regex que o LLM tambem nao pegou
   const naoEntendidos = regexResult.descartadas.filter((linha) => {
@@ -2423,6 +2460,20 @@ async function iniciarConfirmacaoPalpites(
 
   if (palpitesParaConfirmar.length === 0) {
     await resetSession(msg.waId);
+    // v3.20.0 — se TODOS os palpites eram de jogos já iniciados, a
+    // mensagem certa é "já começou", não "não entendi".
+    if (palpitesJaIniciados.length > 0) {
+      const lista = palpitesJaIniciados
+        .map((p) => `• ${p.timeCasa} x ${p.timeVisitante}`)
+        .join('\n');
+      await sendText({
+        to: msg.waId,
+        text:
+          `⏰ Esse(s) jogo(s) já começou(aram) — palpite trava no kickoff:\n${lista}\n\n` +
+          `Manda *próximos jogos* pra ver o que ainda dá tempo de palpitar.`,
+      });
+      return;
+    }
     await sendText({
       to: msg.waId,
       text:
@@ -2450,6 +2501,14 @@ async function iniciarConfirmacaoPalpites(
     )
     .join('\n');
   let texto = `📝 Vou registrar ${palpitesParaConfirmar.length} palpite(s) no *${bolaoNome}*:\n\n${linhasPalpite}`;
+  // v3.20.0 — avisa NO PREVIEW os palpites de jogos já iniciados
+  // (antes só falhava depois do "sim" — UX ruim)
+  if (palpitesJaIniciados.length > 0) {
+    const listaIniciados = palpitesJaIniciados
+      .map((p) => `• ${p.timeCasa} x ${p.timeVisitante}`)
+      .join('\n');
+    texto += `\n\n⏰ *Já começou (palpite travado, não entra):*\n${listaIniciados}`;
+  }
   if (naoEntendidos.length > 0) {
     const lista = naoEntendidos.slice(0, 3).map((l) => `• "${l}"`).join('\n');
     texto += `\n\n⚠️ Não entendi:\n${lista}`;
@@ -2474,10 +2533,17 @@ async function iniciarConfirmacaoPalpitesMultiBolao(
   textoCru: string,
   boloes: Array<{ id: string; nome: string }>,
 ) {
-  // Coleta jogos abertos da UNIÃO de todas as rodadas
+  // Coleta jogos abertos da UNIÃO de todas as rodadas.
+  // v3.20.0 — só jogos cujo kickoff ainda NÃO passou (palpite aberto).
+  // Jogos rolando não entram no ground truth do preview multi-bolão;
+  // a trava por horário do service é a 2ª defesa.
   const rodadas = await prisma.rodada.findMany({
     where: { bolaoId: { in: boloes.map((b) => b.id) }, status: 'ABERTA' },
-    include: { jogos: { where: { status: { in: ['AGENDADO', 'AO_VIVO'] } } } },
+    include: {
+      jogos: {
+        where: { status: { in: ['AGENDADO', 'AO_VIVO'] }, dataHora: { gt: new Date() } },
+      },
+    },
   });
   // Dedup jogos por (timeCasa, timeVisitante) — mesmo amistoso em N bolões = 1 jogo lógico aqui
   const jogosUnicosMap = new Map<string, { timeCasa: string; timeVisitante: string }>();
@@ -4460,13 +4526,25 @@ async function mostrarProximosJogos(
       where: { bolaoId: b.id, status: 'ABERTA' },
       include: {
         jogos: {
-          where: { dataHora: { gte: agora }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
+          // v3.20.0 — inclui também jogos rolando AGORA (kickoff <2.5h
+          // atrás): antes o jogo iniciado SUMIA da lista sem explicação.
+          // Eles aparecem numa seção "🔴 Rolando agora" separada e NÃO
+          // contam como "falta palpitar".
+          where: {
+            dataHora: { gte: new Date(agora.getTime() - JANELA_JOGO_ROLANDO_MS) },
+            status: { in: ['AGENDADO', 'AO_VIVO'] },
+          },
           orderBy: { dataHora: 'asc' },
         },
       },
     });
 
     if (!rodada || rodada.jogos.length === 0) continue;
+
+    // Separa rolando (kickoff passou) dos palpitáveis (kickoff futuro)
+    const jogosRolando = rodada.jogos.filter((j) => j.dataHora.getTime() <= agora.getTime());
+    rodada.jogos = rodada.jogos.filter((j) => j.dataHora.getTime() > agora.getTime());
+    if (rodada.jogos.length === 0 && jogosRolando.length === 0) continue;
 
     const palpite = await prisma.palpite.findUnique({
       where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
@@ -4496,6 +4574,15 @@ async function mostrarProximosJogos(
     }
 
     const lote = rodada.jogos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
+    // v3.20.0 — edge: nenhum jogo futuro mas há jogo(s) ROLANDO agora.
+    // Mostra só o bloco rolando em vez de pular o bolão silenciosamente.
+    if (lote.length === 0 && jogosRolando.length > 0) {
+      const blocoSoRolando = jogosRolando
+        .map((j) => `🔴 *ROLANDO*: ${j.timeCasa} x ${j.timeVisitante} _(começou ${formatarHoraBR(j.dataHora)} — palpites encerrados)_`)
+        .join('\n');
+      partes.push(`🏆 *${b.nome}*\n${blocoSoRolando}\n\n_⏳ Próximos jogos abrem em breve. Placar oficial entra ~1h após cada jogo._`);
+      continue;
+    }
     if (lote.length === 0) continue;
 
     const palpitadosNoLote = lote.filter((j) => palpitadosIds.has(j.id)).length;
@@ -4525,7 +4612,16 @@ async function mostrarProximosJogos(
       rodape.push(`🔁 Fim da lista. Manda *próximos jogos* pra voltar ao topo.`);
     }
 
-    partes.push(`🏆 *${b.nome}*\n${linhas.join('\n')}\n\n${rodape.join('\n')}`);
+    // v3.20.0 — seção "Rolando agora" no topo (jogos com kickoff <2.5h
+    // atrás). Antes o jogo iniciado sumia da lista sem explicação.
+    const blocoRolando =
+      jogosRolando.length > 0
+        ? jogosRolando
+            .map((j) => `🔴 *ROLANDO*: ${j.timeCasa} x ${j.timeVisitante} _(começou ${formatarHoraBR(j.dataHora)} — palpites encerrados)_`)
+            .join('\n') + '\n\n'
+        : '';
+
+    partes.push(`🏆 *${b.nome}*\n${blocoRolando}${linhas.join('\n')}\n\n${rodape.join('\n')}`);
 
     // Persiste o offset usado pra próxima chamada de "mais jogos"
     await setProximosJogosOffset(msg.waId, b.id, offset);
