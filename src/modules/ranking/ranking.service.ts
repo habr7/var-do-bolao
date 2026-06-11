@@ -41,15 +41,37 @@ export async function recalcularRanking(bolaoId: string) {
         _sum: { pontuacao: true },
       });
 
+      // v3.14.0 — desempate: conta total de palpites individuais (PalpiteJogo)
+      // do user nesse bolão, pra usar como critério secundário.
+      // regras.text.ts: "vence quem registrou mais palpites e/ou entrou primeiro".
+      const totalPalpitesJogo = await prisma.palpiteJogo.count({
+        where: {
+          palpite: {
+            usuarioId: p.usuarioId,
+            rodada: { bolaoId },
+          },
+        },
+      });
+
       return {
         participacaoId: p.id,
         nome: p.usuario.nome,
         total: palpites._sum.pontuacao ?? 0,
+        totalPalpites: totalPalpitesJogo,
+        entradaEm: p.entradaEm,
       };
     }),
   );
 
-  pontuacoes.sort((a, b) => b.total - a.total);
+  // v3.14.0 — ordenação em cascata (regras canônicas):
+  //   1. pontuacaoTotal DESC
+  //   2. totalPalpites DESC (mais engajado vence)
+  //   3. entradaEm ASC (entrou primeiro vence)
+  pontuacoes.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    if (b.totalPalpites !== a.totalPalpites) return b.totalPalpites - a.totalPalpites;
+    return a.entradaEm.getTime() - b.entradaEm.getTime();
+  });
 
   for (let i = 0; i < pontuacoes.length; i++) {
     await rankingRepo.atualizarPontuacaoParticipacao(

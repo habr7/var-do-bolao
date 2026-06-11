@@ -4,10 +4,16 @@ import { calcularPontuacaoRodada, recalcularRanking } from '../modules/ranking/r
 export async function calculateScoresJob() {
   console.log('[JOB] Verificando rodadas para calcular pontuação...');
 
-  // Busca rodadas fechadas com palpites nao calculados
+  // v3.14.0 (pré-Copa): aceita rodadas em qualquer status. Antes filtrava
+  // status='FINALIZADA' — só ativava DEPOIS que TODOS os jogos da rodada
+  // terminassem. Pra Copa 2026 fase de grupos (72 jogos em ~15 dias),
+  // isso bloqueava pontuação por 2 semanas. Agora calcula incremental:
+  // qualquer rodada que tenha palpites com calculado=false (setado pelo
+  // fetch-results quando um jogo finaliza). Função `calcularPontuacaoRodada`
+  // já é tolerante a jogos sem placar (retorna 0 pra eles).
   const rodadas = await prisma.rodada.findMany({
     where: {
-      status: 'FINALIZADA',
+      status: { in: ['ABERTA', 'FECHADA', 'FINALIZADA'] },
       palpites: {
         some: { calculado: false },
       },

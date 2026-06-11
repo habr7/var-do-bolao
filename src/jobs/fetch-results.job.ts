@@ -10,13 +10,29 @@ export async function fetchResultsJob() {
 
   for (const rodada of rodadas) {
     try {
-      const { todosFinalizados } = await atualizarResultados(
+      const { todosFinalizados, palpitesResetados } = await atualizarResultados(
         rodada.id,
         rodada.bolao.campeonatoId,
         rodada.numero,
       );
 
+      // v3.14.0 (pré-Copa): recálculo INCREMENTAL — se algum jogo
+      // virou FINALIZADO neste tick (palpitesResetados > 0), recalcula
+      // pontuação da rodada AGORA. `calcularPontuacaoRodada` é
+      // idempotente e tolerante a jogos ainda sem placar.
+      if (palpitesResetados > 0) {
+        await calcularPontuacaoRodada(rodada.id);
+        await recalcularRanking(rodada.bolaoId);
+        console.log(
+          `[fetch-results] cálculo incremental: rodada=${rodada.numero} palpitesResetados=${palpitesResetados}`,
+        );
+      }
+
       if (todosFinalizados) {
+        // Garante que rodada vira FINALIZADA + envia ranking final.
+        // calcularPontuacaoRodada/recalcularRanking já rodaram acima
+        // (idempotente), mas chamamos de novo pra segurança caso
+        // palpitesResetados não cubra algum corner case.
         await calcularPontuacaoRodada(rodada.id);
         const ranking = await recalcularRanking(rodada.bolaoId);
         await finalizarRodada(rodada.id);
