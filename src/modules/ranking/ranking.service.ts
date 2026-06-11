@@ -14,10 +14,19 @@ export async function calcularPontuacaoRodada(rodadaId: string) {
     let totalPontos = 0;
 
     for (const pj of palpite.jogos) {
-      const pontos = calcularPontos(
-        { golsCasa: pj.golsCasa, golsVisitante: pj.golsVisitante },
-        { golsCasa: pj.jogo.golsCasa, golsVisitante: pj.jogo.golsVisitante },
-      );
+      // v3.22.0 — pontua SÓ jogo FINALIZADO. Com o provider `hybrid`, a
+      // FIFA grava placar PARCIAL ao vivo (status=AO_VIVO) pra exibição;
+      // sem este gate, o cálculo incremental pontuaria contra o placar
+      // parcial e os pontos OSCILARIAM durante o jogo. Jogo não-finalizado
+      // (AGENDADO/AO_VIVO) conta 0 até o apito; quando finaliza, o reset
+      // de `Palpite.calculado` força o recálculo com o placar oficial.
+      const pontos =
+        pj.jogo.status === 'FINALIZADO'
+          ? calcularPontos(
+              { golsCasa: pj.golsCasa, golsVisitante: pj.golsVisitante },
+              { golsCasa: pj.jogo.golsCasa, golsVisitante: pj.jogo.golsVisitante },
+            )
+          : 0;
 
       await palpiteRepo.atualizarPontuacaoPalpiteJogo(pj.id, pontos);
       totalPontos += pontos;

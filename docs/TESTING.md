@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**779+ tests** distribuídos em `tests/unit/`. Cobre:
+**795+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -39,6 +39,10 @@ npm test
 | `copa-2026.test.ts` | **(v3.4.0)** Dados oficiais da Copa: 48 seleções em 12 grupos, composição correta (Inglaterra/L, Brasil/C, etc.), normalização PT/EN/aliases (EUA, canarinha, albiceleste, BRA), `getProximosJogosDoTime` |
 | `copa-ground.test.ts` | **(v3.4.0)** Grounding `construirFatosCopa2026`: bug original ("Inglaterra grupo L, não C"), motivos TIME/GRUPO/DATA/ESTADIO_SEDE/GERAL_COPA, recusa fora-de-escopo (Libertadores/Brasileirão/Flamengo/Vinicius Jr/Real Madrid/Copa de 94) |
 | `knowledge.produto.test.ts` | **(v3.6.0)** Knowledge base do produto: bate pontuação contra `PONTUACAO_PADRAO` (anti-drift), garante que cobre multi-palpite, editar/apagar, prazo, ranking+desempate, multi-bolão+padrão, admin+convite+ID curto, grátis, escopo Copa 2026, privacidade, lista de comandos. 14 testes. |
+| `openfootball.fetcher.test.ts` | **(v3.16.0)** Adapter openfootball: parse de FINALIZADO, normalização "Mexico"↔"México", score null não vira 0×0, robustez de rede. |
+| `fifa.fetcher.test.ts` | **(v3.22.0)** Adapter FIFA (`api.fifa.com`): status codes 0/1/3/4, lê `Home.Score`/`HomeTeamScore`, match por par de código FIFA (MEX×RSA→WC2026_A_1), código a-definir pulado, null-guard, throw em HTTP 500/rede. 11 testes. |
+| `hybrid.fetcher.test.ts` | **(v3.22.0)** `HybridFootballAdapter`: FIFA OK usa FIFA; FIFA fora (500/rede) cai pro openfootball. 3 testes. |
+| `scoring-gate.test.ts` | **(v3.22.0)** `calcularPontuacaoRodada` pontua só `FINALIZADO` — jogo AO_VIVO (placar parcial) e AGENDADO contam 0 até o apito. 2 testes. |
 
 Tempo: ~5s. Não toca rede nem DB.
 
