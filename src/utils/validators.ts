@@ -58,6 +58,73 @@ export function normalizeTeamName(name: string): string {
   return n;
 }
 
+/**
+ * v3.25.0 — Casa um par (timeCasa, timeVisitante) extraído da mensagem do
+ * usuário com um jogo da lista, tolerando ORDEM INVERTIDA dos times.
+ *
+ * Caso real (B., 11/06 18:36): user mandou "República Tcheca 2x0 Coreia do
+ * Sul" mas o fixture é "Coreia do Sul x República Tcheca" (mandante trocado).
+ * O matching antigo só aceitava a ordem canônica → "não entendi".
+ *
+ * Estratégia:
+ *   1. Tenta CANÔNICO (timeCasa↔timeCasa, timeVisitante↔timeVisitante).
+ *      Prioridade absoluta — zero regressão pra quem mandou na ordem certa.
+ *   2. Só se falhar, tenta INVERTIDO (times trocados). Sinaliza
+ *      `invertido: true` pra o caller TROCAR o placar (o gol que o user deu
+ *      pro time A vai pro lado de A no fixture).
+ *
+ * O match de nome usa `includes` nos dois sentidos (mesma tolerância do
+ * código legado). Como o user confirma no preview (já com nomes/placar na
+ * ordem do fixture), um eventual match invertido errado é visível e
+ * recusável.
+ */
+export function acharJogoPorTimes<T extends { timeCasa: string; timeVisitante: string }>(
+  jogos: T[],
+  tc: string,
+  tv: string,
+): { jogo: T; invertido: boolean } | null {
+  const normTc = normalizeTeamName(tc);
+  const normTv = normalizeTeamName(tv);
+  const bate = (a: string, b: string) => a.includes(b) || b.includes(a);
+
+  const canonico = jogos.find((j) => {
+    const jc = normalizeTeamName(j.timeCasa);
+    const jv = normalizeTeamName(j.timeVisitante);
+    return bate(jc, normTc) && bate(jv, normTv);
+  });
+  if (canonico) return { jogo: canonico, invertido: false };
+
+  const invertido = jogos.find((j) => {
+    const jc = normalizeTeamName(j.timeCasa);
+    const jv = normalizeTeamName(j.timeVisitante);
+    return bate(jc, normTv) && bate(jv, normTc);
+  });
+  if (invertido) return { jogo: invertido, invertido: true };
+
+  return null;
+}
+
+/**
+ * v3.25.0 — Resolve um palpite bruto (como o user digitou) pro jogo certo,
+ * já com o placar na ORDEM DO FIXTURE. Se os times vieram invertidos, troca
+ * o placar: o gol que o user deu pro time que é mandante no fixture vai pra
+ * `golsCasa`. Retorna null se nenhum jogo casa.
+ */
+export function resolverPalpiteParaJogo<T extends { timeCasa: string; timeVisitante: string }>(
+  jogos: T[],
+  p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number },
+): { jogo: T; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number } | null {
+  const m = acharJogoPorTimes(jogos, p.timeCasa, p.timeVisitante);
+  if (!m) return null;
+  return {
+    jogo: m.jogo,
+    timeCasa: m.jogo.timeCasa,
+    timeVisitante: m.jogo.timeVisitante,
+    golsCasa: m.invertido ? p.golsVisitante : p.golsCasa,
+    golsVisitante: m.invertido ? p.golsCasa : p.golsVisitante,
+  };
+}
+
 export function parseScore(text: string): { golsCasa: number; golsVisitante: number } | null {
   const match = text.match(/(\d+)\s*[xX]\s*(\d+)/);
   if (!match) return null;

@@ -7,6 +7,8 @@ import {
   normalizeTeamName,
   parseScore,
   validarPlacar,
+  acharJogoPorTimes,
+  resolverPalpiteParaJogo,
 } from '../../src/utils/validators.js';
 
 describe('isValidScore', () => {
@@ -140,5 +142,74 @@ describe('validarPlacar (ISSUE-013)', () => {
 
   it('aceita total exato 20', () => {
     expect(validarPlacar(10, 10).ok).toBe(true);
+  });
+});
+
+describe('acharJogoPorTimes — ordem invertida (v3.25.0)', () => {
+  const jogos = [
+    { id: 'j1', timeCasa: 'Coreia do Sul', timeVisitante: 'República Tcheca' },
+    { id: 'j2', timeCasa: 'Brasil', timeVisitante: 'Marrocos' },
+  ];
+
+  it('casa na ordem canônica (invertido=false)', () => {
+    const m = acharJogoPorTimes(jogos, 'Coreia do Sul', 'República Tcheca');
+    expect(m?.jogo.id).toBe('j1');
+    expect(m?.invertido).toBe(false);
+  });
+
+  it('casa com times TROCADOS (invertido=true) — caso B. 11/06', () => {
+    const m = acharJogoPorTimes(jogos, 'República Tcheca', 'Coreia do Sul');
+    expect(m?.jogo.id).toBe('j1');
+    expect(m?.invertido).toBe(true);
+  });
+
+  it('prioriza canônico quando ambos poderiam casar', () => {
+    // Brasil x Marrocos na ordem certa nunca deve marcar invertido
+    const m = acharJogoPorTimes(jogos, 'Brasil', 'Marrocos');
+    expect(m?.invertido).toBe(false);
+  });
+
+  it('retorna null quando nenhum jogo bate', () => {
+    expect(acharJogoPorTimes(jogos, 'Argentina', 'Chile')).toBeNull();
+  });
+});
+
+describe('resolverPalpiteParaJogo — troca o placar quando invertido (v3.25.0)', () => {
+  const jogos = [{ id: 'j1', timeCasa: 'Coreia do Sul', timeVisitante: 'República Tcheca' }];
+
+  it('ordem certa: mantém o placar', () => {
+    const r = resolverPalpiteParaJogo(jogos, {
+      timeCasa: 'Coreia do Sul',
+      timeVisitante: 'República Tcheca',
+      golsCasa: 0,
+      golsVisitante: 2,
+    });
+    expect(r).toMatchObject({ timeCasa: 'Coreia do Sul', golsCasa: 0, golsVisitante: 2 });
+  });
+
+  it('times trocados: "República Tcheca 2x0 Coreia do Sul" → Coreia 0 x 2 Tcheca', () => {
+    const r = resolverPalpiteParaJogo(jogos, {
+      timeCasa: 'República Tcheca',
+      timeVisitante: 'Coreia do Sul',
+      golsCasa: 2,
+      golsVisitante: 0,
+    });
+    // no fixture, mandante é Coreia: deve receber o gol que o user deu à Coreia (0)
+    expect(r).toMatchObject({
+      timeCasa: 'Coreia do Sul',
+      timeVisitante: 'República Tcheca',
+      golsCasa: 0,
+      golsVisitante: 2,
+    });
+  });
+
+  it('sem jogo correspondente → null', () => {
+    const r = resolverPalpiteParaJogo(jogos, {
+      timeCasa: 'Argentina',
+      timeVisitante: 'Chile',
+      golsCasa: 1,
+      golsVisitante: 0,
+    });
+    expect(r).toBeNull();
   });
 });
