@@ -6,6 +6,7 @@ import * as bolaoRepo from '../bolao/bolao.repository.js';
 // Re-export para manter compatibilidade
 export { calcularPontos } from './pontuacao.calc.js';
 import { calcularPontos } from './pontuacao.calc.js';
+import { ordenarParticipacoesRanking } from './ranking.sort.js';
 
 export async function calcularPontuacaoRodada(rodadaId: string) {
   const palpites = await palpiteRepo.buscarPalpitesDaRodada(rodadaId);
@@ -104,16 +105,21 @@ export async function getRankingPorBolao(bolaoId: string) {
   const participacoes = await rankingRepo.buscarRankingBolao(bolao.id);
   const rodadaAtual = bolao.rodadas?.[0]?.numero ?? 0;
 
+  // Ordena pela cascata canônica e deriva a posição do índice (i+1), pra o
+  // número exibido SEMPRE bater com a ordem da lista — inclusive em empate
+  // (bug "1,2,3,5,4" quando a ordem do banco divergia de posicaoAtual).
+  const ordenadas = ordenarParticipacoesRanking(participacoes);
+
   return {
     bolao,
     rodadaAtual,
-    ranking: participacoes.map((p, i) => ({
+    ranking: ordenadas.map((p, i) => ({
       // ISSUE-023 (Sprint 2): inclui usuarioId pra caller poder achar
       // a propria posicao em iteracoes (handleResumoBoloes).
       usuarioId: p.usuarioId,
       nome: p.usuario.nome,
       pontuacaoTotal: p.pontuacaoTotal,
-      posicao: p.posicaoAtual || i + 1,
+      posicao: i + 1,
     })),
   };
 }

@@ -4,7 +4,10 @@ export async function buscarRankingBolao(bolaoId: string) {
   return prisma.participacao.findMany({
     where: { bolaoId },
     include: { usuario: true },
-    orderBy: { pontuacaoTotal: 'desc' },
+    // Ordem determinística mesmo em empate (sem isso o Postgres devolvia
+    // ordem arbitrária e o número da posição saía fora de ordem).
+    // O display ainda reordena/renumera via ordenarParticipacoesRanking.
+    orderBy: [{ pontuacaoTotal: 'desc' }, { posicaoAtual: 'asc' }, { entradaEm: 'asc' }],
   });
 }
 
