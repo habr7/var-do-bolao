@@ -819,6 +819,97 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.19.0 — PALPITE_GOLS_SEPARADOS (caso Natane 11/06)', () => {
+    // Formato dela: "<gols> <Time> X <gols> <Time>" — gols colados em cada time.
+    // Antes era pego só pelo `tentarPalpiteLivreViaLLM` que registrava
+    // SEM confirmação — risco crítico. Agora regex pega direto e vai
+    // pro fluxo canônico de PREVIEW + sim/não/refazer.
+    it('caso EXATO Natane: "1 México X 2 África do Sul"', () => {
+      const p = parseIntencao('1 México X 2 África do Sul');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({
+        timeCasa: 'México',
+        golsCasa: 1,
+        golsVisitante: 2,
+        timeVisitante: 'África do Sul',
+      });
+    });
+    it('"1 Coreia do sul x 0 República tcheca"', () => {
+      const p = parseIntencao('1 Coreia do sul x 0 República tcheca');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({
+        timeCasa: 'Coreia do sul',
+        golsCasa: 1,
+        golsVisitante: 0,
+        timeVisitante: 'República tcheca',
+      });
+    });
+    it('"3 brasil x 1 Marrocos" (lowercase + acento)', () => {
+      const p = parseIntencao('3 brasil x 1 Marrocos');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({
+        timeCasa: 'brasil',
+        golsCasa: 3,
+        golsVisitante: 1,
+        timeVisitante: 'Marrocos',
+      });
+    });
+    it('"2 Alemanha x 0 curaçao"', () => {
+      const p = parseIntencao('2 Alemanha x 0 curaçao');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({
+        timeCasa: 'Alemanha',
+        golsCasa: 2,
+        golsVisitante: 0,
+        timeVisitante: 'curaçao',
+      });
+    });
+    it('"0 Brasil X 0 Argentina" (empate 0x0)', () => {
+      const p = parseIntencao('0 Brasil X 0 Argentina');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({
+        timeCasa: 'Brasil',
+        golsCasa: 0,
+        golsVisitante: 0,
+        timeVisitante: 'Argentina',
+      });
+    });
+
+    // Anti-regressão dos outros formatos
+    it('canônico "Brasil 2x1 Marrocos" continua casando', () => {
+      const p = parseIntencao('Brasil 2x1 Marrocos');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({ timeCasa: 'Brasil', golsCasa: 2, golsVisitante: 1 });
+    });
+    it('invertido "2x1 Brasil x Marrocos" continua casando', () => {
+      const p = parseIntencao('2x1 Brasil x Marrocos');
+      expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+      expect(p.palpite).toMatchObject({ timeCasa: 'Brasil', golsCasa: 2, golsVisitante: 1 });
+    });
+
+    // Anti-falsos-positivos críticos
+    it('"12 anos x 2 vitorias" NÃO é palpite (time começa com dígito)', () => {
+      const p = parseIntencao('12 anos x 2 vitorias');
+      expect(p.intencao).not.toBe(Intencao.PALPITE_INLINE);
+    });
+    it('"3 jogos x 5 derrotas" NÃO é palpite', () => {
+      const p = parseIntencao('3 jogos x 5 derrotas');
+      expect(p.intencao).not.toBe(Intencao.PALPITE_INLINE);
+    });
+
+    it('multi-linha do print (5 palpites Natane) parseia todos via parseMultiplePalpites', () => {
+      const texto = `1 México X 2 África do Sul
+1 Coreia do sul x 0 República tcheca
+2 estados Unidos x 0 Paraguai
+3 brasil x 1 Marrocos
+2 Alemanha x 0 curaçao`;
+      const palpites = parseMultiplePalpites(texto);
+      expect(palpites).toHaveLength(5);
+      expect(palpites[0]).toMatchObject({ timeCasa: 'México', golsCasa: 1, golsVisitante: 2 });
+      expect(palpites[3]).toMatchObject({ timeCasa: 'brasil', golsCasa: 3, golsVisitante: 1 });
+    });
+  });
+
   describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
     it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
       expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);
