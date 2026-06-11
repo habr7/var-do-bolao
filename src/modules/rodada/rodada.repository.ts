@@ -112,8 +112,16 @@ export async function atualizarResultadoJogoComResetCalc(
   });
 
   let palpitesResetados = 0;
-  if (placarMudou && placarAntes.golsCasa !== null) {
-    // Só reseta se já tinha placar antes (correção, não primeira inserção).
+  // v3.14.0 (pré-Copa): resetar SEMPRE que o jogo entra em FINALIZADO
+  // (não só em correções). Antes só resetava se placarMudou + tinha
+  // placar antes — fluxo de "correção pós-VAR". Mas precisava também
+  // resetar na PRIMEIRA vez que placar entra, pra forçar recálculo
+  // incremental por jogo. Sem isso, pontos do dia 1 da Copa só sairiam
+  // depois que TODOS os 72 jogos da fase de grupos terminassem
+  // (~26 jun) porque `calculate-scores` filtrava `status=FINALIZADA`.
+  const ehFinalizacao = status === 'FINALIZADO';
+  const ehCorrecaoPosCalc = placarMudou && placarAntes.golsCasa !== null;
+  if (ehFinalizacao || ehCorrecaoPosCalc) {
     const reset = await prisma.palpite.updateMany({
       where: {
         calculado: true,
@@ -128,9 +136,17 @@ export async function atualizarResultadoJogoComResetCalc(
 }
 
 export async function buscarRodadasComJogosEmAndamento() {
+  // v3.14.0 (pré-Copa): aceita rodadas ABERTAS e FECHADAS — fluxo
+  // antigo dependia de admin fechar a rodada manualmente, mas isso
+  // nunca acontecia (função `fecharRodada` existe mas nunca era
+  // chamada). Resultado: placares nunca eram buscados, pontuação
+  // nunca calculada. Agora processamos qualquer rodada com jogos
+  // pendentes — segurança da trava por jogo (`palpite.service.ts:66`)
+  // garante que ninguém palpita em jogo já iniciado mesmo com rodada
+  // ABERTA.
   return prisma.rodada.findMany({
     where: {
-      status: 'FECHADA',
+      status: { in: ['ABERTA', 'FECHADA'] },
       jogos: {
         some: {
           status: { in: ['AGENDADO', 'AO_VIVO'] },
