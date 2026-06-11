@@ -48,6 +48,8 @@ import { extrairCodigoBolao } from '../utils/bolao-codigo.js';
 import { detectarAcaoAdmin, type AdminAcao } from './admin.parser.js';
 import { renderizarConvite } from './convite.helper.js';
 import { incContador, registrarMsgNaoEntendida } from '../utils/metrics.js';
+import { parecAutoReply } from './auto-reply.detector.js';
+import { verificarAntiLoop, registrarResposta } from '../utils/resposta-cap.js';
 
 export interface IncomingMessage {
   waId: string; // so digitos
@@ -71,6 +73,32 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     // ISSUE-008: contador total de mensagens (denominador da taxa de fallback).
     void incContador('msg.total');
 
+    // v3.18.0 — anti-loop (caso Lucas 11/06: 8 respostas em 60s por
+    // ping-pong com auto-reply do WhatsApp Business). 3 camadas:
+    //
+    //   (1) Detector de auto-reply: bloqueia "Agradeço seu contato,
+    //       respondo em breve" e variações classicas ANTES do parser.
+    //   (2) Rate-limit por waId: 8 respostas/60s.
+    //   (3) Detector de repetida: mesma mensagem 2+ vezes em <60s.
+    //
+    // Em qualquer um dos casos, bot SILENCIA (não responde, não
+    // registra como "não entendi") — só conta métrica.
+    if (parecAutoReply(msg.text)) {
+      void incContador('msg.auto_reply.detectada');
+      console.log(
+        `[anti-loop] waId=${msg.waId} motivo=auto_reply texto=${JSON.stringify(msg.text.slice(0, 80))}`,
+      );
+      return;
+    }
+    const antiLoop = await verificarAntiLoop(msg.waId, msg.text);
+    if (!antiLoop.permitir) {
+      void incContador(`msg.anti_loop.${antiLoop.motivo}`);
+      console.log(
+        `[anti-loop] waId=${msg.waId} motivo=${antiLoop.motivo} ${antiLoop.detalhe ?? ''} texto=${JSON.stringify(msg.text.slice(0, 80))}`,
+      );
+      return;
+    }
+
     const usuario = await bolaoService.getOrCreateUsuario(msg.waId, msg.senderName);
     tUser = Date.now();
     const session = await getSession(msg.waId);
@@ -81,6 +109,10 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     stateFinal = session.state;
     // ISSUE-008: por-intent counter. TEXTO_LIVRE = ainda nao classificada.
     void incContador(`intent.${parsed.intencao}`);
+    // v3.18.0 — registra que o bot vai responder (incrementa contador
+    // do rate-limit + hash da mensagem pra detectar repetida).
+    // Fora do bloco anti-loop pra que mensagens silenciadas não contem.
+    await registrarResposta(msg.waId, msg.text);
 
     // Cancelar sempre funciona — qualquer estado volta pra IDLE
     if (parsed.intencao === Intencao.CANCELAR) {

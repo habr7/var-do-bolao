@@ -476,22 +476,34 @@ const RANKING_PATTERNS: RegExp[] = [
   /\bqual (?:o |a |eh o |eh a |esta o |esta a )?(?:ranking|tabela|classificacao)\b/,
 ];
 
-// "Obrigado / valeu / brigado" — cordialidade, nao saudacao
+// "Obrigado / valeu / brigado" — cordialidade, nao saudacao.
+//
+// v3.18.0 (caso Lucas 11/06 — loop com auto-reply do WhatsApp Business):
+// patterns ENDURECIDOS pra exigir final de mensagem ou pontuação após
+// a palavra, evitando casar frases como "Agradeço seu contato, respondo
+// em breve" (auto-reply tipica). A defesa principal contra auto-reply
+// é `auto-reply.detector.ts` (camada 1); este endurecimento é a
+// camada 2 (defesa em profundidade) — se a heurística falhar, ainda
+// assim o pattern aqui não casa frase longa.
+//
+// Mensagens MAIORES que 30 chars NÃO casam AGRADECIMENTO (validação no
+// caller `matchIntent`). "Obrigado" puro casa; "Obrigado pelo contato,
+// retorno em breve" (40+ chars) não casa.
 const AGRADECIMENTO_PATTERNS: RegExp[] = [
-  /^(?:muito )?obrigad[ao]( mesmo)?\b/,
-  /^(?:muito )?brigad[ao]( mesmo)?\b/,
-  /^obrigadao\b/,
-  /^brigadao\b/,
-  /^valeu( mesmo)?\b/,
-  /^vlw+\b/,
-  /^vlww+\b/,
-  /^vlwww+\b/,
-  /^thx\b/,
-  /^thanks?\b/,
-  /^tmj\b/,
-  /^tamo junto\b/,
-  /^agradecid[ao]\b/,
-  /^agrade[cç]o\b/,
+  /^(?:muito |mt )?obrigad[ao](?:[!.\s]*(?:mesmo|demais|demaaais|muito|mt|vc|voc[êe]|tio|cara|men|mano|mana|amig[ao]))?[!.\s]*$/,
+  /^(?:muito |mt )?brigad[ao](?:[!.\s]*(?:mesmo|demais|muito|mt|vc|voc[êe]|cara|men|mano))?[!.\s]*$/,
+  /^obrigadao[!.\s]*$/,
+  /^brigadao[!.\s]*$/,
+  /^valeu(?:[!.\s]*(?:mesmo|demais|muito|cara|men|mano|amig[ao]|tio))?[!.\s]*$/,
+  /^vlw+[!.\s]*$/,
+  /^thx[!.\s]*$/,
+  /^thanks?[!.\s]*$/,
+  /^tmj[!.\s]*$/,
+  /^tamo junto[!.\s]*$/,
+  /^agradecid[ao][!.\s]*$/,
+  // "Agradeço" / "Agradeço!" / "Agradeço você" / "Agradeço mesmo".
+  // NÃO casa "Agradeço seu contato, respondo em breve" (auto-reply).
+  /^agrade[cç]o(?:[!.\s]*(?:vc|voc[êe]|mesmo|demais|muito|mt))?[!.\s]*$/,
 ];
 
 // "Tchau / até / flw" — usuario encerrando a conversa
@@ -984,6 +996,14 @@ function normalize(text: string): string {
 function matchIntent(norm: string): Intencao | null {
   for (const { intencao, padroes } of INTENT_RULES) {
     if (padroes.some((p) => p.test(norm))) {
+      // v3.18.0 — AGRADECIMENTO em msg longa (>30 chars) é quase sempre
+      // auto-reply ("Agradeço seu contato, respondo em breve"). Mesmo
+      // com pattern endurecido pra exigir final-de-msg, esta verificação
+      // serve de cinto-e-suspensório. Mensagens curtas ("obrigado",
+      // "valeu", "vlw") continuam casando normal.
+      if (intencao === Intencao.AGRADECIMENTO && norm.length > 30) {
+        continue;
+      }
       return intencao;
     }
   }
