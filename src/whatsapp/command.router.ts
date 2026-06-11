@@ -1181,6 +1181,21 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     return;
   }
 
+  // v3.21.0 (caso Bruna 11/06 16:39) — detecta pergunta AMBÍGUA entre
+  // "placar dos jogos" e "ranking do bolão". Termos curtos/genéricos
+  // como "placares de todos", "placar", "mostrar placar", "resultados"
+  // não especificam qual placar — bot adiciona sugestão explícita do
+  // ranking ao final da resposta de jogos.
+  const rawLower = raw.toLowerCase().trim();
+  const perguntaAmbigua =
+    !ground.detectado?.times?.length &&
+    (/^placares?\??$/.test(rawLower) ||
+      /^placares?\s+de\s+todos/.test(rawLower) ||
+      /^mostrar (?:o |os )?placar/.test(rawLower) ||
+      /\bme mostra (?:o |os )?placar/.test(rawLower) ||
+      /^resultados?\??$/.test(rawLower) ||
+      /\bcomo (?:estao|estão|tao|tão|ta|tá) (?:o |os )?placar/.test(rawLower));
+
   const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
   if (boloes.length === 0) {
     await sendText({
@@ -1235,12 +1250,14 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
 
   if (unicos.length === 0) {
     const quem = timesMencionados.length > 0 ? ` de ${timesMencionados.join(' / ')}` : '';
-    await sendText({
-      to: msg.waId,
-      text:
-        `🤷 Não achei jogo${quem} rolando agora nem encerrado nas últimas 48h nos seus bolões.\n\n` +
-        `Manda *próximos jogos* pra ver a agenda.`,
-    });
+    let textoVazio =
+      `🤷 Não achei jogo${quem} rolando agora nem encerrado nas últimas 48h nos seus bolões.\n\n` +
+      `Manda *próximos jogos* pra ver a agenda.`;
+    // v3.21.0 — ambíguo: pode ser que ele queira o ranking
+    if (perguntaAmbigua) {
+      textoVazio += `\n\n📊 _Se queria ver o *ranking do bolão* (pontuação de cada participante), manda *ranking*._`;
+    }
+    await sendText({ to: msg.waId, text: textoVazio });
     return;
   }
 
@@ -1263,12 +1280,20 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     return `⏳ ${j.timeCasa} x ${j.timeVisitante} — encerrado, _aguardando placar oficial_ _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
   });
 
-  await sendText({
-    to: msg.waId,
-    text:
-      `⚽ *Placares recentes:*\n\n${linhas.join('\n')}\n\n` +
-      `_Placar oficial chega em até ~1h após o apito final (base pública). Pontos calculam ~10 min depois — manda *meus pontos* pra conferir._`,
-  });
+  // v3.21.0 — mensagem reflete: placar parcial não rola, oficial em ~1h,
+  // pontos ~10min depois → ranking atualiza ~1h10 após o apito final.
+  // Em modo ambíguo, oferece o caminho do ranking explicitamente
+  // (caso Bruna 11/06 — "Placares de todos").
+  let textoFinal =
+    `⚽ *Placares dos jogos:*\n\n${linhas.join('\n')}\n\n` +
+    `_⏱️ Placar oficial chega em até *~1h* após o apito final (base pública). Pontos do bolão calculam ~10 min depois — total *~1h10* do fim do jogo até atualizar o ranking._`;
+  if (perguntaAmbigua) {
+    textoFinal +=
+      `\n\n📊 *Quer ver o ranking do bolão?*\n` +
+      `Manda *ranking* — mostra a pontuação de cada participante.\n` +
+      `Manda *meus pontos* — só a sua pontuação.`;
+  }
+  await sendText({ to: msg.waId, text: textoFinal });
 }
 
 /**
@@ -1521,14 +1546,17 @@ async function handleQuandoComeca(msg: IncomingMessage, usuarioId: string) {
 
   const proxJogo = rodadaAberta.jogos[0];
   const dataStr = formatarDataHoraComDiaBR(proxJogo.dataHora);
-  const fechaStr = formatarDataHoraCurtaBR(rodadaAberta.dataFechamento);
+  // v3.21.0 — antes mostrava "Palpites aceitos até: <dataFechamento>"
+  // que era o kickoff do 1º jogo. Pra Copa 2026 (72 jogos em 15 dias)
+  // isso era enganoso: cada jogo trava no seu próprio kickoff, não na
+  // data global da rodada. Mensagem reflete a regra real.
   await sendText({
     to: msg.waId,
     text:
       `📅 *${bolaoEscolhido.nome}* — Rodada ${rodadaAberta.numero}\n\n` +
       `🚀 Próximo jogo: *${proxJogo.timeCasa} x ${proxJogo.timeVisitante}*\n` +
       `🗓️ ${dataStr}\n\n` +
-      `🔒 Palpites aceitos até: *${fechaStr}*`,
+      `🔒 Cada palpite trava no *kickoff do jogo dele* (fuso de Brasília 🇧🇷). Vai palpitando aos poucos!`,
   });
 }
 
