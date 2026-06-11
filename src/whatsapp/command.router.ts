@@ -7,6 +7,7 @@ import {
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA } from './lista.helper.js';
 import { normalizeTeamName, validarPlacar } from '../utils/validators.js';
+import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR } from '../utils/datetime.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import {
   getSession,
@@ -1124,19 +1125,8 @@ async function handleQuandoComeca(msg: IncomingMessage, usuarioId: string) {
   }
 
   const proxJogo = rodadaAberta.jogos[0];
-  const dataStr = proxJogo.dataHora.toLocaleString('pt-BR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const fechaStr = rodadaAberta.dataFechamento.toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const dataStr = formatarDataHoraComDiaBR(proxJogo.dataHora);
+  const fechaStr = formatarDataHoraCurtaBR(rodadaAberta.dataFechamento);
   await sendText({
     to: msg.waId,
     text:
@@ -3914,12 +3904,8 @@ async function mostrarProximosJogos(
     const fimDoLote = offset + lote.length;
 
     const linhas = lote.map((j) => {
-      const data = j.dataHora.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      // v3.11.0 — força Brasília (caso Jeni 11/06: VPS UTC mostrava 22:00 em vez de 19:00)
+      const data = formatarDataHoraCurtaBR(j.dataHora);
       const marcado = palpitadosIds.has(j.id) ? '✅' : '⚪';
       return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}`;
     });

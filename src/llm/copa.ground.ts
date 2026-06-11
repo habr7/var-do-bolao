@@ -29,6 +29,11 @@ import {
   getTimes,
   metadata,
   normalizarNomeTime,
+  // v3.11.0 — convocações/squads
+  getJogadoresDoTime,
+  buscarJogador,
+  getPosicaoLabel,
+  type Jogador,
 } from '../modules/copa-2026/index.js';
 
 export type MotivoGround =
@@ -38,7 +43,9 @@ export type MotivoGround =
   | 'ESTADIO_SEDE'
   | 'GERAL_COPA'
   | 'FORA_DE_COPA'
-  | 'AMBIGUO';
+  | 'AMBIGUO'
+  // v3.11.0 — pergunta sobre convocação/elenco/jogador
+  | 'SQUAD';
 
 export interface FatosCopa {
   dentroDoEscopo: boolean;
@@ -198,6 +205,17 @@ function detectarPedidoData(textoNormalizado: string): boolean {
   );
 }
 
+/**
+ * v3.11.0 — detecta perguntas sobre convocação/elenco de uma seleção
+ * da Copa 2026. Cobre "quem foi convocado pra X", "elenco da X",
+ * "escalação", "squad", "convocados", "jogadores convocados", etc.
+ */
+function detectarPedidoSquad(textoNormalizado: string): boolean {
+  return /\b(convoca|convocad[oa]s?|elenco|squad|escala[cç][ãa]o|jogadores|convoc)\b/.test(
+    textoNormalizado,
+  );
+}
+
 // ============================================================
 // Formatação de bloco
 // ============================================================
@@ -276,6 +294,42 @@ function blocoSede(): string {
   return linhas.join('\n');
 }
 
+/**
+ * v3.11.0 — bloco com convocados de uma seleção. Lista até 26 jogadores
+ * agrupados por posição. Acompanha rótulo da fonte (mesmo cabeçalho que
+ * o resto do grounding).
+ */
+function blocoJogadores(nome: string): string {
+  const jogadores = getJogadoresDoTime(nome);
+  if (!jogadores || jogadores.length === 0) {
+    return `Convocação da seleção ${nome} ainda não disponível nos dados oficiais.`;
+  }
+  const grupos: Record<string, Jogador[]> = { GK: [], DF: [], MF: [], FW: [] };
+  for (const j of jogadores) grupos[j.posicao].push(j);
+  const linhas = [`Convocação de ${nome} (${jogadores.length} jogadores):`];
+  for (const pos of ['GK', 'DF', 'MF', 'FW'] as const) {
+    if (grupos[pos].length === 0) continue;
+    const nomes = grupos[pos]
+      .sort((a, b) => a.numero - b.numero)
+      .map((j) => `#${j.numero} ${j.nome}`)
+      .join(', ');
+    linhas.push(`${getPosicaoLabel(pos)} (${pos}): ${nomes}.`);
+  }
+  return linhas.join('\n');
+}
+
+/**
+ * v3.11.0 — bloco quando user pergunta sobre um jogador específico
+ * ("Neymar foi convocado?", "tem o Vinicius?"). Confirma a presença
+ * (ou ausência) E inclui seleção/número/posição.
+ */
+function blocoJogadorEspecifico(busca: string): string | null {
+  const hit = buscarJogador(busca);
+  if (!hit) return null;
+  const { time, jogador } = hit;
+  return `Jogador ${jogador.nome} (${getPosicaoLabel(jogador.posicao)}) foi convocado pela seleção ${time}, camisa #${jogador.numero}.`;
+}
+
 function blocoEstadio(nomeOuCidade: string): string {
   const e = getEstadio(nomeOuCidade);
   if (!e) return '';
@@ -339,6 +393,52 @@ export function construirFatosCopa2026(textoUsuario: string): FatosCopa {
   const grupos = detectarGrupos(norm);
   const pedeSede = detectarPedidoSede(norm);
   const pedeData = detectarPedidoData(norm);
+  const pedeSquad = detectarPedidoSquad(norm);
+
+  // v3.11.0 — SQUAD tem precedência sobre fora-de-escopo SE a pergunta
+  // é claramente sobre convocação E identificamos algo. Os termos
+  // "neymar"/"mbappe"/etc estavam em TERMOS_FORA_ESCOPO porque ANTES
+  // o bot não tinha dados de jogadores. Agora tem — perguntas tipo
+  // "Neymar foi convocado?" / "tem Mbappé na convocação da França?"
+  // devem ser respondidas com fatos verificados, não recusadas.
+  if (pedeSquad) {
+    const partesSquad: string[] = [blocoHeader()];
+    let teveAlgo = false;
+    // 1) Time mencionado → lista a convocação
+    for (const t of times) {
+      partesSquad.push(blocoJogadores(t));
+      teveAlgo = true;
+    }
+    // 2) Senão, tenta achar um jogador específico citado
+    if (!teveAlgo) {
+      // ngrams de 1-3 palavras buscando jogador convocado
+      const palavras = original.split(/\s+/).filter(Boolean);
+      const tentativas = new Set<string>();
+      for (let n = 3; n >= 1; n--) {
+        for (let i = 0; i + n <= palavras.length; i++) {
+          tentativas.add(palavras.slice(i, i + n).join(' '));
+        }
+      }
+      for (const cand of tentativas) {
+        const b = blocoJogadorEspecifico(cand);
+        if (b) {
+          partesSquad.push(b);
+          teveAlgo = true;
+          break;
+        }
+      }
+    }
+    if (teveAlgo) {
+      return {
+        dentroDoEscopo: true,
+        motivo: 'SQUAD',
+        bloco: partesSquad.join('\n\n'),
+        detectado: { times: times.length ? times : undefined },
+      };
+    }
+    // Pediu squad mas não achamos nem time nem jogador → cai no fluxo
+    // normal, que provavelmente vai pra fora-de-escopo ou ambíguo.
+  }
 
   if (foraEscopo) {
     // Se ALÉM do termo fora de escopo a mensagem cita um time da Copa,

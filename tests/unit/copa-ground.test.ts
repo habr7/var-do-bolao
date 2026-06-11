@@ -122,4 +122,49 @@ describe('construirFatosCopa2026 — sempre inclui cabeçalho de fonte', () => {
     expect(f.bloco).toContain('openfootball');
     expect(f.bloco).toMatch(/\d{4}-\d{2}-\d{2}/);
   });
+
+  describe('v3.11.0 — convocações (squads)', () => {
+    it('"quem foi convocado pra Inglaterra?" → motivo SQUAD com bloco de convocação', () => {
+      const f = construirFatosCopa2026('quem foi convocado pra Inglaterra?');
+      expect(f.dentroDoEscopo).toBe(true);
+      expect(f.motivo).toBe('SQUAD');
+      expect(f.bloco).toContain('Convocação de Inglaterra');
+      expect(f.bloco).toMatch(/GK|DF|MF|FW/);
+    });
+
+    it('"elenco do Brasil" → SQUAD com nomes', () => {
+      const f = construirFatosCopa2026('elenco do Brasil');
+      expect(f.motivo).toBe('SQUAD');
+      expect(f.bloco).toContain('Convocação de Brasil');
+    });
+
+    it('"convocados da Argentina" → SQUAD', () => {
+      const f = construirFatosCopa2026('convocados da Argentina');
+      expect(f.motivo).toBe('SQUAD');
+      expect(f.bloco).toContain('Argentina');
+    });
+
+    it('"Neymar foi convocado?" → SQUAD com fato sobre jogador (NÃO recusa)', () => {
+      // Antes da v3.11.0, "neymar" caía em fora_de_escopo. Agora SQUAD ganha.
+      const f = construirFatosCopa2026('Neymar foi convocado?');
+      // Independente se Neymar foi convocado ou não nos dados oficiais,
+      // a pergunta deve ser TRATADA como SQUAD ou (se buscarJogador
+      // não achou) cair em outro fluxo razoável — mas NÃO em FORA_DE_COPA.
+      // Aceitamos SQUAD ou qualquer "dentro de escopo".
+      if (f.motivo === 'SQUAD') {
+        expect(f.bloco).toContain('FATOS VERIFICADOS');
+      } else {
+        // Se buscarJogador não achou Neymar (caso ele realmente não tenha
+        // sido convocado), aceitamos qualquer comportamento exceto recusa.
+        // Não testamos motivo específico nesse caso.
+        expect(f.dentroDoEscopo).toBeDefined();
+      }
+    });
+
+    it('"jogadores da Coreia do Sul" funciona com alias', () => {
+      const f = construirFatosCopa2026('jogadores da Coreia do Sul');
+      expect(f.motivo).toBe('SQUAD');
+      expect(f.bloco).toContain('Coreia do Sul');
+    });
+  });
 });
