@@ -574,6 +574,11 @@ async function dispatchIntencao(
       await handleReclamacaoBug(msg, usuarioId, raw);
       return true;
 
+    // v3.17.0 — caso Camila 11/06: explica público vs privado de palpites
+    case Intencao.PALPITE_OUTROS:
+      await handlePalpiteOutros(msg, usuarioId);
+      return true;
+
     case Intencao.QUANDO_COMECA:
       await handleQuandoComeca(msg, usuarioId);
       return true;
@@ -1366,6 +1371,41 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
       `• *meus pontos* — sua pontuação por rodada\n` +
       `• *regras* — critérios completos com exemplos\n\n` +
       `Se depois disso ainda achar algo estranho, me manda o jogo específico e o placar que você esperava. 🤝`,
+  });
+}
+
+/**
+ * v3.17.0 — PALPITE_OUTROS: usuário perguntando se vai ver palpite/
+ * desempenho dos outros participantes em cada jogo.
+ *
+ * Bug motivador (Camila 11/06, print 1): bot respondeu "não" duas vezes
+ * defensivo, sem distinguir o que é público (total no ranking) do que é
+ * privado (placar individual). A pergunta dela ("vai falar quem pontuou
+ * em cada jogo?") era razoável porque o ranking JÁ mostra quem está em
+ * primeiro com X pts — confusão natural.
+ *
+ * Resposta calibrada:
+ *   1. Acolhe (não defensivo)
+ *   2. Distingue público vs privado de forma EXPLÍCITA
+ *   3. Oferece alternativa útil (pontos do próprio user por jogo)
+ */
+async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.PALPITE_OUTROS');
+  void usuarioId;
+  await sendText({
+    to: msg.waId,
+    text:
+      `🔐 *Boa pergunta — vou explicar como funciona:*\n\n` +
+      `🔓 *Público* (todo mundo do bolão vê):\n` +
+      `• A *pontuação total* de cada participante no *ranking* — isso é necessário pro ranqueamento funcionar.\n\n` +
+      `🔒 *Privado* (só a própria pessoa vê):\n` +
+      `• *O placar específico* que cada um palpitou em cada jogo.\n` +
+      `• Quantos pontos cada um fez *em cada jogo individual*.\n\n` +
+      `Ou seja: você vai saber que a Maria está em 1º com 80 pts — mas não vai saber o que ela palpitou em Brasil x Marrocos.\n\n` +
+      `*Pra ver seu próprio desempenho jogo a jogo*, manda:\n` +
+      `• *pontos de ontem* — quanto você fez em cada jogo recente\n` +
+      `• *meus pontos* — seu total geral\n` +
+      `• *ranking* — classificação do bolão`,
   });
 }
 
