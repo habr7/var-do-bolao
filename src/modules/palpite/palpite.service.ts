@@ -282,3 +282,145 @@ export async function registrarPalpiteEmTodosBoloes(input: {
 
   return { registrados, erros };
 }
+
+/**
+ * v3.12.0 — variante PLURAL: registra uma LISTA de palpites em TODOS
+ * os bolões abertos do user em que o jogo correspondente exista.
+ *
+ * Motivação real (Bruna 10/06): user participava de 2 bolões com mesma
+ * rodada de amistosos e tinha que mandar a lista de 10 palpites 2x
+ * (uma por bolão). 36 mensagens pra registrar 20 palpites — atrito
+ * absurdo.
+ *
+ * Estratégia (robustez):
+ * 1. Pra cada PALPITE, busca quais bolões abertos do user têm o jogo
+ *    (`buscarBoloesComJogo` — já existe).
+ * 2. Agrupa por bolão, pra reportar consolidado.
+ * 3. Pra cada (bolão, palpite), tenta `registrarPalpiteEmRodada` que
+ *    já é IDEMPOTENTE via UPSERT em `(palpiteId, jogoId)` no
+ *    repository — reenvio = sobrescrita silenciosa, sem duplicar.
+ * 4. Retry simples (1 tentativa extra com 200ms de backoff) se erro
+ *    parecer transitório (conexão Prisma). Erros de domínio
+ *    ("jogo ja comecou") NÃO são retentados.
+ *
+ * Retorna relatório por bolão com:
+ * - `registrados`: quantos palpites do lote foram salvos
+ * - `naoAplicaveis`: jogos do lote que não existem nesse bolão
+ *   (NÃO é erro — é estado normal, ex: amistoso só num dos 2 bolões)
+ * - `erros`: falhas que sobreviveram ao retry, com jogo e motivo
+ */
+export async function registrarPalpitesEmTodosBoloes(input: {
+  usuarioId: string;
+  palpites: Array<{
+    timeCasa: string;
+    timeVisitante: string;
+    golsCasa: number;
+    golsVisitante: number;
+  }>;
+}): Promise<{
+  porBolao: Array<{
+    bolaoId: string;
+    bolaoNome: string;
+    registrados: number;
+    naoAplicaveis: number;
+    erros: Array<{ jogo: string; motivo: string }>;
+  }>;
+  totalPalpitesDoLote: number;
+}> {
+  // 1) Pra cada palpite, descobre em quais bolões ele tem match
+  const matchesPorPalpite: Array<{
+    palpite: typeof input.palpites[number];
+    matches: Awaited<ReturnType<typeof buscarBoloesComJogo>>;
+  }> = [];
+  for (const p of input.palpites) {
+    const matches = await buscarBoloesComJogo(input.usuarioId, p.timeCasa, p.timeVisitante);
+    matchesPorPalpite.push({ palpite: p, matches });
+  }
+
+  // 2) Inverte: agrupa por bolão (quais palpites desse lote vão pra cada bolão)
+  type Agg = {
+    bolaoNome: string;
+    rodadaId: string;
+    porPalpite: Array<{
+      palpite: typeof input.palpites[number];
+      jogoLabel: string;
+    }>;
+  };
+  const porBolaoMap = new Map<string, Agg>();
+
+  for (const { palpite, matches } of matchesPorPalpite) {
+    for (const m of matches) {
+      if (!porBolaoMap.has(m.bolaoId)) {
+        porBolaoMap.set(m.bolaoId, {
+          bolaoNome: m.bolaoNome,
+          rodadaId: m.rodadaId,
+          porPalpite: [],
+        });
+      }
+      porBolaoMap.get(m.bolaoId)!.porPalpite.push({
+        palpite,
+        jogoLabel: `${palpite.timeCasa} x ${palpite.timeVisitante}`,
+      });
+    }
+  }
+
+  // 3) Registra em PARALELO por bolão (cada bolão é independente).
+  //    Dentro de cada bolão, registra sequencial pra não competir transações.
+  const totalPalpites = input.palpites.length;
+  const resultados = await Promise.all(
+    [...porBolaoMap.entries()].map(async ([bolaoId, agg]) => {
+      const errosLocal: Array<{ jogo: string; motivo: string }> = [];
+      let registrados = 0;
+      for (const item of agg.porPalpite) {
+        try {
+          await registrarComRetry({
+            usuarioId: input.usuarioId,
+            rodadaId: agg.rodadaId,
+            ...item.palpite,
+          });
+          registrados++;
+        } catch (err) {
+          errosLocal.push({ jogo: item.jogoLabel, motivo: (err as Error).message });
+        }
+      }
+      return {
+        bolaoId,
+        bolaoNome: agg.bolaoNome,
+        registrados,
+        naoAplicaveis: totalPalpites - agg.porPalpite.length,
+        erros: errosLocal,
+      };
+    }),
+  );
+
+  // Ordem estável: por nome de bolão
+  resultados.sort((a, b) => a.bolaoNome.localeCompare(b.bolaoNome));
+
+  return { porBolao: resultados, totalPalpitesDoLote: totalPalpites };
+}
+
+/**
+ * v3.12.0 — wrapper de `registrarPalpiteEmRodada` com 1 retry de 200ms.
+ * Só retenta se o erro parecer transitório (string não menciona
+ * domínio "ja comecou" / "ja terminou" / "nao encontrado"). UPSERT
+ * garante que o retry não duplica palpite.
+ */
+async function registrarComRetry(input: Parameters<typeof registrarPalpiteEmRodada>[0]): Promise<void> {
+  try {
+    await registrarPalpiteEmRodada(input);
+    return;
+  } catch (err) {
+    const msg = (err as Error).message.toLowerCase();
+    const ehDominio =
+      msg.includes('ja comecou') ||
+      msg.includes('ja terminou') ||
+      msg.includes('nao encontrado') ||
+      msg.includes('não encontrado') ||
+      msg.includes('placar') ||
+      msg.includes('rodada fechada');
+    if (ehDominio) throw err;
+    // Erro transitório — 1 retry
+    await new Promise((r) => setTimeout(r, 200));
+    await registrarPalpiteEmRodada(input);
+  }
+}

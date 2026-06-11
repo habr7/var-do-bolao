@@ -5,7 +5,7 @@ import {
   parseMultiplePalpites,
   parseMultiplePalpitesDetalhado,
 } from './message.parser.js';
-import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA } from './lista.helper.js';
+import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA, ehEscolhaTodos } from './lista.helper.js';
 import { normalizeTeamName, validarPlacar } from '../utils/validators.js';
 import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR } from '../utils/datetime.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
@@ -119,6 +119,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       'CONFIRMANDO_APAGAR_PALPITE',
       // Sprint 3 (bug Jeni 17/05)
       'CONFIRMANDO_PALPITE_MULTI_BOLAO',
+      // v3.12.0 (Bruna 10/06) — lote em N bolões
+      'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO',
     ]);
     const podeAceitarCodigoAqui = !ESTADOS_PROIBIDOS_CODIGO.has(session.state);
     if (codigoNaMsg && podeAceitarCodigoAqui) {
@@ -187,6 +189,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleEscolhendoBolaoParaPalpitar(msg, usuario.id, session);
       case 'CONFIRMANDO_PALPITES_INLINE':
         return await handleConfirmandoPalpitesInline(msg, usuario.id, session);
+      case 'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO':
+        return await handleConfirmandoPalpitesInlineMultiBolao(msg, usuario.id, session);
       case 'ESCOLHENDO_INTENCAO_PALPITES':
         return await handleEscolhendoIntencaoPalpites(msg, usuario.id);
       case 'ESCOLHENDO_BOLAO_CONVITE':
@@ -1835,7 +1839,10 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
     }
   }
 
-  // >1 bolao com rodada aberta — guarda texto cru e pergunta qual
+  // >1 bolao com rodada aberta — guarda texto cru e pergunta qual.
+  // v3.12.0 (Bruna 10/06): se palpite é LOTE (>1 linha) E user tem >1
+  // bolão, oferece opção EXTRA "TODOS" pra registrar em todos de uma
+  // vez. Evita o atrito de mandar a mesma lista N vezes.
   await setSession(msg.waId, {
     state: 'ESCOLHENDO_BOLAO_PARA_PALPITAR',
     ctx: {
@@ -1849,10 +1856,23 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
   const lista = formatarBoloesNumerados(
     boloesComRodadaAberta.map((b) => ({ id: b.bolaoId, nome: b.nome, codigo: b.codigo })),
   );
+
+  // Detecta se faz sentido oferecer TODOS (lote com >1 linhas que
+  // parecem palpite). Heurística leve: 2+ âncoras NxN no texto.
+  const totalAnchorsNxN = (msg.text.match(/\d+\s*[xX-]\s*\d+/g) ?? []).length;
+  const ehLote = totalAnchorsNxN >= 2;
+
+  const opcaoTodos = ehLote
+    ? `\n${boloesComRodadaAberta.length + 1}. ⭐ *TODOS* (em todos os ${boloesComRodadaAberta.length} bolões de uma vez)`
+    : '';
+  const dicaTodos = ehLote
+    ? `\n_(responda *${boloesComRodadaAberta.length + 1}* ou *todos* pra aplicar em todos)_`
+    : '';
+
   await sendText({
     to: msg.waId,
     text:
-      `🤔 Pra qual bolão é esse palpite?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+      `🤔 Pra qual bolão é esse palpite?\n\n${lista}${opcaoTodos}\n\n${DICA_RESPOSTA_NUMERICA}${dicaTodos}`,
   });
 }
 
@@ -1898,6 +1918,14 @@ async function handleEscolhendoBolaoParaPalpitar(
     await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
     return;
   }
+
+  // v3.12.0 (Bruna 10/06): se user escolheu "TODOS" / "ambos" / índice
+  // N+1, registra o lote em todos os bolões abertos numa tacada.
+  if (ehEscolhaTodos(msg.text, opcoes.length)) {
+    await iniciarConfirmacaoPalpitesMultiBolao(msg, usuarioId, textoCru, opcoes);
+    return;
+  }
+
   const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
   if (!escolhido) {
     const lista = formatarBoloesNumerados(opcoes);
@@ -2064,6 +2092,203 @@ async function iniciarConfirmacaoPalpites(
   texto += `\n\nConfirma? _(responda *sim*, *não* ou *refazer*)_`;
   void bolaoId; // referencia futura — guardado p log/telemetria
   await sendText({ to: msg.waId, text: texto });
+}
+
+/**
+ * v3.12.0 (Bruna 10/06) — variante multi-bolão. Extrai palpites usando
+ * a UNIÃO dos jogos abertos de todos os bolões selecionados como
+ * ground truth, monta preview listando os bolões, e entra em
+ * `CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO`.
+ *
+ * Bug real: user em 2 bolões teve que mandar lista de 10 palpites 2x.
+ * Agora manda 1x e bot registra em todos numa tacada (após confirmação).
+ */
+async function iniciarConfirmacaoPalpitesMultiBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  textoCru: string,
+  boloes: Array<{ id: string; nome: string }>,
+) {
+  // Coleta jogos abertos da UNIÃO de todas as rodadas
+  const rodadas = await prisma.rodada.findMany({
+    where: { bolaoId: { in: boloes.map((b) => b.id) }, status: 'ABERTA' },
+    include: { jogos: { where: { status: { in: ['AGENDADO', 'AO_VIVO'] } } } },
+  });
+  // Dedup jogos por (timeCasa, timeVisitante) — mesmo amistoso em N bolões = 1 jogo lógico aqui
+  const jogosUnicosMap = new Map<string, { timeCasa: string; timeVisitante: string }>();
+  for (const r of rodadas) {
+    for (const j of r.jogos) {
+      const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}`;
+      if (!jogosUnicosMap.has(k)) {
+        jogosUnicosMap.set(k, { timeCasa: j.timeCasa, timeVisitante: j.timeVisitante });
+      }
+    }
+  }
+  const jogosUnicos = [...jogosUnicosMap.values()];
+  if (jogosUnicos.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '❌ Nenhum desses bolões tem jogos abertos pra palpite agora.',
+    });
+    return;
+  }
+
+  // Extrai palpites: regex + LLM (mesmo padrão do `iniciarConfirmacaoPalpites`)
+  const regexResult = parseMultiplePalpitesDetalhado(textoCru);
+  const llmPalpites = await extrairPalpites(textoCru, jogosUnicos);
+
+  // Mescla: chave = (timeCasa, timeVisitante) normalizado. LLM vence regex.
+  type PalpiteResolvido = { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number };
+  const resolvidos = new Map<string, PalpiteResolvido>();
+  const acharJogo = (tc: string, tv: string) => {
+    const normTc = normalizeTeamName(tc);
+    const normTv = normalizeTeamName(tv);
+    return jogosUnicos.find((j) => {
+      const jc = normalizeTeamName(j.timeCasa);
+      const jv = normalizeTeamName(j.timeVisitante);
+      return (jc.includes(normTc) || normTc.includes(jc)) && (jv.includes(normTv) || normTv.includes(jv));
+    });
+  };
+  for (const p of regexResult.ok) {
+    const j = acharJogo(p.timeCasa, p.timeVisitante);
+    if (j) {
+      const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}`;
+      resolvidos.set(k, { timeCasa: j.timeCasa, timeVisitante: j.timeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante });
+    }
+  }
+  for (const p of llmPalpites) {
+    const j = acharJogo(p.timeCasa, p.timeVisitante);
+    if (j) {
+      const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}`;
+      resolvidos.set(k, { timeCasa: j.timeCasa, timeVisitante: j.timeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante });
+    }
+  }
+
+  const palpites = [...resolvidos.values()];
+  if (palpites.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não consegui entender nenhum palpite dessa mensagem.\n\n` +
+        `Tenta de novo no formato *Time1 NxN Time2* (ex: \`Brasil 2x1 Marrocos\`).\n` +
+        `Pra ver jogos abertos: *próximos jogos*.`,
+    });
+    return;
+  }
+
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO',
+    ctx: {
+      palpitesParaConfirmarMultiBolao: {
+        palpites,
+        bolaoNomes: boloes.map((b) => b.nome),
+      },
+    },
+  });
+
+  const linhasPalpite = palpites
+    .map((p, i) => `${i + 1}. ${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`)
+    .join('\n');
+  const linhasBoloes = boloes.map((b) => `• *${b.nome}*`).join('\n');
+  void usuarioId;
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `📝 Vou registrar *${palpites.length} palpite(s)* nos *${boloes.length} bolões*:\n\n` +
+      `${linhasBoloes}\n\n` +
+      `${linhasPalpite}\n\n` +
+      `Confirma? _(responda *sim*, *não* ou *refazer*)_`,
+  });
+}
+
+/**
+ * v3.12.0 — handler de confirmação do lote × N bolões. Reusa
+ * `registrarPalpitesEmTodosBoloes` do service que já é idempotente
+ * (UPSERT) e best-effort. Reporta resultado consolidado por bolão.
+ */
+async function handleConfirmandoPalpitesInlineMultiBolao(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const pendente = session.ctx?.palpitesParaConfirmarMultiBolao;
+  if (!pendente || pendente.palpites.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const texto = msg.text.trim().toLowerCase();
+  if (/^(refazer|refaz|de novo|tentar de novo)\b/.test(texto)) {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '🔄 Beleza, esqueci esses palpites. Manda de novo no formato que preferir.',
+    });
+    return;
+  }
+  const resp = await interpretarSimNao(msg.text);
+  if (resp === 'NAO') {
+    await resetSession(msg.waId);
+    await sendText({
+      to: msg.waId,
+      text: '👍 Beleza, não registrei nada. Quando quiser palpitar é só mandar.',
+    });
+    return;
+  }
+  if (resp !== 'SIM') {
+    await sendText({
+      to: msg.waId,
+      text: '🤔 Responde *sim* pra confirmar, *não* pra cancelar, ou *refazer* pra mandar de novo.',
+    });
+    return;
+  }
+
+  // Verifica placares absurdos antes de registrar
+  const absurdo = pendente.palpites.find(
+    (p) => !validarPlacar(p.golsCasa, p.golsVisitante).ok,
+  );
+  if (absurdo) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `⚠️ Placar incomum: *${absurdo.timeCasa} ${absurdo.golsCasa} × ${absurdo.golsVisitante} ${absurdo.timeVisitante}*.\n\n` +
+        `Manda *refazer* e corrige esse palpite antes de aplicar em todos.`,
+    });
+    return;
+  }
+
+  const { porBolao, totalPalpitesDoLote } = await palpiteService.registrarPalpitesEmTodosBoloes({
+    usuarioId,
+    palpites: pendente.palpites,
+  });
+  await resetSession(msg.waId);
+
+  // Monta resumo. Garantia "registrei mesmo": reporta tudo, mesmo
+  // parcial. Quem manda de novo: idempotência via UPSERT cobre.
+  const linhas: string[] = [];
+  let totalRegistrados = 0;
+  let totalErros = 0;
+  for (const r of porBolao) {
+    const sufixoErros = r.erros.length > 0 ? ` ⚠️ (${r.erros.length} erro(s))` : '';
+    const sufixoSkip =
+      r.naoAplicaveis > 0 ? ` _(${r.naoAplicaveis} jogo(s) não está(ão) neste bolão)_` : '';
+    linhas.push(`• *${r.bolaoNome}*: ${r.registrados}/${totalPalpitesDoLote}${sufixoErros}${sufixoSkip}`);
+    totalRegistrados += r.registrados;
+    totalErros += r.erros.length;
+  }
+
+  let resumo = `📺 *VAR confirmou*: lote aplicado em ${porBolao.length} bolão(ões)!\n\n${linhas.join('\n')}\n\n*Total: ${totalRegistrados} palpite(s) registrado(s).*`;
+  if (totalErros > 0) {
+    const detalhes = porBolao
+      .flatMap((r) => r.erros.map((e) => `  • [${r.bolaoNome}] ${e.jogo}: ${e.motivo}`))
+      .slice(0, 6)
+      .join('\n');
+    resumo += `\n\n⚠️ Alguns palpites falharam:\n${detalhes}\n\n_Manda a mensagem de novo pra tentar — registros já feitos não duplicam._`;
+  }
+  await sendText({ to: msg.waId, text: resumo });
 }
 
 /**
