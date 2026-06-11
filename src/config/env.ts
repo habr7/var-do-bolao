@@ -85,6 +85,18 @@ const baseSchema = z.object({
   // se vazio, a mensagem usa "do VAR do Bolão" como fallback.
   WHATSAPP_BUSINESS_NUMBER: z.string().default(''),
 
+  // v3.26.0 — Broadcast administrativo (aviso pra todos os usuários).
+  // Só número(s) dono(s) (lista por vírgula, só dígitos) podem disparar.
+  OWNER_WHATSAPP_IDS: z.string().default('5511976135412'),
+  // Modo teste: quando TRUE, o broadcast envia SÓ pro próprio dono que
+  // disparou (valida o fluxo com segurança). Trocar pra false só depois
+  // de validar — e com EVOLUTION_WEBHOOK_TOKEN setado em produção.
+  BROADCAST_TEST_MODE: z.preprocess(coerceBool, z.boolean()).default(true),
+  // Marcador que abre o comando de broadcast (no início da mensagem).
+  BROADCAST_MARKER: z.string().default('#ENVIOPARAVARDOBOLAO#'),
+  // Delay (ms) entre envios no broadcast — protege contra ban/rate-limit.
+  BROADCAST_THROTTLE_MS: z.coerce.number().int().min(0).default(1000),
+
   // LLM — opcional, melhora compreensao de linguagem natural quando o
   // parser regex falha. Se LLM_ENABLED=false, sistema continua funcional
   // usando so regex/keywords.
