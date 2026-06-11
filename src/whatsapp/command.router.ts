@@ -53,9 +53,13 @@ import { renderizarConvite } from './convite.helper.js';
 import { incContador, registrarMsgNaoEntendida } from '../utils/metrics.js';
 import { parecAutoReply } from './auto-reply.detector.js';
 import { verificarAntiLoop, registrarResposta } from '../utils/resposta-cap.js';
+import { tentarBroadcastAdmin } from './broadcast.js';
 
 export interface IncomingMessage {
-  waId: string; // so digitos
+  // Em produção vem como JID completo (ex: "5511999999999@s.whatsapp.net"
+  // ou "...@lid"); no simulador vem só dígitos. Normalize quando precisar
+  // comparar (ver broadcast.ehDono). Pra enviar, use o valor como está.
+  waId: string;
   messageId: string;
   senderName: string;
   text: string;
@@ -75,6 +79,14 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
   try {
     // ISSUE-008: contador total de mensagens (denominador da taxa de fallback).
     void incContador('msg.total');
+
+    // v3.26.0 — Broadcast administrativo. Interceptado ANTES de tudo (anti-loop,
+    // usuário, parser, FSM): só dono + marcador exato dispara; qualquer outra
+    // mensagem (inclusive do dono sem o marcador) segue o fluxo normal.
+    if (await tentarBroadcastAdmin(msg)) {
+      void incContador('broadcast.admin');
+      return;
+    }
 
     // v3.18.0 — anti-loop (caso Lucas 11/06: 8 respostas em 60s por
     // ping-pong com auto-reply do WhatsApp Business). 3 camadas:
