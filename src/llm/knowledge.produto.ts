@@ -36,10 +36,10 @@ PRAZO DE PALPITE:
 PALPITES — FORMATOS ACEITOS:
 - "Brasil 2x1 Marrocos", "Bra 2 Mar 1", "BRA 2x1 MAR", "Brasil 2 a 1 Marrocos", "Brasil 2 por 1 Marrocos"
 - Linguagem natural: "acho que vai 3 a 0 pro Brasil", "Brasil perde de 1 a 0", "empate em 2"
-- MULTI-PALPITE: pode mandar VÁRIOS palpites de uma vez na mesma mensagem, separados por vírgula ou em linhas diferentes. Exemplo: "Brasil 2x1 Marrocos, México 1x1 África do Sul" registra os dois numa tacada.
-- EDITAR palpite: comando "corrigir palpite" / "mudar palpite" abre o fluxo. Aceita TAMBÉM placar inline: "corrigir Brasil 3x1 Marrocos" / "mudar pra Brasil 2x1" — registra direto sem perguntar mais nada. Em linguagem natural ("muda meu palpite pra 3 a 1 pro Brasil") o LLM extrai o placar e atualiza.
-- Quando edita, o bot mostra "Era X, virou Y" pra confirmar a substituição.
-- APAGAR palpite: comando "apagar palpite" / "desfazer palpite" remove (se jogo ainda não começou).
+- MULTI-PALPITE: vários palpites na mesma mensagem, separados por vírgula ou linhas. Ex: "Brasil 2x1 Marrocos, México 1x1 África do Sul".
+- MULTI-BOLÃO (v3.12.0): user com >1 bolão + lote → bot oferece "⭐ TODOS" na escolha; user responde *todos* → registra em todos de uma vez.
+- EDITAR palpite: "corrigir/mudar palpite" abre fluxo. Aceita placar inline: "corrigir Brasil 3x1 Marrocos". Mostra "Era X, virou Y".
+- APAGAR palpite: "apagar/desfazer palpite" remove (se jogo ainda não começou).
 
 RANKING:
 - Ordenado por pontuação total (maior pra menor).

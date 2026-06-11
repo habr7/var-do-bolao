@@ -71,7 +71,11 @@ export type ConversaState =
   | 'CONFIRMANDO_APAGAR_PALPITE'
   // Sprint 3 (bug Jeni 17/05) — confirmacao para auto-apply em multi-bolao
   // (ISSUE-015: mesmo jogo em N bolaes — antes registrava direto sem preview).
-  | 'CONFIRMANDO_PALPITE_MULTI_BOLAO';
+  | 'CONFIRMANDO_PALPITE_MULTI_BOLAO'
+  // v3.12.0 (Bruna 10/06) — lote de palpites + opção TODOS em N bolões.
+  // Caso real: user em 2 bolões teve que mandar 10 palpites 2x (36 msgs).
+  // Agora oferece "TODOS" na escolha; este state confirma o lote × N bolões.
+  | 'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -151,6 +155,17 @@ export interface ConversaContext {
     timeVisitante: string;
     golsCasa: number;
     golsVisitante: number;
+    bolaoNomes: string[]; // pra exibir no preview
+  };
+  // v3.12.0 (Bruna 10/06) — LOTE de palpites pra registrar em N bolões.
+  // Confirmação multi-bolão de lote.
+  palpitesParaConfirmarMultiBolao?: {
+    palpites: Array<{
+      timeCasa: string;
+      timeVisitante: string;
+      golsCasa: number;
+      golsVisitante: number;
+    }>;
     bolaoNomes: string[]; // pra exibir no preview
   };
 }

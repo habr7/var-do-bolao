@@ -40,8 +40,13 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
   });
 
   it('cobre editar e apagar palpite', () => {
-    expect(KNOWLEDGE_PRODUTO).toContain('corrigir palpite');
-    expect(KNOWLEDGE_PRODUTO).toContain('apagar palpite');
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/corrigir\/mudar palpite|corrigir palpite/);
+    expect(KNOWLEDGE_PRODUTO.toLowerCase()).toMatch(/apagar\/desfazer palpite|apagar palpite/);
+  });
+
+  it('v3.12.0 — knowledge cita opção TODOS pra lote multi-bolão (caso Bruna 10/06)', () => {
+    expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('MULTI-BOLÃO');
+    expect(KNOWLEDGE_PRODUTO.toUpperCase()).toContain('TODOS');
   });
 
   it('cobre prazo de palpite (até kickoff)', () => {

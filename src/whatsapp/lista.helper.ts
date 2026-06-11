@@ -82,6 +82,38 @@ export function montarPerguntaListaBoloes(
  *   2. Codigo: "#K3MZ8P" ou "K3MZ8P" → boloes[?].codigo == "K3MZ8P".
  *   3. Nome fuzzy: substring bidirecional case+acento-insensitivo.
  */
+/**
+ * v3.12.0 — detecta se o user respondeu "todos" / "ambos" / "tudo" /
+ * "all" (em variantes comuns), indicando que quer aplicar a operação
+ * em TODOS os bolões da lista, não escolher um.
+ *
+ * Caso real (Bruna 10/06): user em 2 bolões teve que mandar a lista
+ * de 10 palpites 2x, 36 mensagens total. Solução: quando houver >1
+ * bolões na lista, oferecemos uma opção EXTRA "TODOS" — se user
+ * responder essa palavra (ou o índice N+1), aplica em todos.
+ *
+ * Aceita:
+ *   - "todos" / "todas" / "todos os bolões"
+ *   - "ambos" (quando lista tem exatamente 2)
+ *   - "tudo" / "ambas"
+ *   - "all" (gringuês)
+ *   - Índice N+1 (o item EXTRA depois da lista de bolões)
+ */
+export function ehEscolhaTodos(texto: string, totalBoloesNaLista: number): boolean {
+  const t = normalize(texto);
+  // Palavra-chave
+  if (/^(todos|todas|tudo|ambos|ambas|all)(\s+(?:os|as)?\s*(?:bol[ãa]o|bol[oõ]es))?\s*$/.test(t)) {
+    return true;
+  }
+  // Índice N+1 (a opção EXTRA renderizada depois dos bolões)
+  const matchIdx = texto.trim().match(/^(\d{1,2})\b/);
+  if (matchIdx) {
+    const idx = parseInt(matchIdx[1], 10);
+    if (idx === totalBoloesNaLista + 1) return true;
+  }
+  return false;
+}
+
 export function parseEscolhaBolao(
   texto: string,
   boloes: BolaoListaItem[],
