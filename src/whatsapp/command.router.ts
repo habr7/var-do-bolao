@@ -1269,7 +1269,11 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     if (j.status === 'FINALIZADO') {
       return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
     }
-    if (jogoEstaRolandoPorHorario(j, agora)) {
+    // v3.22.0 — provider `hybrid` (FIFA) grava status=AO_VIVO com placar
+    // parcial. Tratamos AO_VIVO como rolando independente da janela de
+    // 2.5h (jogo com prorrogação pode passar disso). Se não tem status
+    // AO_VIVO, ainda derivamos "rolando" por horário (fallback openfootball).
+    if (j.status === 'AO_VIVO' || jogoEstaRolandoPorHorario(j, agora)) {
       const placar =
         j.golsCasa !== null && j.golsVisitante !== null
           ? `${j.golsCasa} × ${j.golsVisitante}`

@@ -2,60 +2,188 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type { FootballApiAdapter, ResultadoJogo, JogoApi } from './resultado.types.js';
+import { normalizeTeamName } from '../../utils/validators.js';
 
 /**
- * Adapter para a Copa do Mundo FIFA 2026 (fase de grupos).
+ * Adapter de placares AO VIVO da Copa do Mundo FIFA 2026 via o endpoint
+ * público (não documentado) que o próprio site fifa.com consome:
  *
- * Estrategia:
- *  - Lista de jogos vem do JSON local em src/data/fifa-2026-fixtures.json.
- *    Voce edita o JSON com os times reais apos o sorteio. Sem dependencia
- *    de API paga, sem chave.
- *  - Placares ao vivo: tenta puxar do endpoint publico da FIFA usado pelo
- *    proprio site oficial (api.fifa.com). Se mudar/cair, retorna [] e
- *    voce pode atualizar manualmente via prisma studio (ou implementar
- *    scraping com Playwright).
+ *   https://api.fifa.com/api/v3/calendar/matches?idCompetition=17&idSeason=285023&count=200&language=en
  *
- * Importante:
- *  - O `apiJogoId` no JSON tem que casar com o `apiJogoId` que vier do
- *    fetch ao vivo. O matcher `mapFifaApiIdToOurId` faz essa traducao.
+ * Sem API key, sem header de auth — é um GET público. Diferente do
+ * openfootball (latência 30-60min), a FIFA traz placar AO VIVO em segundos,
+ * incluindo `status=AO_VIVO` com placar parcial e correções pós-VAR.
+ *
+ * ───────────────────────────────────────────────────────────────────────
+ * Histórico — este arquivo foi REESCRITO. A versão legada nunca funcionou
+ * por 3 bugs (todos corrigidos aqui e cobertos por teste):
+ *
+ *   B1. FIFA_SEASON_ID vinha VAZIO em produção → retornava [] em silêncio.
+ *       Agora há default `285023` (descoberto via /seasons?idCompetition=17,
+ *       confirmado ao vivo no dia da abertura). Override via env.
+ *   B2. Lia `m.HomeTeam.Score` — campo que NÃO existe. Os campos reais são
+ *       `m.Home.Score` / `m.Away.Score` (e `HomeTeamScore`/`AwayTeamScore`
+ *       no topo). Sempre dava undefined → 0×0.
+ *   B3. Códigos de status INVERTIDOS. Confirmado empiricamente batendo na
+ *       API (2026 ao vivo + 2022 finalizada):
+ *         0 = FINALIZADO   (64/64 jogos de 2022)
+ *         1 = AGENDADO     (jogos futuros, sem placar/tempo)
+ *         3 = AO_VIVO      (jogo rolando, MatchTime "49'")
+ *       A versão legada mapeava 1→AO_VIVO, 3→FINALIZADO e jogava
+ *       FINALIZADO(0) no default→AGENDADO → resultado nunca era gravado.
+ *   B4. Match por nome SEM normalizar ("Mexico" ≠ "México"). Agora casa por
+ *       PAR DE CÓDIGO FIFA (Home.IdCountry/Away.IdCountry → teams.json
+ *       fifaCode → nome PT → fixture). Cobertura 100% das 48 seleções.
+ *
+ * Em falha de rede/HTTP, este adapter LANÇA (não engole) — assim o
+ * HybridFootballAdapter detecta e cai pro openfootball. Use o provider
+ * `hybrid` em produção; `fifa-2026` puro é pra debug/controle.
  */
-
-interface FifaFixturesJson {
-  campeonatoId: string;
-  campeonatoNome: string;
-  jogos: Array<{
-    apiJogoId: string;
-    grupo: string;
-    matchday: number;
-    timeCasa: string;
-    timeVisitante: string;
-    dataHora: string; // ISO-8601
-  }>;
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-let cachedFixtures: FifaFixturesJson | null = null;
+const FIFA_COMPETITION_ID = '17';
+// FIFA World Cup 2026™ — IdSeason confirmado em /api/v3/seasons?idCompetition=17.
+const DEFAULT_SEASON_ID = '285023';
+const CACHE_TTL_MS = 30 * 1000; // 30s — placar ao vivo muda rápido, mas não a cada request
 
-function loadFixtures(): FifaFixturesJson {
-  if (cachedFixtures) return cachedFixtures;
-  // src/modules/resultado/ → src/data/fifa-2026-fixtures.json
+interface FifaTeam {
+  Score?: number | null;
+  IdCountry?: string | null;
+  IdTeam?: string | null;
+}
+
+interface FifaMatch {
+  IdMatch?: string;
+  MatchStatus?: number;
+  Home?: FifaTeam | null;
+  Away?: FifaTeam | null;
+  HomeTeamScore?: number | null;
+  AwayTeamScore?: number | null;
+}
+
+interface FifaCalendarResponse {
+  Results?: FifaMatch[];
+}
+
+interface FixtureLocal {
+  apiJogoId: string;
+  timeCasa: string;
+  timeVisitante: string;
+  dataHora: string;
+}
+
+// ── caches estáticos ──────────────────────────────────────────────────
+let cacheFixtures: FixtureLocal[] | null = null;
+let cacheFifaCodeToNome: Map<string, string> | null = null;
+let cacheFixtureByCodes: Map<string, string> | null = null;
+let cacheCalendar: { data: FifaCalendarResponse; ts: number } | null = null;
+
+function loadFixtures(): FixtureLocal[] {
+  if (cacheFixtures) return cacheFixtures;
   const path = join(__dirname, '..', '..', 'data', 'fifa-2026-fixtures.json');
-  const raw = readFileSync(path, 'utf-8');
-  cachedFixtures = JSON.parse(raw) as FifaFixturesJson;
-  return cachedFixtures;
+  const parsed = JSON.parse(readFileSync(path, 'utf-8')) as { jogos: FixtureLocal[] };
+  cacheFixtures = parsed.jogos;
+  return cacheFixtures;
+}
+
+/** Mapa `fifaCode (MEX) → nome PT normalizado (mexico)` a partir do teams.json. */
+function loadFifaCodeToNome(): Map<string, string> {
+  if (cacheFifaCodeToNome) return cacheFifaCodeToNome;
+  const path = join(__dirname, '..', '..', 'data', 'copa-2026', 'teams.json');
+  const parsed = JSON.parse(readFileSync(path, 'utf-8')) as {
+    times: Array<{ fifaCode: string; nome: string }>;
+  };
+  const map = new Map<string, string>();
+  for (const t of parsed.times) {
+    if (t.fifaCode) map.set(t.fifaCode.toUpperCase(), normalizeTeamName(t.nome));
+  }
+  cacheFifaCodeToNome = map;
+  return map;
+}
+
+/** Mapa `homeNorm_awayNorm → apiJogoId` dos fixtures locais. */
+function loadFixtureByCodes(): Map<string, string> {
+  if (cacheFixtureByCodes) return cacheFixtureByCodes;
+  const map = new Map<string, string>();
+  for (const j of loadFixtures()) {
+    const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}`;
+    map.set(k, j.apiJogoId);
+  }
+  cacheFixtureByCodes = map;
+  return map;
+}
+
+/**
+ * Casa um jogo da FIFA pelo PAR de códigos de país (Home/Away IdCountry)
+ * com o `apiJogoId` local. Robusto contra acento/tradução. Mata-mata só
+ * casa depois que as seleções estão definidas (códigos preenchidos).
+ */
+function casarPorCodigoFifa(homeCode?: string | null, awayCode?: string | null): string | null {
+  if (!homeCode || !awayCode) return null;
+  const codeToNome = loadFifaCodeToNome();
+  const homeNorm = codeToNome.get(homeCode.toUpperCase());
+  const awayNorm = codeToNome.get(awayCode.toUpperCase());
+  if (!homeNorm || !awayNorm) return null;
+  return loadFixtureByCodes().get(`${homeNorm}_${awayNorm}`) ?? null;
+}
+
+/**
+ * Códigos de MatchStatus da api.fifa.com v3 (confirmados empiricamente).
+ * Retorna null pra status que não geram placar (AGENDADO/desconhecido).
+ */
+function mapFifaStatus(
+  status: number | undefined,
+): 'AO_VIVO' | 'FINALIZADO' | 'ADIADO' | 'CANCELADO' | null {
+  switch (status) {
+    case 0:
+      return 'FINALIZADO';
+    case 3:
+      return 'AO_VIVO';
+    case 4:
+      return 'ADIADO';
+    case 5:
+      return 'CANCELADO';
+    case 1: // AGENDADO — ainda sem placar
+    default:
+      return null;
+  }
+}
+
+function lerPlacar(team: FifaTeam | null | undefined, fallback: number | null | undefined): number | null {
+  const v = team?.Score ?? fallback;
+  return typeof v === 'number' ? v : null;
+}
+
+async function fetchCalendar(): Promise<FifaCalendarResponse> {
+  if (cacheCalendar && Date.now() - cacheCalendar.ts < CACHE_TTL_MS) {
+    return cacheCalendar.data;
+  }
+  const seasonId = process.env.FIFA_SEASON_ID || DEFAULT_SEASON_ID;
+  const url =
+    `https://api.fifa.com/api/v3/calendar/matches` +
+    `?idCompetition=${FIFA_COMPETITION_ID}&idSeason=${encodeURIComponent(seasonId)}` +
+    `&count=200&language=en`;
+  const res = await fetch(url, {
+    headers: { Accept: 'application/json', 'User-Agent': 'var-do-bolao/fifa-fetcher' },
+  });
+  if (!res.ok) {
+    // LANÇA — o HybridFootballAdapter cai pro openfootball.
+    throw new Error(`api.fifa.com HTTP ${res.status}`);
+  }
+  const data = (await res.json()) as FifaCalendarResponse;
+  cacheCalendar = { data, ts: Date.now() };
+  return data;
 }
 
 export class FifaWorldCup2026Adapter implements FootballApiAdapter {
   /**
-   * Retorna todos os jogos da fase de grupos (72 partidas) — usado pra seed.
-   * O parametro `rodada` é ignorado: na nossa modelagem temos UMA Rodada
-   * "Fase de Grupos" com todos os jogos dentro.
+   * Lista de jogos da fase de grupos — lê do JSON local (mesmo padrão do
+   * OpenFootballAdapter). O sync gera o fixture; aqui só lemos.
    */
   async buscarJogosRodada(_campeonatoId: string, _rodada: number): Promise<JogoApi[]> {
-    const fixtures = loadFixtures();
-    return fixtures.jogos.map((j) => ({
+    return loadFixtures().map((j) => ({
       apiJogoId: j.apiJogoId,
       timeCasa: j.timeCasa,
       timeVisitante: j.timeVisitante,
@@ -64,100 +192,53 @@ export class FifaWorldCup2026Adapter implements FootballApiAdapter {
   }
 
   /**
-   * Tenta puxar placares ao vivo. Se nao conseguir, retorna [].
-   *
-   * Endpoint da FIFA usado pelo proprio site:
-   *   https://api.fifa.com/api/v3/calendar/matches?idCompetition=17&idSeason=...&count=300&language=en
-   *
-   * Como a Season ID muda a cada Copa, deixamos configuravel via env
-   * (FIFA_SEASON_ID). Se nao estiver setado, retorna [] — o admin pode
-   * atualizar resultado manualmente.
+   * Placares AO VIVO/FINALIZADOS da api.fifa.com. Retorna só jogos com
+   * status mapeável (AO_VIVO/FINALIZADO/ADIADO/CANCELADO) e placar válido.
+   * LANÇA em falha de rede/HTTP — deixe o Hybrid tratar o fallback.
    */
   async buscarResultados(_campeonatoId: string, _rodada: number): Promise<ResultadoJogo[]> {
-    const seasonId = process.env.FIFA_SEASON_ID;
-    if (!seasonId) {
-      return [];
-    }
+    const data = await fetchCalendar();
+    const matches = data.Results ?? [];
 
-    try {
-      const url = `https://api.fifa.com/api/v3/calendar/matches?idCompetition=17&idSeason=${encodeURIComponent(seasonId)}&count=300&language=en`;
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
-      });
+    const results: ResultadoJogo[] = [];
+    let semMatch = 0;
+    let semPlacar = 0;
 
-      if (!response.ok) {
-        console.warn(`[fifa.fetcher] api.fifa.com retornou ${response.status}`);
-        return [];
+    for (const m of matches) {
+      const status = mapFifaStatus(m.MatchStatus);
+      if (!status) continue; // AGENDADO/desconhecido
+
+      const apiJogoId = casarPorCodigoFifa(m.Home?.IdCountry, m.Away?.IdCountry);
+      if (!apiJogoId) {
+        semMatch++;
+        continue;
       }
 
-      const data = (await response.json()) as { Results?: Array<FifaApiMatch> };
-      const results: ResultadoJogo[] = [];
-
-      for (const m of data.Results ?? []) {
-        const ourId = mapFifaApiIdToOurId(m);
-        if (!ourId) continue;
-
-        // Status 0=upcoming, 1=live, 3=finished (mapping aproximado — varia)
-        const status = mapFifaStatus(m.MatchStatus);
-        if (status === 'AGENDADO') continue; // sem placar ainda
-
-        results.push({
-          apiJogoId: ourId,
-          golsCasa: m.HomeTeam?.Score ?? 0,
-          golsVisitante: m.AwayTeam?.Score ?? 0,
-          status,
-        });
+      const golsCasa = lerPlacar(m.Home, m.HomeTeamScore);
+      const golsVisitante = lerPlacar(m.Away, m.AwayTeamScore);
+      // Bug-guard (B4 do openfootball): jogo com status mas sem placar
+      // numérico NÃO vira 0×0 — pula. (AO_VIVO sempre tem placar; se vier
+      // null é payload incompleto.)
+      if (golsCasa === null || golsVisitante === null) {
+        semPlacar++;
+        continue;
       }
 
-      return results;
-    } catch (error) {
-      console.warn('[fifa.fetcher] erro consultando api.fifa.com:', (error as Error).message);
-      return [];
+      results.push({ apiJogoId, golsCasa, golsVisitante, status });
     }
+
+    console.log(
+      `[fifa] placares recebidos: sucesso=${results.length} sem_match=${semMatch} ` +
+        `sem_placar=${semPlacar} total_no_payload=${matches.length}`,
+    );
+    return results;
   }
 }
 
-/**
- * Tenta mapear um match retornado pela API da FIFA para o nosso apiJogoId
- * local (WC2026_X_N). Esse mapping é feito por nomes dos times +
- * matchday — ajuste conforme o formato real do payload.
- */
-interface FifaApiMatch {
-  IdMatch?: string;
-  MatchStatus?: number;
-  GroupName?: Array<{ Description?: string }>;
-  MatchDay?: string;
-  HomeTeam?: { TeamName?: Array<{ Description?: string }>; Score?: number };
-  AwayTeam?: { TeamName?: Array<{ Description?: string }>; Score?: number };
-}
-
-function mapFifaApiIdToOurId(match: FifaApiMatch): string | null {
-  // Estrategia simples: casa o nome do timeCasa+timeVisitante com nosso JSON.
-  // Implementacao mais robusta exige tabela de aliases — deixar como TODO.
-  const fixtures = loadFixtures();
-  const homeName = match.HomeTeam?.TeamName?.[0]?.Description?.toLowerCase()?.trim();
-  const awayName = match.AwayTeam?.TeamName?.[0]?.Description?.toLowerCase()?.trim();
-  if (!homeName || !awayName) return null;
-
-  const found = fixtures.jogos.find(
-    (j) =>
-      j.timeCasa.toLowerCase().trim() === homeName &&
-      j.timeVisitante.toLowerCase().trim() === awayName,
-  );
-  return found?.apiJogoId ?? null;
-}
-
-function mapFifaStatus(status: number | undefined): 'AO_VIVO' | 'FINALIZADO' | 'ADIADO' | 'CANCELADO' | 'AGENDADO' {
-  switch (status) {
-    case 1:
-      return 'AO_VIVO';
-    case 3:
-      return 'FINALIZADO';
-    case 4:
-      return 'ADIADO';
-    case 5:
-      return 'CANCELADO';
-    default:
-      return 'AGENDADO';
-  }
+// Exposto pra teste — permite resetar os caches estáticos entre cenários.
+export function __resetFifaCachesParaTeste(): void {
+  cacheFixtures = null;
+  cacheFifaCodeToNome = null;
+  cacheFixtureByCodes = null;
+  cacheCalendar = null;
 }

@@ -2,15 +2,19 @@ import { env } from '../../config/env.js';
 import { MockFootballApi, ApiFutebolAdapter } from './resultado.fetcher.js';
 import { FifaWorldCup2026Adapter } from './fifa.fetcher.js';
 import { OpenFootballAdapter } from './openfootball.fetcher.js';
+import { HybridFootballAdapter } from './hybrid.fetcher.js';
 import type { FootballApiAdapter } from './resultado.types.js';
 import * as rodadaRepo from '../rodada/rodada.repository.js';
 
 function getFootballApi(): FootballApiAdapter {
-  // v3.16.0 — default mudou de 'fifa-2026' pra 'openfootball'.
-  // O fetcher antigo dependia de FIFA_SEASON_ID + api.fifa.com,
-  // e em produção vinha silencioso (FIFA_SEASON_ID vazio → return []).
-  // openfootball é a mesma fonte do sync de jogos — sem API key,
-  // nomes batem 100% com o JSON local.
+  // v3.22.0 — default mudou de 'openfootball' pra 'hybrid':
+  //   FIFA (api.fifa.com, AO VIVO) primário + openfootball como fallback
+  //   automático se a FIFA cair. Antes (v3.16.0) era só openfootball, que
+  //   tem latência 30-60min e NÃO dá placar ao vivo. O `FIFA_SEASON_ID`
+  //   agora tem default (285023), então o fetcher FIFA funciona sem env.
+  if (env.FOOTBALL_PROVIDER === 'hybrid') {
+    return new HybridFootballAdapter();
+  }
   if (env.FOOTBALL_PROVIDER === 'openfootball') {
     return new OpenFootballAdapter();
   }

@@ -39,12 +39,16 @@ const baseSchema = z.object({
   FOOTBALL_API_KEY: z.string().default('mock'),
   FOOTBALL_API_URL: z.string().default('https://www.api-futebol.com.br/v1'),
   // Provider de placares:
-  //   "openfootball" (v3.16.0+, RECOMENDADO): JSON público openfootball/worldcup.json,
-  //                  sem API key, latência ~30-60min após o jogo.
-  //   "fifa-2026":   Mantido legacy — api.fifa.com (instável, exige FIFA_SEASON_ID).
-  //                  Em produção sem FIFA_SEASON_ID, retornava []. Bug v3.15.x.
+  //   "hybrid" (v3.22.0+, RECOMENDADO): FIFA (api.fifa.com, AO VIVO) primário
+  //                  + openfootball como fallback automático se a FIFA cair.
+  //   "openfootball": só JSON público openfootball/worldcup.json — sem API key,
+  //                  latência ~30-60min, SEM placar ao vivo.
+  //   "fifa-2026":   só api.fifa.com — AO VIVO; usa FIFA_SEASON_ID (default 285023).
   //   "mock":        3 jogos fixos pra dev local.
-  FOOTBALL_PROVIDER: z.enum(['mock', 'fifa-2026', 'openfootball']).default('openfootball'),
+  FOOTBALL_PROVIDER: z.enum(['mock', 'fifa-2026', 'openfootball', 'hybrid']).default('hybrid'),
+  // IdSeason da Copa na api.fifa.com. Default = FIFA World Cup 2026™ (285023),
+  // confirmado em /api/v3/seasons?idCompetition=17. Override só se a FIFA mudar.
+  FIFA_SEASON_ID: z.string().default('285023'),
 
   // PIX (DESATIVADO no momento — bolao gratuito ate ganhar escala)
   // Mantido apenas para nao quebrar o pagamento.service caso volte. Nao

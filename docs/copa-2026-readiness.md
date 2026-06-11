@@ -60,7 +60,7 @@ e cobre os ajustes que destravaram o pipeline de cálculo de pontuação.
 
 ### 2. Variáveis de ambiente em produção
 
-- [ ] `FOOTBALL_PROVIDER=openfootball` (default v3.16.0+; `fifa-2026` legacy depende de `FIFA_SEASON_ID` setado).
+- [ ] `FOOTBALL_PROVIDER=hybrid` (default v3.22.0+: FIFA AO VIVO + fallback openfootball). `FIFA_SEASON_ID` tem default `285023` — só setar se a FIFA mudar.
 - [ ] `TIMEZONE=America/Sao_Paulo`.
 - [ ] `DRY_RUN_WHATSAPP=false` (envia mensagens REAIS).
 - [ ] `ENABLE_BOM_DIA=true`, `ENABLE_PALPITE_CALL=true`, `ENABLE_REMINDERS=true`.
@@ -87,16 +87,35 @@ node scripts/sync-copa-2026.mjs  # opcional — atualiza dados se openfootball p
 
 ### 5. Plano de contingência
 
-#### Como verificar que o fetcher está recebendo placares (v3.16.0+)
+#### Como verificar que o fetcher está recebendo placares (v3.22.0+)
 
-Log estruturado a cada tick do `fetch-results` (cron 5min):
+Provider `hybrid`: FIFA (`api.fifa.com`, AO VIVO) primário + openfootball como
+fallback automático. Logs a cada tick do `fetch-results` (cron 5min):
+
 ```
+[fifa] placares recebidos: sucesso=N sem_match=M sem_placar=K total_no_payload=T
+```
+- `sucesso > 0` → FIFA ativa, jogos AO_VIVO/FINALIZADO sendo atualizados.
+- `sem_match > 0` → time não casou pelo código FIFA (mata-mata ainda a definir é normal).
+
+Se a FIFA cair, aparece o fallback e o log do openfootball:
+```
+[hybrid] FIFA indisponível (...) — caindo pro openfootball
 [openfootball] placares recebidos: sucesso=N sem_score=K sem_match=M total_no_json=T
 ```
+- `total_no_json = 0` ou erro de rede nos DOIS → usar fallback manual abaixo.
 
-- `sucesso > 0` → fonte ativa, jogos sendo atualizados.
-- `sucesso = 0` E `total_no_json > 0` → fonte ok mas nada casou (investigar nomes; ver `sem_match` no log).
-- `total_no_json = 0` ou erro de rede → openfootball indisponível; usar fallback manual abaixo.
+**Placar AO VIVO:** com `hybrid`, jogo em andamento entra no banco como
+`status=AO_VIVO` com placar parcial — o usuário vê `🔴 ROLANDO AGORA: Brasil 1 × 0 ...`.
+A **pontuação só conta no FINALIZADO** (`calcularPontuacaoRodada` ignora
+AO_VIVO/AGENDADO) — pontos não oscilam durante o jogo; recalculam no apito.
+
+**Janela de polling (v3.23.0):** o `fetch-results` só consulta a API por
+jogo realmente em andamento — `AO_VIVO`, ou `AGENDADO` com kickoff já passado.
+Jogo FUTURO e jogo FINALIZADO **não** disparam fetch (placar de finalizado é
+lido direto do banco — `prisma.jogo`). Entre dias de jogo, com o próximo jogo a
+horas/dias de distância, o job é no-op (zero chamadas à FIFA). Rede de
+segurança: um eventual `FINALIZADO` sem placar volta a ser buscado até preencher.
 
 #### Se openfootball estiver fora ou demorar demais
 - **Fallback**: admin atualiza placar manualmente via Prisma Studio ou SQL direto:
