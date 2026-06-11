@@ -29,6 +29,11 @@ export enum Intencao {
   CUTUCAR_PENDENTES = 'CUTUCAR_PENDENTES',   // v3.8.0 — admin manda DM pra quem ainda nao palpitou
   DICAS_PALPITE = 'DICAS_PALPITE',           // v3.9.0 — "tem dicas?", "como monto palpite", "qual placar comum"
   ACOLHIMENTO_NOVATO = 'ACOLHIMENTO_NOVATO', // v3.9.0 — "nao entendo de futebol", "to perdida", "primeira vez"
+  PLACAR_JOGO = 'PLACAR_JOGO',               // v3.15.0 — "qual o placar?", "quem ganhou?" (Copa rolando — banco TEM os placares)
+  PONTOS_DETALHE = 'PONTOS_DETALHE',         // v3.15.0 — "quantos pontos fiz ontem?" (breakdown por jogo)
+  STATUS_RODADA = 'STATUS_RODADA',           // v3.15.0 — "quando atualiza o ranking?", "quando sai o resultado?"
+  DESABAFO_RANKING = 'DESABAFO_RANKING',     // v3.15.0 — "tô em último", "fui mal demais" (acolhimento)
+  RECLAMACAO_BUG = 'RECLAMACAO_BUG',         // v3.15.0 — "meus pontos estão errados", "tá bugado" (loga + acolhe)
   MEU_PALPITE = 'MEU_PALPITE',
   ABRIR_RODADA = 'ABRIR_RODADA',     // admin querendo abrir/iniciar rodada
   COMO_CONVIDAR = 'COMO_CONVIDAR',   // como compartilhar bolao com convidados
@@ -301,6 +306,89 @@ const JOGOS_HOJE_PATTERNS: RegExp[] = [
   /\bo que tem hoje\b/,
 ];
 
+// v3.15.0 — PLACAR_JOGO: pergunta sobre placar/resultado de jogo
+// RECENTE (Copa rolando — o banco TEM os placares via fetch-results a
+// cada 5min). Antes caía em PERGUNTA_GERAL_FUTEBOL → LLM respondia
+// "não tenho placar, checa na FIFA" mesmo com o dado no banco.
+// PRECEDÊNCIA: deve vir ANTES de PERGUNTA_GERAL_FUTEBOL no INTENT_RULES.
+// O handler delega de volta pra PERGUNTA_GERAL_FUTEBOL se a pergunta
+// for fora de escopo (copa antiga, clube).
+const PLACAR_JOGO_PATTERNS: RegExp[] = [
+  /\bqual (?:e |eh |é )?o placar\b/,
+  /\bquanto (?:ta|tá|esta|está|ficou|deu) o jogo\b/,
+  /\bquanto (?:foi|terminou) o jogo\b/,
+  /\bque placar (?:e|eh|é|foi|deu)\b/,
+  /\bcomo (?:ficou|terminou|acabou|ta|tá) o jogo\b/,
+  /\bquem ganhou\b/,
+  /\bquem venceu\b/,
+  /\bresultado (?:do |de |da )?(?:jogo|ontem|hoje|agora)\b/,
+  /\bplacar (?:do |de |da )?(?:jogo|ontem|hoje|agora)\b/,
+  /\bdeu quanto\b/,
+  /\bja (?:acabou|terminou) o jogo\b/,
+  /\bsaiu (?:o )?(?:placar|resultado)\b/,
+];
+
+// v3.15.0 — PONTOS_DETALHE: breakdown de pontos por jogo recente.
+// Distinto de MEUS_PONTOS (total geral): aqui o user quer saber o que
+// ganhou em jogo/dia ESPECÍFICO. PRECEDÊNCIA: antes de MEUS_PONTOS.
+const PONTOS_DETALHE_PATTERNS: RegExp[] = [
+  /\bquantos? pontos? (?:eu )?(?:fiz|ganhei|pontuei|peguei) (?:ontem|hoje|nesse|neste|nessa|nesta|no jogo|com)/,
+  /\bpontos? (?:de|do) (?:ontem|hoje)\b/,
+  /\bpontuei (?:ontem|hoje|quanto ontem|quanto hoje|no jogo)/,
+  /\bquanto (?:eu )?(?:fiz|pontuei|ganhei) (?:ontem|hoje|no jogo|nesse jogo)/,
+  /\bacertei (?:o |meu |algum )?palpite/,
+  /\bganhei pontos?\b/,
+  /\bfiz pontos?\b/,
+  /\bmeus pontos? (?:de|do) (?:ontem|hoje|cada jogo)/,
+  /\bdetalhe[s]? (?:da |de )?(?:minha )?pontua/,
+  /\bpontos? por jogo\b/,
+];
+
+// v3.15.0 — STATUS_RODADA: quando atualiza ranking/pontos/resultado.
+const STATUS_RODADA_PATTERNS: RegExp[] = [
+  /\bquando (?:atualiza|sai|calcula|computa) (?:o |a |os |as )?(?:ranking|resultado|ponto|pontua)/,
+  /\bquando (?:os |meus )?pontos? (?:sao|s[ãa]o|serao|ser[ãa]o|vao ser|v[ãa]o ser) (?:calculad|atualizad|computad)/,
+  /\branking (?:ja |j[áa] )?(?:atualizou|atualiza|foi atualizado)\b/,
+  /\bpontos? (?:ja |j[áa] )?(?:atualizaram|sairam|sa[íi]ram|cairam|ca[íi]ram|entraram)\b/,
+  /\bdemora (?:quanto|muito) (?:pra|para) (?:atualizar|calcular|sair)/,
+  /\bcadê (?:meus |os )?pontos?\b/,
+  /\bcade (?:meus |os )?pontos?\b/,
+];
+
+// v3.15.0 — DESABAFO_RANKING: user lamentando desempenho ruim.
+// Acolhimento, não menu frio. Inspirado no ACOLHIMENTO_NOVATO (v3.9.0).
+const DESABAFO_RANKING_PATTERNS: RegExp[] = [
+  /\b(?:to|tou|estou|t[ôo]) (?:em |na )?[úu]ltim[oa]\b/,
+  /\b(?:to|tou|estou|t[ôo]) perdendo\b/,
+  /\bfui (?:muito |super |mega )?mal\b/,
+  /\b(?:to|tou|estou|t[ôo]) (?:muito |bem )?mal no (?:bol[ãa]o|ranking)/,
+  /\bnunca acerto\b/,
+  /\bs[óo] erro\b/,
+  /\bque vergonha (?:d[oe]s? meus?|minha)? ?(?:palpites?|pontua)?/,
+  /\bn[ãa]o ganho (?:nunca|nada)\b/,
+  /\bdesisto\b/,
+];
+
+// v3.15.0 — RECLAMACAO_BUG: user reportando erro no bot/pontuação.
+// PRECEDÊNCIA: antes de MEUS_PONTOS ("meus pontos estão errados").
+// Handler loga pra revisão offline + acolhe + explica recálculo.
+const RECLAMACAO_BUG_PATTERNS: RegExp[] = [
+  /\b(?:meus? |a |minha )?pont(?:os?|ua[cç][ãa]o) (?:esta|est[ãa]o|ta|t[ãa]o|t[áa]) errad[oa]s?\b/,
+  /\b(?:ta|t[áa]|esta|est[áa]|isso (?:ta|t[áa]|esta|est[áa])) bugado\b/,
+  /\bbot (?:ta|t[áa]|esta|est[áa]) (?:errado|bugado|doido|maluco|com problema)\b/,
+  /\bcalculou errado\b/,
+  /\bcontou errado\b/,
+  /\bn[ãa]o (?:bateu|bate) (?:a |minha )?pontua/,
+  /\bvoce (?:ta|t[áa]|esta|est[áa]) errado\b/,
+  /\bvc (?:ta|t[áa]|esta|est[áa]) errado\b/,
+  /\btem (?:um )?erro (?:na|no|aqui|nos)\b/,
+  /\bachei (?:um )?erro\b/,
+  /\bdeveria ter (?:mais|ganhado) pontos?\b/,
+  /\bfaltou pontos?\b/,
+  /\bmeu ponto sumiu\b/,
+  /\bpontos? sumiram\b/,
+];
+
 // "Meus pontos / quanto fiz / pontuacao"
 const MEUS_PONTOS_PATTERNS: RegExp[] = [
   /^meus? pontos?\b/,
@@ -388,7 +476,9 @@ const DESPEDIDA_PATTERNS: RegExp[] = [
   /^falou(?: men| brother| veio| irmao)?\b/,
   /^fal[ou]w\b/,
   /^flw+\b/,
-  /^fui\b/,
+  // "fui" = tchau em gíria, MAS "fui mal" = lamento de desempenho
+  // (v3.15.0: DESABAFO_RANKING). Negative lookahead evita roubo.
+  /^fui\b(?!\s+(?:muito\s+|super\s+|mega\s+)?mal)/,
   /^abra[cç]os?\b/,
   /^abs\b/,
   /^bjs?\b/,
@@ -771,6 +861,19 @@ const INTENT_RULES: IntentRules[] = [
   // em frases longas. Em CONFIRMANDO_* states o FSM dispatcher pega antes.
   { intencao: Intencao.CONCORDANCIA_CASUAL, padroes: CONCORDANCIA_CASUAL_PATTERNS },
   { intencao: Intencao.RISADA, padroes: RISADA_PATTERNS },
+  // v3.15.0 — PLACAR_JOGO ANTES de PERGUNTA_GERAL_FUTEBOL: perguntas de
+  // placar/resultado RECENTE devem responder com dados do BANCO (que tem
+  // placar atualizado a cada 5min via fetch-results), não com a LLM que
+  // recusava ("checa na FIFA"). Handler delega de volta pra
+  // PERGUNTA_GERAL_FUTEBOL quando a pergunta é fora de escopo (copa
+  // antiga, clube etc).
+  { intencao: Intencao.PLACAR_JOGO, padroes: PLACAR_JOGO_PATTERNS },
+  // v3.15.0 — RECLAMACAO_BUG antes de MEUS_PONTOS ("meus pontos estão
+  // errados" contém "meus pontos"). STATUS_RODADA antes de QUANDO_COMECA.
+  { intencao: Intencao.RECLAMACAO_BUG, padroes: RECLAMACAO_BUG_PATTERNS },
+  { intencao: Intencao.STATUS_RODADA, padroes: STATUS_RODADA_PATTERNS },
+  { intencao: Intencao.PONTOS_DETALHE, padroes: PONTOS_DETALHE_PATTERNS },
+  { intencao: Intencao.DESABAFO_RANKING, padroes: DESABAFO_RANKING_PATTERNS },
   // Sprint 4 — PERGUNTA_GERAL_FUTEBOL antes de PROXIMOS_JOGOS/JOGOS_HOJE/
   // RANKING porque perguntas sobre time/canal/jogo especifico tem
   // palavras-chave em comum mas devem cair em LLM conversacional, nao

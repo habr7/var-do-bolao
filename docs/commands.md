@@ -568,6 +568,58 @@ Caso real que motivou (Valéria Midon 22/05/2026):
 - *"nao entendo de futebol"* → bot caía em fallback "Não peguei essa, craque"
 - Agora ambos vão pros handlers dedicados.
 
+## Copa rolando: placar, pontos e status (v3.15.0)
+
+### Placar de jogo recente
+```
+qual o placar?
+quanto tá o jogo?
+quem ganhou?
+como ficou o jogo do Brasil?
+resultado de ontem
+saiu o resultado?
+```
+→ Bot responde do BANCO (atualiza a cada ~5min): jogos 🔴 AO VIVO + ✅ encerrados nas últimas 48h dos bolões do user. Filtra por time se mencionado. Perguntas fora de escopo (copa antiga, clube) caem na recusa educada de sempre.
+
+### Pontos por jogo (breakdown)
+```
+quantos pontos fiz ontem?
+acertei meu palpite?
+ganhei pontos?
+pontos de ontem
+```
+→ Lista jogo a jogo: placar real, palpite do user e pontos obtidos (🎯 10 / 🥈 5-7 / 👍 3 / ❌ 0). Marca "⏳ calculando" se a pontuação do jogo ainda não rodou (~10min após o fim).
+
+### Status da rodada
+```
+quando atualiza o ranking?
+quando saem os pontos?
+cadê meus pontos?
+```
+→ Explica o pipeline: placar ~5min → pontos ~10min após o jogo → ranking na sequência. Mostra jogo ao vivo se houver.
+
+### Desabafo (acolhimento)
+```
+tô em último
+fui mal demais
+nunca acerto
+```
+→ Acolhimento + esperança real (conta jogos ainda abertos pra palpitar) + CTA *dicas* / *próximos jogos*.
+
+> Nota: "foi mal" (gíria de desculpa) NÃO cai aqui — continua despedida/casual.
+
+### Reclamação de erro
+```
+meus pontos estão errados
+tá bugado
+calculou errado
+faltou ponto
+```
+→ Bot **loga a reclamação** pra revisão offline (tabela `MensagemNaoEntendida`, motivo `reclamacao_bug`), acolhe sem ser defensivo, explica os critérios e o recálculo automático, e pede o jogo específico se persistir.
+
+### Mídia (áudio, figurinha, foto)
+→ Bot responde *"só entendo texto — me manda digitando"* (1x por hora por usuário, pra não floodar). Antes: silêncio total.
+
 ## Editar e apagar palpite
 
 ### Editar (substituir placar)

@@ -257,7 +257,7 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     console.error('❌ Erro processando mensagem:', error);
     await sendText({
       to: msg.waId,
-      text: (error as Error).message || '❌ Ops, algo deu errado. Tente novamente.',
+      text: mensagemSeguraParaUsuario(error),
     });
   } finally {
     // Log de timing por etapa. Sempre roda (mesmo nos early-returns
@@ -270,6 +270,26 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       ` dispatch=${Date.now() - tParse}ms total=${Date.now() - t0}ms`,
     );
   }
+}
+
+/**
+ * v3.15.0 — filtro anti-vazamento de erro técnico pro usuário.
+ *
+ * Bug: o catch top-level mandava `error.message` cru. Erros de DOMÍNIO
+ * são amigáveis por design ("jogo Brasil x Marrocos ja comecou"), mas
+ * erros inesperados (Prisma, rede) vazavam detalhe interno tipo
+ * "Invalid `prisma.palpite.update()` invocation".
+ *
+ * Heurística: encaminha a mensagem só se parecer erro de domínio —
+ * curta E sem assinatura técnica. Senão, genérica.
+ */
+function mensagemSeguraParaUsuario(error: unknown): string {
+  const GENERICA = '❌ Ops, algo deu errado aqui. Tenta de novo em instantes.';
+  const m = error instanceof Error ? error.message : '';
+  if (!m) return GENERICA;
+  const tecnico = /prisma|invocation|undefined|null|\bat\s+\w+\.|ECONN|ETIMEDOUT|EAI_AGAIN|fetch failed|timeout|redis|database|sql|constraint/i;
+  if (m.length > 160 || tecnico.test(m) || m.includes('\n')) return GENERICA;
+  return m;
 }
 
 // ============================================================
@@ -530,6 +550,28 @@ async function dispatchIntencao(
 
     case Intencao.ACOLHIMENTO_NOVATO:
       await handleAcolhimentoNovato(msg, usuarioId);
+      return true;
+
+    // v3.15.0 — Copa rolando: placar, breakdown de pontos, status,
+    // desabafo e reclamação de bug
+    case Intencao.PLACAR_JOGO:
+      await handlePlacarJogo(msg, usuarioId, raw);
+      return true;
+
+    case Intencao.PONTOS_DETALHE:
+      await handlePontosDetalhe(msg, usuarioId);
+      return true;
+
+    case Intencao.STATUS_RODADA:
+      await handleStatusRodada(msg, usuarioId);
+      return true;
+
+    case Intencao.DESABAFO_RANKING:
+      await handleDesabafoRanking(msg, usuarioId);
+      return true;
+
+    case Intencao.RECLAMACAO_BUG:
+      await handleReclamacaoBug(msg, usuarioId, raw);
       return true;
 
     case Intencao.QUANDO_COMECA:
@@ -1074,6 +1116,256 @@ async function handleAcolhimentoNovato(msg: IncomingMessage, usuarioId: string) 
   }
 
   await sendText({ to: msg.waId, text: texto });
+}
+
+// ============================================================
+// v3.15.0 — Copa rolando: placar, pontos por jogo, status, desabafo, bug
+// ============================================================
+
+/**
+ * v3.15.0 — PLACAR_JOGO: "qual o placar?", "quem ganhou?". O banco TEM
+ * os placares (fetch-results atualiza a cada 5min) — antes essas
+ * perguntas caíam na LLM que recusava ("checa na FIFA").
+ *
+ * Fluxo:
+ * 1. Se a pergunta é fora de escopo (copa antiga, clube), delega pro
+ *    fluxo LLM antigo que recusa educadamente.
+ * 2. Busca jogos dos bolões do user: AO_VIVO + FINALIZADOS nas últimas
+ *    48h. Filtra por time se a pergunta mencionar um.
+ * 3. Renderiza com fuso de Brasília.
+ */
+async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void incContador('intent.PLACAR_JOGO');
+
+  const ground = construirFatosCopa2026(raw);
+  if (!ground.dentroDoEscopo) {
+    await handlePerguntaGeralFutebol(msg);
+    return;
+  }
+
+  const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
+  if (boloes.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '📭 Você ainda não participa de nenhum bolão — não tenho jogos pra te mostrar.\n\nManda *entrar em bolão* pra começar.',
+    });
+    return;
+  }
+
+  const corte = new Date(Date.now() - 48 * 3600_000);
+  const jogos = await prisma.jogo.findMany({
+    where: {
+      rodada: { bolao: { participacoes: { some: { usuarioId } } } },
+      OR: [
+        { status: 'AO_VIVO' },
+        { status: 'FINALIZADO', dataHora: { gte: corte } },
+      ],
+    },
+    orderBy: { dataHora: 'desc' },
+    take: 30,
+  });
+
+  // Filtra por time se a pergunta mencionou um (via grounding)
+  const timesMencionados = ground.detectado?.times ?? [];
+  const filtrados =
+    timesMencionados.length > 0
+      ? jogos.filter((j) =>
+          timesMencionados.some(
+            (t) =>
+              normalizeTeamName(j.timeCasa).includes(normalizeTeamName(t)) ||
+              normalizeTeamName(j.timeVisitante).includes(normalizeTeamName(t)),
+          ),
+        )
+      : jogos;
+
+  // Dedup por par de times (mesmo jogo pode existir em N bolões)
+  const vistos = new Set<string>();
+  const unicos = filtrados.filter((j) => {
+    const k = `${normalizeTeamName(j.timeCasa)}_${normalizeTeamName(j.timeVisitante)}_${j.dataHora.getTime()}`;
+    if (vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+
+  if (unicos.length === 0) {
+    const quem = timesMencionados.length > 0 ? ` de ${timesMencionados.join(' / ')}` : '';
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤷 Não achei jogo${quem} rolando agora nem encerrado nas últimas 48h nos seus bolões.\n\n` +
+        `Manda *próximos jogos* pra ver a agenda.`,
+    });
+    return;
+  }
+
+  const linhas = unicos.slice(0, 10).map((j) => {
+    if (j.status === 'AO_VIVO') {
+      const placar =
+        j.golsCasa !== null && j.golsVisitante !== null
+          ? `${j.golsCasa} × ${j.golsVisitante}`
+          : 'em andamento';
+      return `🔴 *AO VIVO*: ${j.timeCasa} ${placar} ${j.timeVisitante}`;
+    }
+    return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
+  });
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚽ *Placares recentes:*\n\n${linhas.join('\n')}\n\n` +
+      `_Placares atualizam a cada ~5 min. Pontos calculam em até ~10 min após o fim do jogo — manda *meus pontos* pra conferir._`,
+  });
+}
+
+/**
+ * v3.15.0 — PONTOS_DETALHE: "quantos pontos fiz ontem?". Breakdown
+ * jogo a jogo dos últimos jogos FINALIZADOS (48h), com palpite do user
+ * vs placar real e pontos obtidos.
+ */
+async function handlePontosDetalhe(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.PONTOS_DETALHE');
+
+  const corte = new Date(Date.now() - 48 * 3600_000);
+  const palpiteJogos = await prisma.palpiteJogo.findMany({
+    where: {
+      palpite: { usuarioId },
+      jogo: { status: 'FINALIZADO', dataHora: { gte: corte } },
+    },
+    include: {
+      jogo: true,
+      palpite: { include: { rodada: { include: { bolao: { select: { nome: true } } } } } },
+    },
+    orderBy: { jogo: { dataHora: 'desc' } },
+    take: 20,
+  });
+
+  if (palpiteJogos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `📭 Nenhum jogo que você palpitou terminou nas últimas 48h.\n\n` +
+        `• *meus pontos* — pontuação total\n` +
+        `• *próximos jogos* — o que está aberto pra palpitar`,
+    });
+    return;
+  }
+
+  const linhas = palpiteJogos.map((pj) => {
+    const j = pj.jogo;
+    const calculado = pj.palpite.calculado;
+    const emoji = pj.pontosObtidos >= 10 ? '🎯' : pj.pontosObtidos >= 5 ? '🥈' : pj.pontosObtidos > 0 ? '👍' : '❌';
+    const pontosLabel = calculado ? `${emoji} *${pj.pontosObtidos} pts*` : '⏳ _calculando..._';
+    return (
+      `• ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}\n` +
+      `  Seu palpite: ${pj.golsCasa} × ${pj.golsVisitante} → ${pontosLabel} _(${pj.palpite.rodada.bolao.nome})_`
+    );
+  });
+
+  const totalPeriodo = palpiteJogos
+    .filter((pj) => pj.palpite.calculado)
+    .reduce((acc, pj) => acc + pj.pontosObtidos, 0);
+  const temPendentes = palpiteJogos.some((pj) => !pj.palpite.calculado);
+
+  let texto = `📊 *Seus pontos — últimas 48h:*\n\n${linhas.join('\n\n')}\n\n*Total no período: ${totalPeriodo} pts*`;
+  if (temPendentes) {
+    texto += `\n\n⏳ _Alguns pontos ainda estão calculando — sai em até ~10 min após o fim do jogo._`;
+  }
+  texto += `\n\nManda *ranking* pra ver sua posição. 🍀`;
+
+  await sendText({ to: msg.waId, text: texto });
+}
+
+/**
+ * v3.15.0 — STATUS_RODADA: "quando atualiza o ranking?", "cadê meus
+ * pontos?". Explica o pipeline + mostra se tem jogo rolando agora.
+ */
+async function handleStatusRodada(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.STATUS_RODADA');
+
+  const aoVivo = await prisma.jogo.findFirst({
+    where: {
+      rodada: { bolao: { participacoes: { some: { usuarioId } } } },
+      status: 'AO_VIVO',
+    },
+  });
+
+  const blocoAoVivo = aoVivo
+    ? `\n🔴 Agora mesmo: *${aoVivo.timeCasa} ${aoVivo.golsCasa ?? 0} × ${aoVivo.golsVisitante ?? 0} ${aoVivo.timeVisitante}* (ao vivo)\n`
+    : '';
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `⏱️ *Como a pontuação atualiza:*\n` +
+      blocoAoVivo +
+      `\n1. ⚽ Placar entra no sistema em até *~5 min* após cada lance/fim de jogo\n` +
+      `2. 🧮 Pontos dos palpites calculam em até *~10 min* após o jogo terminar\n` +
+      `3. 🏆 Ranking atualiza na sequência, automaticamente\n\n` +
+      `Tudo automático — ninguém digita nada na mão. Se o placar oficial for corrigido (VAR, gol anulado), os pontos recalculam sozinhos.\n\n` +
+      `• *meus pontos* — sua pontuação\n` +
+      `• *ranking* — classificação do bolão`,
+  });
+}
+
+/**
+ * v3.15.0 — DESABAFO_RANKING: "tô em último", "fui mal demais".
+ * Acolhimento (não menu frio). Análogo ao ACOLHIMENTO_NOVATO da v3.9.0.
+ */
+async function handleDesabafoRanking(msg: IncomingMessage, usuarioId: string) {
+  void incContador('intent.DESABAFO_RANKING');
+
+  // Conta jogos ainda abertos pra dar esperança REAL (não genérica)
+  const jogosAbertos = await prisma.jogo.count({
+    where: {
+      rodada: { status: 'ABERTA', bolao: { participacoes: { some: { usuarioId } } } },
+      status: 'AGENDADO',
+      dataHora: { gte: new Date() },
+    },
+  });
+
+  const esperanca =
+    jogosAbertos > 0
+      ? `Ainda tem *${jogosAbertos} jogo(s)* pra palpitar — UM placar exato são 10 pontos e muda tudo. 🍀`
+      : `A Copa é longa — logo abrem mais jogos pra palpitar. 🍀`;
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `😅 Relaxa! Bolão é maratona, não tiro curto.\n\n` +
+      `Todo mundo tem rodada ruim — até quem tá em 1º errou feio em algum jogo. ${esperanca}\n\n` +
+      `• *dicas* — estratégia pra montar palpite\n` +
+      `• *próximos jogos* — bora virar o jogo 💪`,
+  });
+}
+
+/**
+ * v3.15.0 — RECLAMACAO_BUG: "meus pontos estão errados", "tá bugado".
+ * Antes caía no vácuo do smart-fallback. Agora:
+ * 1. LOGA a reclamação pra revisão offline (tabela MensagemNaoEntendida
+ *    com motivo dedicado 'reclamacao_bug' — ouro pra achar bugs reais).
+ * 2. Acolhe sem ser defensivo.
+ * 3. Explica como a pontuação funciona (automática, recalcula sozinha).
+ */
+async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void incContador('intent.RECLAMACAO_BUG');
+  void registrarMsgNaoEntendida(raw, 'IDLE', 'reclamacao_bug', {
+    whatsappId: msg.waId,
+    usuarioId,
+  });
+
+  await sendText({
+    to: msg.waId,
+    text:
+      `🔍 Opa, obrigado por avisar — registrei aqui pra revisão.\n\n` +
+      `Enquanto isso, vale saber como a pontuação funciona:\n` +
+      `• Os pontos calculam *automaticamente* (~10 min após cada jogo)\n` +
+      `• Critérios: 10 pts placar exato; 7 vencedor + gols de um time; 5 só o vencedor; 3 só gols de um time; 0 errou — *vale o melhor acerto, não soma*\n` +
+      `• Se o placar oficial mudar (VAR), os pontos *recalculam sozinhos*\n\n` +
+      `Confere os detalhes:\n` +
+      `• *meus pontos* — sua pontuação por rodada\n` +
+      `• *regras* — critérios completos com exemplos\n\n` +
+      `Se depois disso ainda achar algo estranho, me manda o jogo específico e o placar que você esperava. 🤝`,
+  });
 }
 
 /**

@@ -675,6 +675,107 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.15.0 — PLACAR_JOGO (Copa rolando)', () => {
+    it('"qual o placar?" → PLACAR_JOGO', () => {
+      expect(parseIntencao('qual o placar?').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+    it('"quanto tá o jogo?" → PLACAR_JOGO', () => {
+      expect(parseIntencao('quanto tá o jogo?').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+    it('"quem ganhou?" → PLACAR_JOGO', () => {
+      expect(parseIntencao('quem ganhou?').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+    it('"como ficou o jogo do Brasil?" → PLACAR_JOGO', () => {
+      expect(parseIntencao('como ficou o jogo do Brasil?').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+    it('"resultado de ontem" → PLACAR_JOGO', () => {
+      expect(parseIntencao('resultado de ontem').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+    it('"ja acabou o jogo?" → PLACAR_JOGO', () => {
+      expect(parseIntencao('ja acabou o jogo?').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+    it('"saiu o resultado?" → PLACAR_JOGO', () => {
+      expect(parseIntencao('saiu o resultado?').intencao).toBe(Intencao.PLACAR_JOGO);
+    });
+  });
+
+  describe('v3.15.0 — PONTOS_DETALHE', () => {
+    it('"quantos pontos eu fiz ontem?" → PONTOS_DETALHE (não MEUS_PONTOS)', () => {
+      expect(parseIntencao('quantos pontos eu fiz ontem?').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+    it('"acertei meu palpite?" → PONTOS_DETALHE', () => {
+      expect(parseIntencao('acertei meu palpite?').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+    it('"ganhei pontos?" → PONTOS_DETALHE', () => {
+      expect(parseIntencao('ganhei pontos?').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+    it('"pontos de ontem" → PONTOS_DETALHE', () => {
+      expect(parseIntencao('pontos de ontem').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+    // Anti-regressão: total geral continua MEUS_PONTOS
+    it('"meus pontos" continua MEUS_PONTOS', () => {
+      expect(parseIntencao('meus pontos').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"quanto eu fiz" (sem qualificador temporal) continua MEUS_PONTOS', () => {
+      expect(parseIntencao('quanto eu fiz').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+  });
+
+  describe('v3.15.0 — STATUS_RODADA', () => {
+    it('"quando atualiza o ranking?" → STATUS_RODADA', () => {
+      expect(parseIntencao('quando atualiza o ranking?').intencao).toBe(Intencao.STATUS_RODADA);
+    });
+    it('"quando sai o resultado?" → STATUS_RODADA', () => {
+      expect(parseIntencao('quando sai o resultado?').intencao).toBe(Intencao.STATUS_RODADA);
+    });
+    it('"cade meus pontos?" → STATUS_RODADA', () => {
+      expect(parseIntencao('cade meus pontos?').intencao).toBe(Intencao.STATUS_RODADA);
+    });
+    it('"quando os pontos são calculados?" → STATUS_RODADA', () => {
+      expect(parseIntencao('quando os pontos são calculados?').intencao).toBe(Intencao.STATUS_RODADA);
+    });
+  });
+
+  describe('v3.15.0 — DESABAFO_RANKING', () => {
+    it('"to em ultimo" → DESABAFO_RANKING', () => {
+      expect(parseIntencao('to em ultimo').intencao).toBe(Intencao.DESABAFO_RANKING);
+    });
+    it('"fui mal demais" → DESABAFO_RANKING', () => {
+      expect(parseIntencao('fui mal demais').intencao).toBe(Intencao.DESABAFO_RANKING);
+    });
+    it('"to perdendo" → DESABAFO_RANKING', () => {
+      expect(parseIntencao('to perdendo').intencao).toBe(Intencao.DESABAFO_RANKING);
+    });
+    it('"nunca acerto" → DESABAFO_RANKING', () => {
+      expect(parseIntencao('nunca acerto').intencao).toBe(Intencao.DESABAFO_RANKING);
+    });
+    // Anti-falso-positivo: "foi mal" (gíria de desculpa) ≠ "fui mal"
+    it('"foi mal" (desculpa) NÃO cai em DESABAFO_RANKING', () => {
+      expect(parseIntencao('foi mal').intencao).not.toBe(Intencao.DESABAFO_RANKING);
+    });
+  });
+
+  describe('v3.15.0 — RECLAMACAO_BUG', () => {
+    it('"meus pontos estão errados" → RECLAMACAO_BUG (não MEUS_PONTOS)', () => {
+      expect(parseIntencao('meus pontos estão errados').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+    it('"ta bugado" → RECLAMACAO_BUG', () => {
+      expect(parseIntencao('ta bugado').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+    it('"o bot ta errado" → RECLAMACAO_BUG', () => {
+      expect(parseIntencao('o bot ta errado').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+    it('"calculou errado" → RECLAMACAO_BUG', () => {
+      expect(parseIntencao('calculou errado').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+    it('"faltou ponto" → RECLAMACAO_BUG', () => {
+      expect(parseIntencao('faltou ponto').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+    it('"deveria ter mais pontos" → RECLAMACAO_BUG', () => {
+      expect(parseIntencao('deveria ter mais pontos').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+  });
+
   describe('v3.7.0 — EDITAR_PALPITE com placar inline', () => {
     it('"corrigir Brasil 3x1 Marrocos" → EDITAR_PALPITE (não PALPITE_INLINE)', () => {
       expect(parseIntencao('corrigir Brasil 3x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);
@@ -789,9 +890,14 @@ describe('parseIntencao', () => {
         Intencao.PERGUNTA_GERAL_FUTEBOL,
       );
     });
-    it('"quem ganhou copa de 94?" → PERGUNTA_GERAL_FUTEBOL', () => {
+    // v3.15.0: "quem ganhou" agora roteia pra PLACAR_JOGO (banco TEM os
+    // placares). O handler delega de volta pra PERGUNTA_GERAL_FUTEBOL
+    // quando detecta fora-de-escopo (copa antiga) — comportamento final
+    // pro usuário é idêntico (recusa educada), mas placar recente vem
+    // do banco em vez de "checa na FIFA".
+    it('"quem ganhou copa de 94?" → PLACAR_JOGO (handler delega fora-de-escopo)', () => {
       expect(parseIntencao('quem ganhou copa de 94?').intencao).toBe(
-        Intencao.PERGUNTA_GERAL_FUTEBOL,
+        Intencao.PLACAR_JOGO,
       );
     });
     it('"em que grupo o Brasil está?" → PERGUNTA_GERAL_FUTEBOL', () => {
@@ -799,9 +905,9 @@ describe('parseIntencao', () => {
         Intencao.PERGUNTA_GERAL_FUTEBOL,
       );
     });
-    it('"qual o placar do jogo?" → PERGUNTA_GERAL_FUTEBOL', () => {
+    it('"qual o placar do jogo?" → PLACAR_JOGO (v3.15.0: banco tem placares)', () => {
       expect(parseIntencao('qual o placar do jogo?').intencao).toBe(
-        Intencao.PERGUNTA_GERAL_FUTEBOL,
+        Intencao.PLACAR_JOGO,
       );
     });
 
