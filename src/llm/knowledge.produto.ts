@@ -30,7 +30,7 @@ PONTUAÇÃO (não acumula — vale o melhor acerto):
 
 PRAZO DE PALPITE:
 - Cada palpite pode ser registrado/editado até o kickoff do jogo (relógio bate a hora marcada, palpite trava — mesmo que o jogo atrase de fato). Horários sempre em fuso de Brasília.
-- Placar ao vivo NÃO existe. Oficial em ~1h após o apito; pontos do bolão em ~10min → ranking atualiza ~1h10 do fim. "placares" → jogos. "ranking" → bolão. Se ambíguo, oferecer ambos.
+- Placar AO VIVO existe: durante o jogo mostra placar parcial (atualiza a cada poucos min). Pontos calculam poucos min após o apito final → ranking logo depois. "placares" → jogos. "ranking" → bolão. Se ambíguo, oferecer ambos.
 - Pode editar quantas vezes quiser enquanto o jogo não começou.
 - Jogo que ja comecou / acabou: o bot recusa palpite/edicao com mensagem "esse jogo ja comecou".
 
@@ -44,7 +44,7 @@ PALPITES — FORMATOS ACEITOS:
 
 RANKING:
 - Ordenado por pontuação total (maior pra menor).
-- Atualizado a cada hora (job automático).
+- Atualiza sozinho: pontos recalculam poucos min após cada jogo terminar.
 - Empate é desempatado por: (1) quem registrou mais palpites; (2) quem entrou primeiro no bolão.
 - Comando: "ranking" / "tabela" / "quem tá na frente".
 
@@ -63,7 +63,7 @@ CUSTO:
 ESCOPO:
 - Bolão é da Copa do Mundo FIFA 2026 (Estados Unidos / Canadá / México, 11/jun a 19/jul).
 - Bot NÃO cobre Brasileirão, Libertadores, Champions, jogos de clube, copas antigas.
-- Bot MOSTRA placares dos jogos da Copa (atualiza ~5min; user pergunta "quem ganhou?"/"qual o placar?") e convocações oficiais. NÃO cobre transmissão de TV nem lance a lance.
+- Bot MOSTRA placares da Copa AO VIVO (atualiza a cada poucos min; "quem ganhou?"/"qual o placar?") e convocações oficiais. NÃO cobre transmissão de TV nem narração lance a lance.
 - Pontuação é 100% automática (recalcula até em correção de VAR). "fulano roubou" → explicar isso. Palpite é privado até o jogo começar; quando a bola rola, o bot revela os palpites de todos do bolão pra aquele jogo.
 - Mudar nome de user: não dá — vem do WhatsApp.
 

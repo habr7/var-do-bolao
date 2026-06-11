@@ -1222,11 +1222,10 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
 
   const agora = new Date();
   const corte = new Date(agora.getTime() - 48 * 3600_000);
-  // v3.20.0 — openfootball NÃO dá placar ao vivo, então status AO_VIVO
-  // nunca existe no banco durante o jogo. Derivamos "rolando" por
-  // HORÁRIO: jogos AGENDADOS cujo kickoff já passou também entram
-  // (análise feita com México x África ROLANDO — antes respondia
-  // "não achei jogo rolando").
+  // v3.22.0+ — com o provider hybrid a FIFA seta status=AO_VIVO e grava
+  // placar parcial durante o jogo. Ainda derivamos "rolando" por HORÁRIO
+  // como fallback (caso a FIFA caia e use openfootball, que não dá placar
+  // ao vivo): jogos AGENDADOS cujo kickoff já passou também entram.
   const jogos = await prisma.jogo.findMany({
     where: {
       rodada: { bolao: { participacoes: { some: { usuarioId } } } },
@@ -1299,13 +1298,14 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     return `⏳ ${j.timeCasa} x ${j.timeVisitante} — encerrado, _aguardando placar oficial_ _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
   });
 
-  // v3.21.0 — mensagem reflete: placar parcial não rola, oficial em ~1h,
-  // pontos ~10min depois → ranking atualiza ~1h10 após o apito final.
+  // v3.26.0 — mensagem reflete a fonte FIFA AO VIVO (provider hybrid):
+  // placar atualiza em tempo quase real durante o jogo; pontos calculam
+  // poucos minutos após o apito final → ranking na sequência.
   // Em modo ambíguo, oferece o caminho do ranking explicitamente
   // (caso Bruna 11/06 — "Placares de todos").
   let textoFinal =
     `⚽ *Placares dos jogos:*\n\n${linhas.join('\n')}\n\n` +
-    `_⏱️ Placar oficial chega em até *~1h* após o apito final (base pública). Pontos do bolão calculam ~10 min depois — total *~1h10* do fim do jogo até atualizar o ranking._`;
+    `_⏱️ O placar atualiza *ao vivo* durante o jogo. Os pontos do bolão calculam automaticamente *poucos minutos após o apito final* e o ranking atualiza na sequência._`;
   if (perguntaAmbigua) {
     textoFinal +=
       `\n\n📊 *Quer ver o ranking do bolão?*\n` +
@@ -1366,7 +1366,7 @@ async function handlePontosDetalhe(msg: IncomingMessage, usuarioId: string) {
 
   let texto = `📊 *Seus pontos — últimas 48h:*\n\n${linhas.join('\n\n')}\n\n*Total no período: ${totalPeriodo} pts*`;
   if (temPendentes) {
-    texto += `\n\n⏳ _Alguns pontos ainda estão calculando — sai em até ~10 min após o fim do jogo._`;
+    texto += `\n\n⏳ _Alguns pontos ainda estão calculando — saem em poucos minutos após o fim do jogo._`;
   }
   texto += `\n\nManda *ranking* pra ver sua posição. 🍀`;
 
@@ -1405,11 +1405,11 @@ async function handleStatusRodada(msg: IncomingMessage, usuarioId: string) {
     text:
       `⏱️ *Como a pontuação atualiza:*\n` +
       blocoAoVivo +
-      `\n1. ⚽ Placar do jogo entra no sistema *na maioria das vezes em até 1h* após o apito final (fonte: base pública atualizada pela comunidade)\n` +
-      `2. 🧮 Pontos calculam em *~10 min* após o placar entrar\n` +
-      `3. 🏆 Ranking atualiza na sequência, automaticamente\n\n` +
+      `\n1. ⚽ O placar aparece *ao vivo* durante o jogo (atualiza a cada poucos minutos)\n` +
+      `2. 🧮 Quando o jogo acaba, os pontos calculam *automaticamente em poucos minutos*\n` +
+      `3. 🏆 Ranking atualiza na sequência, sozinho\n\n` +
       `Tudo automático — ninguém digita nada na mão. Se o placar oficial for corrigido (VAR, gol anulado), os pontos recalculam sozinhos.\n\n` +
-      `_Em jogos importantes pode demorar mais — a base é mantida por voluntários. Se ficar muito tempo sem aparecer, manda *meus pontos estão errados* que eu registro pra revisão._\n\n` +
+      `_Se algum placar demorar a aparecer, costuma ser questão de minutos. Se ficar muito tempo sem atualizar, manda *meus pontos estão errados* que eu registro pra revisão._\n\n` +
       `• *meus pontos* — sua pontuação\n` +
       `• *ranking* — classificação do bolão`,
   });
@@ -1466,7 +1466,7 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
     text:
       `🔍 Opa, obrigado por avisar — registrei aqui pra revisão.\n\n` +
       `Enquanto isso, vale saber como a pontuação funciona:\n` +
-      `• Pontos calculam *automaticamente ~10 min* depois que o placar oficial entra (placar costuma chegar em até 1h após o apito final)\n` +
+      `• Pontos calculam *automaticamente em poucos minutos* depois que o jogo termina (o placar aparece ao vivo durante a partida)\n` +
       `• Critérios: 10 pts placar exato; 7 vencedor + gols de um time; 5 só o vencedor; 3 só gols de um time; 0 errou — *vale o melhor acerto, não soma*\n` +
       `• Se o placar oficial mudar (VAR), os pontos *recalculam sozinhos*\n\n` +
       `Confere os detalhes:\n` +
@@ -4607,7 +4607,7 @@ async function mostrarProximosJogos(
       const blocoSoRolando = jogosRolando
         .map((j) => `🔴 *ROLANDO*: ${j.timeCasa} x ${j.timeVisitante} _(começou ${formatarHoraBR(j.dataHora)} — palpites encerrados)_`)
         .join('\n');
-      partes.push(`🏆 *${b.nome}*\n${blocoSoRolando}\n\n_⏳ Próximos jogos abrem em breve. Placar oficial entra ~1h após cada jogo._`);
+      partes.push(`🏆 *${b.nome}*\n${blocoSoRolando}\n\n_⏳ Próximos jogos abrem em breve. O placar aparece ao vivo durante cada jogo._`);
       continue;
     }
     if (lote.length === 0) continue;

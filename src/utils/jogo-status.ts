@@ -1,10 +1,12 @@
 /**
  * v3.20.0 — Estado derivado de jogo POR HORÁRIO.
  *
- * Por que existe: o openfootball (fonte de placares desde a v3.16.0)
- * NÃO publica placar ao vivo — commits da comunidade chegam ~30-60min
- * após o fim do jogo. Então o `Jogo.status` no banco fica `AGENDADO`
- * durante TODO o jogo (nenhum caminho seta AO_VIVO em produção).
+ * Por que existe: é um FALLBACK. Desde a v3.22.0 o provider `hybrid` usa a
+ * FIFA (api.fifa.com) como fonte primária, que seta `Jogo.status=AO_VIVO`
+ * e grava placar parcial em tempo quase real. MAS, se a FIFA cair, o
+ * fallback openfootball NÃO publica placar ao vivo (commits da comunidade
+ * chegam ~30-60min depois) e o status fica `AGENDADO` durante o jogo.
+ * Pra esse caso, derivamos "rolando" por HORÁRIO.
  *
  * Análise feita com México x África do Sul ROLANDO (11/06 16:19, jogo
  * começou 16:00): "qual o placar?" respondia "não achei jogo rolando"
