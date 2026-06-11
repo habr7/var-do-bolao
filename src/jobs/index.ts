@@ -7,6 +7,7 @@ import { calculateScoresJob } from './calculate-scores.job.js';
 import { sendBomDiaJob } from './send-bom-dia.job.js';
 import { sendPalpiteCallJob } from './send-palpite-call.job.js';
 import { sendRemindersJob } from './send-reminders.job.js';
+import { sendPalpiteRevealJob } from './send-palpite-reveal.job.js';
 import { sendRankingJob } from './send-ranking.job.js';
 import { repararBoloesQuebrados } from './repair-broken-boloes.job.js';
 import { limparMensagensAntigas } from './limpar-mensagens-antigas.job.js';
@@ -33,6 +34,11 @@ export function registerJobs() {
 
   // Lembrete palpite — a cada 30min
   cron.schedule('*/30 * * * *', wrap('send-reminders', sendRemindersJob));
+
+  // Revelação de palpites no kickoff — a cada 2min. Quando um jogo começa,
+  // manda pros integrantes os palpites de todos do bolão pra aquele jogo.
+  // Time-driven (independe da FIFA); idempotente por (user, jogo) em Redis.
+  cron.schedule('*/2 * * * *', wrap('send-palpite-reveal', sendPalpiteRevealJob));
 
   // Ranking personalizado — a cada hora
   cron.schedule('0 * * * *', wrap('send-ranking', sendRankingJob));

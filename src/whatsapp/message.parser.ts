@@ -422,6 +422,12 @@ const PALPITE_OUTROS_PATTERNS: RegExp[] = [
   /\blista de palpites?\b/,
   // "o que o fulano palpitou"
   /\bo que (?:o |a )?(?:fulan|outr|cada um|cada pessoa)/,
+  // v3.24.0 — pedido direto de ver os palpites de todos / do jogo (revelação
+  // pós-kickoff). "palpites de todos", "palpites do jogo", "ver os palpites
+  // do jogo". (Não colide com MEU_PALPITE: exige "de todos"/"do jogo".)
+  /\bpalpites? de todos?\b/,
+  /\bpalpites? d[oe] jogo\b/,
+  /\b(?:ver|mostra(?:r)?|quero ver|me mostra) (?:os |o )?palpites? d[oe] (?:jogo|todos)/,
 ];
 
 // PRECEDÊNCIA: antes de MEUS_PONTOS ("meus pontos estão errados").

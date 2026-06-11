@@ -53,6 +53,7 @@ processo principal via `node-cron`, registrados em `src/jobs/index.ts`.
 | `send-bom-dia` | `0 * * * *` (hourly) | v3.13.0: dispara "6h antes do próximo jogo" (não em hora fixa). Clamp [07:00–22:00 BRT]. Lista TODOS os jogos próximos com ✅ palpitado / ⚪ pendente. | Redis `aviso_jogo:{waId}` TTL 24h. Compartilha cooldown com `send-palpite-call`. | `ENABLE_BOM_DIA` |
 | `send-palpite-call` | `5 * * * *` (hourly :05) | Chamada ativa de palpites — 6h antes do 1º jogo do dia. Lista jogos + abre fluxo PALPITANDO. | Redis `palpite-call:{bolaoId}:{date}` TTL 30h + cooldown cross-job `aviso_jogo:{waId}` 24h. | `ENABLE_PALPITE_CALL` |
 | `send-reminders` | `*/30 * * * *` (30min) | Cutuca quem ainda tem palpites pendentes a <3h do fechamento. | Por usuário/rodada | `ENABLE_REMINDERS` |
+| `send-palpite-reveal` | `*/2 * * * *` (2min) | v3.24.0: no kickoff de um jogo, revela pros integrantes os palpites de TODOS do bolão pra aquele jogo (quem não palpitou = "não palpitou"). Time-driven (independe da FIFA). Multi-bolão = 1 msg com 1 bloco por bolão. CONTA no `MAX_AVISOS_DIA`. | Redis `reveal:{waId}:{apiJogoId}` TTL 6h (1 envio por pessoa/jogo) | `ENABLE_PALPITE_REVEAL` |
 | `send-ranking` | `0 * * * *` (hourly) | Manda ranking personalizado pós-rodada FINALIZADA. | Por bolão/rodada | — |
 | `repair-broken-boloes` | boot + `0 3 * * *` | Repara rodadas sem jogos. | — | — |
 | `limpar-mensagens-antigas` | `0 5 1 * *` (mensal) | LGPD: deleta `MensagemNaoEntendida` >RETENCAO_DIAS. | — | — |
@@ -67,6 +68,8 @@ processo principal via `node-cron`, registrados em `src/jobs/index.ts`.
 | `ENABLE_BOM_DIA` | `true` | v3.13.0 — desliga só esse canal |
 | `ENABLE_PALPITE_CALL` | `true` | v3.13.0 — desliga só esse canal |
 | `ENABLE_REMINDERS` | `true` | v3.13.0 — desliga só esse canal |
+| `ENABLE_PALPITE_REVEAL` | `true` | v3.24.0 — desliga o push de revelação de palpites no kickoff |
+| `MAX_AVISOS_DIA` | `8` | v3.17.0 (subido p/ 8 na v3.24.0) — cap diário de avisos/user, cross-job. A revelação no kickoff conta; a resposta sob demanda não. |
 | `DRY_RUN_WHATSAPP` | `false` | Captura msgs em memória, não envia |
 
 ## Garantias

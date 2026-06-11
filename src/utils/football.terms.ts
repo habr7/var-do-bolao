@@ -61,6 +61,14 @@ const CHAMADAS_PALPITE = [
   '🔥 Vamos lá, palpita aí!',
 ];
 
+// v3.24.0 — abertura da revelação de palpites quando o jogo começa.
+const REVELACOES_PALPITE = [
+  '🎙️ A bola vai rolar — hora de abrir o jogo dos palpites! 👀',
+  '🔓 Apito inicial! Palpites travados, olha o que a galera cravou:',
+  '👀 Jogo começou! Bora ver o palpite de todo mundo do bolão:',
+  '🍿 Começou! Hora de ver quem foi corajoso no palpite:',
+];
+
 function random<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -95,6 +103,10 @@ export function naoEntendi(): string {
 
 export function chamadaPalpite(): string {
   return random(CHAMADAS_PALPITE);
+}
+
+export function chamadaRevelacaoPalpites(): string {
+  return random(REVELACOES_PALPITE);
 }
 
 export function medalha(posicao: number): string {
