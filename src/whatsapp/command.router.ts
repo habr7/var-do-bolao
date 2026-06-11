@@ -1213,7 +1213,7 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     to: msg.waId,
     text:
       `⚽ *Placares recentes:*\n\n${linhas.join('\n')}\n\n` +
-      `_Placares atualizam a cada ~5 min. Pontos calculam em até ~10 min após o fim do jogo — manda *meus pontos* pra conferir._`,
+      `_Placar oficial chega em até ~1h após o apito final (base pública). Pontos calculam ~10 min depois — manda *meus pontos* pra conferir._`,
   });
 }
 
@@ -1298,10 +1298,11 @@ async function handleStatusRodada(msg: IncomingMessage, usuarioId: string) {
     text:
       `⏱️ *Como a pontuação atualiza:*\n` +
       blocoAoVivo +
-      `\n1. ⚽ Placar entra no sistema em até *~5 min* após cada lance/fim de jogo\n` +
-      `2. 🧮 Pontos dos palpites calculam em até *~10 min* após o jogo terminar\n` +
+      `\n1. ⚽ Placar do jogo entra no sistema *na maioria das vezes em até 1h* após o apito final (fonte: base pública atualizada pela comunidade)\n` +
+      `2. 🧮 Pontos calculam em *~10 min* após o placar entrar\n` +
       `3. 🏆 Ranking atualiza na sequência, automaticamente\n\n` +
       `Tudo automático — ninguém digita nada na mão. Se o placar oficial for corrigido (VAR, gol anulado), os pontos recalculam sozinhos.\n\n` +
+      `_Em jogos importantes pode demorar mais — a base é mantida por voluntários. Se ficar muito tempo sem aparecer, manda *meus pontos estão errados* que eu registro pra revisão._\n\n` +
       `• *meus pontos* — sua pontuação\n` +
       `• *ranking* — classificação do bolão`,
   });
@@ -1358,7 +1359,7 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
     text:
       `🔍 Opa, obrigado por avisar — registrei aqui pra revisão.\n\n` +
       `Enquanto isso, vale saber como a pontuação funciona:\n` +
-      `• Os pontos calculam *automaticamente* (~10 min após cada jogo)\n` +
+      `• Pontos calculam *automaticamente ~10 min* depois que o placar oficial entra (placar costuma chegar em até 1h após o apito final)\n` +
       `• Critérios: 10 pts placar exato; 7 vencedor + gols de um time; 5 só o vencedor; 3 só gols de um time; 0 errou — *vale o melhor acerto, não soma*\n` +
       `• Se o placar oficial mudar (VAR), os pontos *recalculam sozinhos*\n\n` +
       `Confere os detalhes:\n` +

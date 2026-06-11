@@ -1,10 +1,19 @@
 import { env } from '../../config/env.js';
 import { MockFootballApi, ApiFutebolAdapter } from './resultado.fetcher.js';
 import { FifaWorldCup2026Adapter } from './fifa.fetcher.js';
+import { OpenFootballAdapter } from './openfootball.fetcher.js';
 import type { FootballApiAdapter } from './resultado.types.js';
 import * as rodadaRepo from '../rodada/rodada.repository.js';
 
 function getFootballApi(): FootballApiAdapter {
+  // v3.16.0 — default mudou de 'fifa-2026' pra 'openfootball'.
+  // O fetcher antigo dependia de FIFA_SEASON_ID + api.fifa.com,
+  // e em produção vinha silencioso (FIFA_SEASON_ID vazio → return []).
+  // openfootball é a mesma fonte do sync de jogos — sem API key,
+  // nomes batem 100% com o JSON local.
+  if (env.FOOTBALL_PROVIDER === 'openfootball') {
+    return new OpenFootballAdapter();
+  }
   if (env.FOOTBALL_PROVIDER === 'fifa-2026') {
     return new FifaWorldCup2026Adapter();
   }
