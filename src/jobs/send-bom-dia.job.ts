@@ -2,38 +2,51 @@ import { prisma } from '../config/database.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
 import { env } from '../config/env.js';
-import { bomDia } from '../utils/football.terms.js';
+import { formatarDataHoraCurtaBR, formatarHoraBR } from '../utils/datetime.js';
 
 /**
- * Job de "bom dia, boleiros". Roda HOURLY e decide por bolao quando
- * disparar.
+ * Job "aviso de jogo" — v3.13.0 reescrito (caso real Jeniffer 11/06).
  *
- * Regra de horario:
- *   - Default: HORARIO_BOM_DIA (ex 09:00) no fuso de Brasilia.
- *   - Se HORARIO_BOM_DIA cair DEPOIS de (kickoff - 8h) — ou seja, o
- *     primeiro jogo do dia eh suficientemente cedo pra que 09:00 ja
- *     esteja passado da janela de "8h antes" — desloca o bom dia pra
- *     (kickoff - 6h). Assim a saudacao chega antes da chamada de
- *     palpite (que dispara em kickoff - PALPITE_CALL_HORAS_ANTES, default 6h).
+ * Roda HOURLY. Pra cada usuário com jogo aberto, decide se está dentro
+ * da janela de envio "6h antes do próximo jogo" com 3 guardas:
  *
- * Filtro: so envia para usuarios que tem **jogo do bolao no dia de hoje**.
+ *   1. **Clamp horário civilizado**: só envia entre 07:00–22:00 BRT.
+ *      Se "6h antes" cair fora, dispara em 22:00 do dia anterior
+ *      (pra jogos da madrugada que rolam 01h BRT).
  *
- * Idempotencia: flag Redis `bomdia:{waId}:{YYYY-MM-DD}` com TTL 25h.
+ *   2. **Cooldown 24h**: flag Redis `aviso_jogo:{waId}` TTL 24h.
+ *      Garantia firme: máximo 1 mensagem por usuário por dia.
+ *
+ *   3. **Cross-job**: mesma flag é honrada por `send-palpite-call`.
+ *      Se palpite-call mandou nas últimas 24h, bom-dia pula.
+ *
+ * Conteúdo: lista TODOS os jogos do user nas próximas ~30h, marcando
+ * ✅ palpitado / ⚪ pendente — assim 1 aviso cobre jogos consecutivos
+ * num lote sem precisar de re-envio.
+ *
+ * Substituiu a lógica anterior de "envio em horário fixo 09:00" que
+ * perdia jogos noturnos (Copa 2026 EUA Costa Oeste = 23h-04h BRT).
  */
-export async function sendBomDiaJob() {
-  const agora = new Date();
-  const inicioHoje = new Date(agora);
-  inicioHoje.setHours(0, 0, 0, 0);
-  const fimHoje = new Date(agora);
-  fimHoje.setHours(23, 59, 59, 999);
 
-  // Bolaoes ativos com pelo menos 1 jogo hoje
+const JANELA_PROXIMO_JOGO_HORAS = 6; // dispara em "kickoff - 6h"
+const JANELA_LISTAGEM_HORAS = 30; // lista todos os jogos nas próximas N horas
+const HORA_MIN_BRT = 7; // não envia antes das 07:00 BRT
+const HORA_MAX_BRT = 22; // se "kickoff - 6h" cair >22, dispara em 22:00 do mesmo dia
+
+export async function sendBomDiaJob() {
+  if (!env.ENABLE_BOM_DIA) return;
+
+  const agora = new Date();
+  const limiteListagem = new Date(agora.getTime() + JANELA_LISTAGEM_HORAS * 3600_000);
+
+  // Acha bolões com jogos nas próximas 30h (qualquer status que conte)
   const boloesComJogo = await prisma.bolao.findMany({
     where: {
       status: 'ATIVO',
       rodadas: {
         some: {
-          jogos: { some: { dataHora: { gte: inicioHoje, lte: fimHoje } } },
+          status: 'ABERTA',
+          jogos: { some: { dataHora: { gte: agora, lte: limiteListagem } } },
         },
       },
     },
@@ -43,8 +56,11 @@ export async function sendBomDiaJob() {
         where: { status: 'ABERTA' },
         include: {
           jogos: {
-            where: { dataHora: { gte: inicioHoje, lte: fimHoje } },
+            where: { dataHora: { gte: agora, lte: limiteListagem }, status: { in: ['AGENDADO', 'AO_VIVO'] } },
             orderBy: { dataHora: 'asc' },
+          },
+          palpites: {
+            select: { usuarioId: true, jogos: { select: { jogoId: true } } },
           },
         },
       },
@@ -53,90 +69,83 @@ export async function sendBomDiaJob() {
 
   if (boloesComJogo.length === 0) return;
 
-  const hoje = agora.toISOString().slice(0, 10); // YYYY-MM-DD
-
-  // ---- Decide alvo (waId, nome, jogos do dia, primeiroJogo) ----
-  // Mesmo usuario pode estar em varios bolaoes — agrega.
+  // Pra cada user, agrega jogos das próximas 30h + computa o que já palpitou
+  interface JogoComStatus {
+    timeCasa: string;
+    timeVisitante: string;
+    dataHora: Date;
+    palpitou: boolean;
+  }
   interface Alvo {
     waId: string;
     nome: string;
-    jogosHoje: { timeCasa: string; timeVisitante: string; dataHora: Date }[];
-    primeiroJogoHoje: Date;
+    jogos: JogoComStatus[]; // sorted asc
   }
+  const alvos = new Map<string, Alvo>();
 
-  const alvosMap = new Map<string, Alvo>();
   for (const bolao of boloesComJogo) {
-    const jogosBolao = bolao.rodadas.flatMap((r) => r.jogos);
-    if (jogosBolao.length === 0) continue;
-    for (const p of bolao.participacoes) {
-      const waId = p.usuario.whatsappId;
-      if (!waId) continue;
-      const existente = alvosMap.get(waId);
-      const jogosCombinados = existente
-        ? [...existente.jogosHoje, ...jogosBolao]
-        : [...jogosBolao];
-      jogosCombinados.sort((a, b) => a.dataHora.getTime() - b.dataHora.getTime());
-      alvosMap.set(waId, {
-        waId,
-        nome: p.usuario.nome,
-        jogosHoje: jogosCombinados,
-        primeiroJogoHoje: jogosCombinados[0].dataHora,
-      });
+    for (const rodada of bolao.rodadas) {
+      const palpitouPorUser = new Map<string, Set<string>>();
+      for (const p of rodada.palpites) {
+        palpitouPorUser.set(p.usuarioId, new Set(p.jogos.map((pj) => pj.jogoId)));
+      }
+      for (const part of bolao.participacoes) {
+        const waId = part.usuario.whatsappId;
+        if (!waId) continue;
+        const jaPalpitouEm = palpitouPorUser.get(part.usuarioId) ?? new Set<string>();
+        const jogosDoUser: JogoComStatus[] = rodada.jogos.map((j) => ({
+          timeCasa: j.timeCasa,
+          timeVisitante: j.timeVisitante,
+          dataHora: j.dataHora,
+          palpitou: jaPalpitouEm.has(j.id),
+        }));
+        const existente = alvos.get(waId);
+        if (existente) {
+          existente.jogos.push(...jogosDoUser);
+          existente.jogos.sort((a, b) => a.dataHora.getTime() - b.dataHora.getTime());
+        } else {
+          alvos.set(waId, { waId, nome: part.usuario.nome, jogos: jogosDoUser });
+        }
+      }
     }
   }
 
-  // ---- Calcula janela de envio (em ms desde epoch) ----
-  // horaDefault = HORARIO_BOM_DIA hoje em Brasilia
-  const [hStr, mStr] = env.HORARIO_BOM_DIA.split(':');
-  const horaPadrao = parseInt(hStr, 10);
-  const minPadrao = parseInt(mStr ?? '0', 10);
+  // Pra cada alvo, decide envio.
+  for (const alvo of alvos.values()) {
+    if (alvo.jogos.length === 0) continue;
+    const proximo = alvo.jogos[0];
+    const tAvisoBase = new Date(proximo.dataHora.getTime() - JANELA_PROXIMO_JOGO_HORAS * 3600_000);
+    const tAviso = clampHorarioCivilizado(tAvisoBase, proximo.dataHora);
 
-  const formatHorario = (d: Date) =>
-    d.toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: env.TIMEZONE,
-    });
+    // Está dentro da janela de 1h do envio (cron hourly)?
+    const diff = agora.getTime() - tAviso.getTime();
+    if (diff < 0 || diff >= 3600_000) continue;
 
-  for (const alvo of alvosMap.values()) {
-    const flag = `bomdia:${alvo.waId}:${hoje}`;
+    // Cross-job + cooldown 24h
+    const flag = `aviso_jogo:${alvo.waId}`;
     const ja = await redis.get(flag);
     if (ja) continue;
 
-    // horaPadraoToday: 09:00 BRT do dia atual (em UTC)
-    const horaPadraoToday = brasiliaHoraToUtc(agora, horaPadrao, minPadrao);
-
-    const kickoffMenos8 = new Date(alvo.primeiroJogoHoje.getTime() - 8 * 3600_000);
-    const kickoffMenos6 = new Date(alvo.primeiroJogoHoje.getTime() - 6 * 3600_000);
-
-    // Regra: se default ficaria depois de kickoff-8, dispara em kickoff-6.
-    const targetTime =
-      horaPadraoToday.getTime() > kickoffMenos8.getTime() ? kickoffMenos6 : horaPadraoToday;
-
-    // Janela de 1h: dispara quando agora ∈ [target, target + 1h)
-    const diffMs = agora.getTime() - targetTime.getTime();
-    if (diffMs < 0 || diffMs >= 3600_000) continue;
-
-    // Nao manda em horario absurdo (madrugada). Cap em 06:00 BRT.
-    const horaBrasiliaAgora = parseInt(
-      agora.toLocaleString('en-US', { timeZone: env.TIMEZONE, hour: 'numeric', hour12: false }),
-      10,
-    );
-    if (horaBrasiliaAgora < 6) continue;
-
     // Monta mensagem
-    const linhasJogos = alvo.jogosHoje
-      .slice(0, 8)
-      .map((j) => `• ${formatHorario(j.dataHora)} — ${j.timeCasa} x ${j.timeVisitante}`);
+    const header = headerPorHorario(agora);
+    const linhas = alvo.jogos.slice(0, 10).map((j) => {
+      const marcado = j.palpitou ? '✅' : '⚪';
+      return `${marcado} ${formatarDataHoraCurtaBR(j.dataHora)} — ${j.timeCasa} x ${j.timeVisitante}`;
+    });
+    const faltaPalpitar = alvo.jogos.filter((j) => !j.palpitou).length;
+    const footer = faltaPalpitar > 0
+      ? `\n⚪ = falta palpitar (${faltaPalpitar}). Manda *próximos jogos* pra palpitar o que falta.`
+      : `\n🎉 Você já palpitou em todos! Boa sorte!`;
 
-    const mensagem =
-      `${bomDia()}\n\n` +
-      `Hoje rola jogo da Copa, ó:\n${linhasJogos.join('\n')}\n\n` +
-      `_Mais perto da hora eu mando a chamada pra você palpitar._ ⚽`;
+    const mensagem = `${header}\n\n${linhas.join('\n')}\n${footer}`;
 
     try {
       await sendText({ to: alvo.waId, text: mensagem });
-      await redis.set(flag, '1', 'EX', 25 * 3600);
+      // Flag cross-job: bloqueia outros avisos de jogo nas próximas 24h
+      await redis.set(flag, '1', 'EX', 24 * 3600);
+      console.log(
+        `[bom-dia] waId=${alvo.waId} jogos=${alvo.jogos.length} proximo=${proximo.dataHora.toISOString()} pendentes=${faltaPalpitar}`,
+      );
     } catch (error) {
       console.error(
         `[bom-dia] falha ao enviar pra ${alvo.waId} (${alvo.nome}):`,
@@ -147,18 +156,31 @@ export async function sendBomDiaJob() {
 }
 
 /**
- * Devolve um Date em UTC representando "HH:MM no fuso de Brasilia
- * do mesmo dia em que `referencia` esta (em Brasilia)".
+ * v3.13.0 — clamp do horário de envio pra evitar mandar em hora ruim.
+ * Se "kickoff - 6h" cair fora de [07:00, 22:00] BRT, ajusta:
+ * - 22:00–23:59 BRT → manda às 22:00 do mesmo dia (ainda antes do jogo)
+ * - 00:00–06:59 BRT → manda às 22:00 do dia anterior
  *
- * Ex: referencia=2026-06-13T18:00Z (15:00 BRT), HH=9, MM=0 →
- * devolve 2026-06-13T12:00Z (09:00 BRT).
- *
- * Implementacao simples: usa Intl.DateTimeFormat pra extrair o ano/mes/dia
- * em Brasilia, depois constroi um Date UTC e adiciona o offset de -3h.
- *
- * Brasilia eh fixo UTC-3 (sem horario de verao desde 2019).
+ * Se o ajuste cair depois do kickoff (jogo muito próximo), retorna o
+ * cap (22:00 do dia que ainda dá tempo) — pode acabar não enviando
+ * se cair fora da janela cron, mas garante zero msg de madrugada.
  */
-function brasiliaHoraToUtc(referencia: Date, horas: number, minutos: number): Date {
+function clampHorarioCivilizado(tBase: Date, kickoff: Date): Date {
+  const horaBRT = parseInt(
+    tBase.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false }),
+    10,
+  );
+  if (horaBRT >= HORA_MIN_BRT && horaBRT < HORA_MAX_BRT) return tBase;
+
+  // Quer ir pra 22:00 BRT do dia mais próximo que ainda esteja ANTES do kickoff.
+  const candidato = brasiliaHoraDoMesmoDia(tBase, HORA_MAX_BRT, 0);
+  if (candidato.getTime() < kickoff.getTime()) return candidato;
+  // Senão, dia anterior 22:00 BRT
+  const anterior = new Date(candidato.getTime() - 24 * 3600_000);
+  return anterior;
+}
+
+function brasiliaHoraDoMesmoDia(referencia: Date, horas: number, minutos: number): Date {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
     year: 'numeric',
@@ -169,7 +191,19 @@ function brasiliaHoraToUtc(referencia: Date, horas: number, minutos: number): Da
   const ano = partes.find((p) => p.type === 'year')!.value;
   const mes = partes.find((p) => p.type === 'month')!.value;
   const dia = partes.find((p) => p.type === 'day')!.value;
-  // YYYY-MM-DDTHH:MM:00-03:00 em Brasilia
   const iso = `${ano}-${mes}-${dia}T${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:00-03:00`;
   return new Date(iso);
 }
+
+function headerPorHorario(agora: Date): string {
+  const horaBRT = parseInt(
+    agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false }),
+    10,
+  );
+  if (horaBRT >= 7 && horaBRT < 12) return `☀️ *Bom dia!* Hoje rola Copa, ó:`;
+  if (horaBRT >= 12 && horaBRT < 18) return `⚽ Tem Copa nas próximas horas, ó:`;
+  return `🌙 *Boa noite!* Madrugada vai ter Copa — palpita ainda hoje:`;
+}
+
+// Mantém export pra compat (usado no formato `formatarHoraBR` em outros lugares)
+void formatarHoraBR;

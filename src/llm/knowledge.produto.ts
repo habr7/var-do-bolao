@@ -29,7 +29,7 @@ PONTUAÇÃO (não acumula — vale o melhor acerto):
 - Errou tudo → 0 pts
 
 PRAZO DE PALPITE:
-- Cada palpite pode ser registrado/editado até o kickoff do jogo (assim que o relógio bate a hora marcada, o palpite trava — mesmo que o jogo demore pra começar de fato).
+- Cada palpite pode ser registrado/editado até o kickoff do jogo (relógio bate a hora marcada, palpite trava — mesmo que o jogo atrase de fato). Horários sempre em fuso de Brasília.
 - Pode editar quantas vezes quiser enquanto o jogo não começou.
 - Jogo que ja comecou / acabou: o bot recusa palpite/edicao com mensagem "esse jogo ja comecou".
 

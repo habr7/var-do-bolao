@@ -21,14 +21,25 @@ export async function atualizarResultados(rodadaId: string, campeonatoId: string
   const jogos = await rodadaRepo.buscarJogosDaRodada(rodadaId);
 
   let atualizados = 0;
+  let palpitesResetadosTotal = 0;
 
   for (const resultado of resultados) {
     const jogo = jogos.find((j) => j.apiJogoId === resultado.apiJogoId);
     if (!jogo) continue;
 
-    if (jogo.status === 'FINALIZADO') continue;
+    // v3.13.0 — antes pulava jogos FINALIZADOS. Agora permite atualizar
+    // se o placar realmente mudou (correção de resultado pela API após
+    // VAR/gol anulado/etc), e reseta `Palpite.calculado` pra forçar
+    // recálculo no próximo tick. Pula só se placar é exatamente igual.
+    if (
+      jogo.status === 'FINALIZADO' &&
+      jogo.golsCasa === resultado.golsCasa &&
+      jogo.golsVisitante === resultado.golsVisitante
+    ) {
+      continue;
+    }
 
-    await rodadaRepo.atualizarResultadoJogo(
+    const r = await rodadaRepo.atualizarResultadoJogoComResetCalc(
       jogo.id,
       resultado.golsCasa,
       resultado.golsVisitante,
@@ -36,6 +47,16 @@ export async function atualizarResultados(rodadaId: string, campeonatoId: string
     );
 
     atualizados++;
+    palpitesResetadosTotal += r.palpitesResetados;
+
+    if (r.placarMudou && r.palpitesResetados > 0) {
+      console.log(
+        `[scoring-reset] jogoId=${jogo.id} ${jogo.timeCasa}x${jogo.timeVisitante} ` +
+          `placarAntes=${r.placarAntes.golsCasa}x${r.placarAntes.golsVisitante} ` +
+          `placarDepois=${resultado.golsCasa}x${resultado.golsVisitante} ` +
+          `palpitesResetados=${r.palpitesResetados}`,
+      );
+    }
   }
 
   // Verifica se todos os jogos finalizaram
@@ -44,7 +65,7 @@ export async function atualizarResultados(rodadaId: string, campeonatoId: string
     (j) => j.status === 'FINALIZADO' || j.status === 'ADIADO' || j.status === 'CANCELADO',
   );
 
-  return { atualizados, todosFinalizados };
+  return { atualizados, todosFinalizados, palpitesResetados: palpitesResetadosTotal };
 }
 
 export async function buscarJogosParaRodada(campeonatoId: string, numeroRodada: number) {

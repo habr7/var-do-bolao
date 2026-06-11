@@ -400,6 +400,34 @@ export async function registrarPalpitesEmTodosBoloes(input: {
 }
 
 /**
+ * v3.13.0 — corrige UM palpite (1 jogo) em TODOS os bolões abertos do
+ * user que tenham esse jogo. Análogo a `registrarPalpiteEmTodosBoloes`,
+ * mas semanticamente é uma CORREÇÃO de placar via UPSERT (mesmo padrão
+ * idempotente do registro).
+ *
+ * Caso real: user em 2 bolões manda "corrigir Brasil 3x1 Marrocos" e
+ * escolhe "TODOS" — bot atualiza o placar nos 2 bolões de uma vez.
+ *
+ * Retorno tem mesma forma do registrarPalpiteEmTodosBoloes pra
+ * consistência de relatório.
+ */
+export async function corrigirPalpiteEmTodosBoloes(input: {
+  usuarioId: string;
+  timeCasa: string;
+  timeVisitante: string;
+  golsCasa: number;
+  golsVisitante: number;
+}): Promise<{
+  registrados: Array<{ bolaoNome: string }>;
+  erros: Array<{ bolaoNome: string; motivo: string }>;
+}> {
+  // Reusa exatamente a mesma lógica do registro singular — UPSERT
+  // garante que "registrar" e "corrigir" são operações idênticas no
+  // banco (não há diferença semântica: o estado final é o mesmo).
+  return registrarPalpiteEmTodosBoloes(input);
+}
+
+/**
  * v3.12.0 — wrapper de `registrarPalpiteEmRodada` com 1 retry de 200ms.
  * Só retenta se o erro parecer transitório (string não menciona
  * domínio "ja comecou" / "ja terminou" / "nao encontrado"). UPSERT
