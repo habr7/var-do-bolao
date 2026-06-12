@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**928+ tests** distribuídos em `tests/unit/`. Cobre:
+**936+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|

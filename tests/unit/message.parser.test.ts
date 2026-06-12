@@ -1549,6 +1549,56 @@ Grêmio 1x2 Inter`;
     });
   });
 
+  describe('v3.35.0 — "Meus palpites:" como rótulo de submissão (caso +5531 12/06)', () => {
+    const lista =
+      'Meus palpites:\nCoreia do Sul 0x2 República Tcheca\nCanadá 1x1 Bósnia e Herzegovina\nEstados Unidos 0x3 Paraguai';
+
+    it('rótulo "Meus palpites:" + lista → PALPITE_INLINE (não MEU_PALPITE)', () => {
+      expect(parseIntencao(lista).intencao).toBe(Intencao.PALPITE_INLINE);
+    });
+
+    it('os palpites da lista são extraídos com nomes limpos', () => {
+      const r = parseMultiplePalpites(lista);
+      expect(r).toHaveLength(3);
+      expect(r[0]).toMatchObject({ timeCasa: 'Coreia do Sul', timeVisitante: 'República Tcheca' });
+    });
+
+    it('PRESERVA "meus palpites" puro → MEU_PALPITE (sem lista)', () => {
+      expect(parseIntencao('meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+
+    it('PRESERVA "meus palpites firma fc" → MEU_PALPITE', () => {
+      expect(parseIntencao('meus palpites firma fc').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+
+    it('PRESERVA "ranking" e "próximos jogos" puros', () => {
+      expect(parseIntencao('ranking').intencao).toBe(Intencao.RANKING);
+      expect(parseIntencao('próximos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+    });
+  });
+
+  describe('v3.35.0 — prefixo de data/hora copiado do formato do bot', () => {
+    it('"11/06, 23:00 — Coreia do Sul 0x2 República Tcheca" → time limpo', () => {
+      const r = parseMultiplePalpites('11/06, 23:00 — Coreia do Sul 0x2 República Tcheca');
+      expect(r).toHaveLength(1);
+      expect(r[0].timeCasa).toBe('Coreia do Sul');
+      expect(r[0].timeVisitante).toBe('República Tcheca');
+      expect(r[0]).toMatchObject({ golsCasa: 0, golsVisitante: 2 });
+    });
+
+    it('"✅ 13/06 19:00 — Brasil 2x1 Marrocos" → Brasil 2x1 Marrocos', () => {
+      const r = parseMultiplePalpites('✅ 13/06 19:00 — Brasil 2x1 Marrocos');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'Brasil', golsCasa: 2, golsVisitante: 1, timeVisitante: 'Marrocos' });
+    });
+
+    it('NÃO quebra o formato invertido "1x1 México x África do Sul"', () => {
+      const r = parseMultiplePalpites('1x1 México x África do Sul');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'México', golsCasa: 1, golsVisitante: 1, timeVisitante: 'África do Sul' });
+    });
+  });
+
   describe('v3.10.0 — formato invertido + tokenizer (caso Valéria 22/05)', () => {
     it('parseia uma linha invertida "1x1 México x África do Sul"', () => {
       const r = parseMultiplePalpites('1x1 México x África do Sul');

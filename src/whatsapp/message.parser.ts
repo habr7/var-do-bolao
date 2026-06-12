@@ -1067,6 +1067,31 @@ function normalize(text: string): string {
     .replace(/[̀-ͯ]/g, '');
 }
 
+/**
+ * v3.35.0 — Intents de LEITURA/navegação que perdem pra um lote de palpites.
+ * Se o usuário manda "Meus palpites:\n<lista>" (rotulando a submissão), a
+ * presença de 2+ palpites parseáveis faz a mensagem virar PALPITE_INLINE.
+ * NÃO inclui EDITAR/APAGAR/PLACAR/ações — só intents puramente de visualizar.
+ */
+const INTENTS_LEITURA_SOBRESCRITAS_POR_LOTE = new Set<Intencao>([
+  Intencao.MEU_PALPITE,
+  Intencao.MEUS_PONTOS,
+  Intencao.PALPITES_AMBIGUO,
+  Intencao.RANKING,
+  Intencao.MEUS_BOLOES,
+  Intencao.PROXIMOS_JOGOS,
+  Intencao.JOGOS_HOJE,
+  Intencao.MAIS_JOGOS,
+  Intencao.MENU,
+  Intencao.AJUDA,
+  Intencao.SAUDACAO,
+  Intencao.STATUS_RODADA,
+  Intencao.QUANDO_COMECA,
+  Intencao.RESUMO_BOLOES,
+  Intencao.CUMPRIMENTO_CASUAL,
+  Intencao.PROGRESSO_PALPITES,
+]);
+
 function matchIntent(norm: string): Intencao | null {
   for (const { intencao, padroes } of INTENT_RULES) {
     if (padroes.some((p) => p.test(norm))) {
@@ -1166,6 +1191,18 @@ export function parseIntencao(text: string): ParsedMessage {
   // variantes coloquiais. Roda antes do palpite-inline pra que "quero
   // palpitar" nao caia em PALPITE_INLINE.
   const intentPorPadrao = matchIntent(norm);
+  // v3.35.0 — se o usuário ROTULOU uma submissão de palpites com uma frase
+  // de "ver/navegar" (ex: "Meus palpites:\n<10 jogos com placar>"), a intent
+  // de LEITURA não pode sequestrar. Quando há um LOTE (2+ palpites
+  // parseáveis), é submissão → PALPITE_INLINE (caso +5531 12/06: a lista de
+  // 10 palpites virava MEU_PALPITE e era ignorada). Só sobrescreve intents
+  // de leitura/navegação — EDITAR/APAGAR/PLACAR/ações ficam intactas.
+  if (intentPorPadrao && INTENTS_LEITURA_SOBRESCRITAS_POR_LOTE.has(intentPorPadrao)) {
+    const lote = parseMultiplePalpites(raw);
+    if (lote.length >= 2) {
+      return { intencao: Intencao.PALPITE_INLINE, raw, args: [], palpite: lote[0] };
+    }
+  }
   if (intentPorPadrao) {
     // Pra ranking, extrai possivel argumento ("ranking firma fc")
     if (intentPorPadrao === Intencao.RANKING) {
@@ -1241,7 +1278,28 @@ export function parseIntencao(text: string): ParsedMessage {
  *
  * Retorna `null` se nada bateu.
  */
-function tentarParsearPalpiteInline(linha: string): PalpiteInline | null {
+/**
+ * v3.35.0 — Tira prefixo de data/hora/bullet de uma linha de palpite
+ * (formato que o bot exibe e o usuário copia de volta). Conservador:
+ * data exige "/" e hora exige ":"/"h", então NÃO confunde com o placar
+ * "1x1" do formato invertido.
+ */
+function stripPrefixoDataHora(linha: string): string {
+  return linha
+    .replace(
+      /^[\s•\-–—✅⚪🔴📅*_]*(?:\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)?[\s,]*(?:\d{1,2}[:h]\d{2})?\s*[–—\-•|]*\s*/,
+      '',
+    )
+    .trim();
+}
+
+function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
+  // v3.35.0 — remove prefixo de DATA/HORA/bullet que o usuário copia do
+  // formato do PRÓPRIO bot ("11/06, 23:00 — Coreia do Sul 0x2 Tcheca",
+  // "✅ 13/06 19:00 — Brasil 2x1 Marrocos"). Sem isso o "23:00 —" grudava
+  // no nome do time e o match ficava sujo (caso +5531 12/06). NÃO mexe em
+  // "1x1 México x África" (inverte): data exige "/", hora exige ":".
+  const linha = stripPrefixoDataHora(linhaRaw);
   // v3.10.0: validador anti-match-ruim. Se um time parseado contém placar
   // embutido (ex: "1x1 México x África do Sul" sequestrado como timeCasa),
   // descarta — sinal de regex pegando lixo de palpites concatenados.

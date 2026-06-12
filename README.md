@@ -261,6 +261,8 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.35.0** (2026-06-12) — **Fix grave: lista de palpites rotulada "Meus palpites:" era ignorada** (caso +5531): a usuária copiou o formato do bot ("Meus palpites:\n11/06, 23:00 — Time NxN Time") e virava a intent de *ver* palpites → "registrados: 0". Agora um lote de 2+ palpites vence a intent de leitura, e o prefixo de data/hora é removido. 936 tests, simulador 116/116.
+
 - **v3.34.0** (2026-06-12) — **Fix grave: palpites separados por vírgula não registravam** (caso Felipe): "Coreia 1x1 Tcheca, Canadá 0x2 Bósnia, EUA 1x0 Paraguai" (vírgulas, 1 linha) extraía 0 palpites — o parser só dividia por quebra de linha, embora o bot anuncie a vírgula como separador. Agora aceita vírgula e `;`. 928 tests, simulador 116/116.
 
 - **v3.33.0** (2026-06-12) — **Fix grave de display**: em "meus palpites", um jogo AO VIVO com placar parcial (ex: 0x1 enquanto rola) aparecia como "oficial: 0x1 ❌ (0 pts)" — como se fosse final e o usuário tivesse zerado. A pontuação armazenada estava certa (gate só pontua jogo finalizado); só o texto mentia. Agora o rótulo é decidido pelo status: "🔴 ao vivo: parcial X — pontua no apito final". 922 tests (+8).
