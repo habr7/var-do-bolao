@@ -16,14 +16,20 @@
  * Idempotente (UPSERT por palpite+jogo). Rodar 2× não duplica nem dá pontos
  * a mais.
  *
- * Uso (no container app):
- *   # 1) DRY-RUN (não escreve nada — mostra o que faria):
- *   docker compose exec app npx tsx scripts/recuperar-palpite-jogo-fechado.ts \
- *     <waId> "Coreia do Sul 1x1 República Tcheca"
+ * Uso (no VPS) — a imagem de prod só tem `dist/`, então montamos `src/` E
+ * `scripts/` num container one-shot (`run --rm`):
  *
- *   # 2) APLICAR de verdade:
- *   docker compose exec app npx tsx scripts/recuperar-palpite-jogo-fechado.ts \
- *     <waId> "Coreia do Sul 1x1 República Tcheca" --apply
+ *   # 1) DRY-RUN (não escreve nada — mostra o que faria):
+ *   docker compose run --rm \
+ *     -v "$(pwd)/scripts:/app/scripts" -v "$(pwd)/src:/app/src" \
+ *     app npx tsx scripts/recuperar-palpite-jogo-fechado.ts \
+ *     "Felipe Brunett" "Coreia do Sul 1x1 República Tcheca"
+ *
+ *   # 2) APLICAR de verdade (acrescenta --apply):
+ *   docker compose run --rm \
+ *     -v "$(pwd)/scripts:/app/scripts" -v "$(pwd)/src:/app/src" \
+ *     app npx tsx scripts/recuperar-palpite-jogo-fechado.ts \
+ *     "Felipe Brunett" "Coreia do Sul 1x1 República Tcheca" --apply
  */
 import 'dotenv/config';
 import { prisma } from '../src/config/database.js';
