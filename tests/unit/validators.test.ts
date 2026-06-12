@@ -7,6 +7,7 @@ import {
   normalizeTeamName,
   parseScore,
   validarPlacar,
+  timeCorresponde,
   acharJogoPorTimes,
   resolverPalpiteParaJogo,
 } from '../../src/utils/validators.js';
@@ -142,6 +143,57 @@ describe('validarPlacar (ISSUE-013)', () => {
 
   it('aceita total exato 20', () => {
     expect(validarPlacar(10, 10).ok).toBe(true);
+  });
+});
+
+describe('timeCorresponde — abreviação/grafia (v3.29.0, caso Mauricio 11/06)', () => {
+  it('"Rep Checa" casa "República Tcheca" (token-match + alias)', () => {
+    expect(timeCorresponde('Rep Checa', 'República Tcheca')).toBe(true);
+  });
+  it('"Coreia" casa "Coreia do Sul" (includes)', () => {
+    expect(timeCorresponde('Coreia', 'Coreia do Sul')).toBe(true);
+  });
+  it('"Checa" casa "República Tcheca" (alias)', () => {
+    expect(timeCorresponde('Checa', 'República Tcheca')).toBe(true);
+  });
+  it('"EUA" casa "Estados Unidos" (alias)', () => {
+    expect(timeCorresponde('EUA', 'Estados Unidos')).toBe(true);
+  });
+  it('"Bósnia" casa "Bósnia e Herzegovina"', () => {
+    expect(timeCorresponde('Bósnia', 'Bósnia e Herzegovina')).toBe(true);
+  });
+  it('ordem canônica/acentos: "republica tcheca" == "República Tcheca"', () => {
+    expect(timeCorresponde('republica tcheca', 'República Tcheca')).toBe(true);
+  });
+  // anti-falso-positivo
+  it('"Real Madrid" NÃO casa "República Tcheca"', () => {
+    expect(timeCorresponde('Real Madrid', 'República Tcheca')).toBe(false);
+  });
+  it('"Coreia do Norte" NÃO casa "Coreia do Sul" (token "norte" ≠ "sul")', () => {
+    expect(timeCorresponde('Coreia do Norte', 'Coreia do Sul')).toBe(false);
+  });
+  it('"Paraguai" NÃO casa "Uruguai"', () => {
+    expect(timeCorresponde('Paraguai', 'Uruguai')).toBe(false);
+  });
+});
+
+describe('acharJogoPorTimes com abreviações (v3.29.0)', () => {
+  const jogos = [
+    { id: 'j1', timeCasa: 'Coreia do Sul', timeVisitante: 'República Tcheca' },
+    { id: 'j2', timeCasa: 'Estados Unidos', timeVisitante: 'Paraguai' },
+  ];
+  it('"Coreia" / "Rep Checa" → acha o jogo (canônico)', () => {
+    const m = acharJogoPorTimes(jogos, 'Coreia', 'Rep Checa');
+    expect(m?.jogo.id).toBe('j1');
+    expect(m?.invertido).toBe(false);
+  });
+  it('"Rep Checa" / "Coreia" → acha o jogo invertido', () => {
+    const m = acharJogoPorTimes(jogos, 'Rep Checa', 'Coreia');
+    expect(m?.jogo.id).toBe('j1');
+    expect(m?.invertido).toBe(true);
+  });
+  it('"EUA" / "Paraguai" → acha o jogo', () => {
+    expect(acharJogoPorTimes(jogos, 'EUA', 'Paraguai')?.jogo.id).toBe('j2');
   });
 });
 

@@ -181,12 +181,16 @@ const ALIASES: Record<string, string> = {
   southkorea: 'Coreia do Sul',
   koreadosul: 'Coreia do Sul',
   korea: 'Coreia do Sul',
-  // República Tcheca
+  // República Tcheca (grafia "Checa"/"Tcheca" + abreviação "Rep" comuns em PT)
   tchequia: 'República Tcheca',
   czechia: 'República Tcheca',
   czechrepublic: 'República Tcheca',
   republicatcheca: 'República Tcheca',
   tcheca: 'República Tcheca',
+  checa: 'República Tcheca',
+  repcheca: 'República Tcheca',
+  reptcheca: 'República Tcheca',
+  republicacheca: 'República Tcheca',
   // Irã
   ira: 'Irã',
   iran: 'Irã',

@@ -2244,7 +2244,11 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
  *   - 1 → pula direto pro step 2 (extracao + preview)
  *   - >1 → pergunta qual bolao primeiro (state ESCOLHENDO_BOLAO_PARA_PALPITAR)
  */
-async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string) {
+async function handlePalpiteInlineEmIdle(
+  msg: IncomingMessage,
+  usuarioId: string,
+  jaTentouLlm = false,
+) {
   const boloesComRodadaAberta = await listarBoloesComRodadaAberta(usuarioId);
 
   if (boloesComRodadaAberta.length === 0) {
@@ -2312,6 +2316,26 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
       }
       // ISSUE-014: parseou palpite mas nao casou jogo em nenhuma rodada aberta
       if (matches.length === 0) {
+        // v3.29.0 — rede de segurança: antes de desistir, pede pro extrator
+        // LLM "traduzir" os times pros nomes oficiais (ground-truth = jogos
+        // abertos). Se resolver, reprocessa com os nomes corrigidos (1x só,
+        // guarda anti-loop). O LLM nunca fala direto com o usuário — só
+        // normaliza nomes; o registro continua exigindo preview + "sim".
+        if (!jaTentouLlm) {
+          const corrigido = await tentarCorrigirTimesViaLlm(
+            usuarioId,
+            linhas[0],
+            p,
+            boloesComRodadaAberta,
+          );
+          if (corrigido) {
+            void incContador('palpite.fastpath.llm_resolveu');
+            const msgCorrigida: IncomingMessage = { ...msg, text: corrigido };
+            return await handlePalpiteInlineEmIdle(msgCorrigida, usuarioId, true);
+          }
+          void incContador('palpite.fastpath.llm_falhou');
+        }
+
         // Lista jogos abertos pra ajudar o usuario
         const sample = boloesComRodadaAberta[0];
         const rodada = await prisma.rodada.findUnique({
@@ -2373,6 +2397,75 @@ async function handlePalpiteInlineEmIdle(msg: IncomingMessage, usuarioId: string
     text:
       `🤔 Pra qual bolão é esse palpite?\n\n${lista}${opcaoTodos}\n\n${DICA_RESPOSTA_NUMERICA}${dicaTodos}`,
   });
+}
+
+/**
+ * v3.29.0 — Rede de segurança do fast-path: quando o matcher determinístico
+ * (alias + token) NÃO casou o jogo, pede pro extrator LLM "traduzir" os nomes
+ * dos times pros oficiais, usando os JOGOS ABERTOS como ground-truth.
+ *
+ * Restrito de propósito (sem dar liberdade pro LLM):
+ *   - só roda quando o caminho determinístico falhou (raro);
+ *   - usa o `extrairPalpites` existente (lista oficial no prompt, saída
+ *     validada contra ela);
+ *   - confirma o retorno com `resolverPalpiteParaJogo` contra a lista real
+ *     (anti-alucinação dupla) e exige EXATAMENTE 1 jogo resolvido;
+ *   - o LLM nunca responde pro usuário — só devolve uma linha de palpite
+ *     com nomes OFICIAIS, que volta pelo fluxo normal (preview + "sim").
+ *
+ * Retorna a linha corrigida (`"Coreia do Sul 1 x 0 República Tcheca"`) ou
+ * null se não resolveu / não mudou nada.
+ */
+async function tentarCorrigirTimesViaLlm(
+  usuarioId: string,
+  linha: string,
+  original: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number },
+  boloes: Array<{ rodadaId: string }>,
+): Promise<string | null> {
+  // União dos jogos abertos (AGENDADO, kickoff futuro) das rodadas do user
+  const agora = new Date();
+  const jogos = await prisma.jogo.findMany({
+    where: {
+      rodadaId: { in: boloes.map((b) => b.rodadaId) },
+      status: 'AGENDADO',
+      dataHora: { gt: agora },
+    },
+    select: { timeCasa: true, timeVisitante: true },
+  });
+  if (jogos.length === 0) return null;
+
+  // Dedup por par de times (o mesmo jogo aparece em vários bolões)
+  const vistos = new Set<string>();
+  const jogosUnicos = jogos.filter((j) => {
+    const k = `${j.timeCasa}|${j.timeVisitante}`;
+    if (vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+
+  let extraidos: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }>;
+  try {
+    extraidos = await extrairPalpites(linha, jogosUnicos);
+  } catch (error) {
+    console.error('[fastpath-llm] extrairPalpites falhou:', (error as Error).message);
+    return null;
+  }
+  if (extraidos.length !== 1) return null;
+
+  // Confirma contra a lista real (nomes oficiais + ordem do fixture)
+  const r = resolverPalpiteParaJogo(jogosUnicos, extraidos[0]);
+  if (!r) return null;
+
+  // Se "corrigiu" pro mesmo que o determinístico já tinha (sem mudança de
+  // nome), não adianta reprocessar — evita loop inútil.
+  if (
+    normalizeTeamName(r.timeCasa) === normalizeTeamName(original.timeCasa) &&
+    normalizeTeamName(r.timeVisitante) === normalizeTeamName(original.timeVisitante)
+  ) {
+    return null;
+  }
+
+  return `${r.timeCasa} ${r.golsCasa} x ${r.golsVisitante} ${r.timeVisitante}`;
 }
 
 async function listarBoloesComRodadaAberta(

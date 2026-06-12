@@ -1,3 +1,5 @@
+import { normalizarNomeTime } from '../modules/copa-2026/index.js';
+
 export function isValidScore(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= 99;
 }
@@ -59,6 +61,55 @@ export function normalizeTeamName(name: string): string {
 }
 
 /**
+ * v3.29.0 \u2014 Decide se o nome `input` (como o usu\u00e1rio digitou) corresponde ao
+ * nome `oficial` do fixture. Resolve o bug recorrente de abrevia\u00e7\u00e3o/grafia
+ * (caso Mauricio 11/06: "Rep Checa" n\u00e3o casava "Rep\u00fablica Tcheca";
+ * "Coreia" n\u00e3o casava "Coreia do Sul").
+ *
+ * Tr\u00eas regras, da mais barata pra mais tolerante:
+ *   1. includes bidirecional sobre `normalizeTeamName` (regra legada).
+ *   2. ALIAS can\u00f4nico: `normalizarNomeTime` (tabela PT-BR da Copa, ex.
+ *      "coreia"\u2192"Coreia do Sul", "rep checa"\u2192"Rep\u00fablica Tcheca", "eua"\u2192\u2026).
+ *   3. TOKEN-match: cada token do input (\u22653 chars) \u00e9 substring de um token
+ *      DISTINTO do oficial, e o input n\u00e3o tem mais tokens que o oficial.
+ *      Cobre "rep checa" \u2282 "republica tcheca" sem alias. Conservador o
+ *      bastante pra "real madrid" N\u00c3O casar "rep\u00fablica tcheca".
+ *
+ * Falsos positivos s\u00e3o contidos por (3) ser restritivo + o preview com
+ * "sim" obrigat\u00f3rio em todo registro de palpite.
+ */
+export function timeCorresponde(input: string, oficial: string): boolean {
+  const ni = normalizeTeamName(input);
+  const no = normalizeTeamName(oficial);
+  if (!ni || !no) return false;
+
+  // 1) includes bidirecional (legado)
+  if (ni.includes(no) || no.includes(ni)) return true;
+
+  // 2) alias can\u00f4nico (resolve "Coreia", "Rep Checa", "EUA", "canarinha"\u2026)
+  const canon = normalizarNomeTime(input);
+  if (canon && normalizeTeamName(canon) === no) return true;
+
+  // 3) token-match conservador
+  const ti = ni.split(/\s+/).filter((t) => t.length >= 3);
+  const to = no.split(/\s+/);
+  if (ti.length > 0 && ti.length <= to.length) {
+    const usados = new Set<number>();
+    const todosCasam = ti.every((tok) => {
+      const idx = to.findIndex((o, i) => !usados.has(i) && o.includes(tok));
+      if (idx >= 0) {
+        usados.add(idx);
+        return true;
+      }
+      return false;
+    });
+    if (todosCasam) return true;
+  }
+
+  return false;
+}
+
+/**
  * v3.25.0 — Casa um par (timeCasa, timeVisitante) extraído da mensagem do
  * usuário com um jogo da lista, tolerando ORDEM INVERTIDA dos times.
  *
@@ -83,22 +134,15 @@ export function acharJogoPorTimes<T extends { timeCasa: string; timeVisitante: s
   tc: string,
   tv: string,
 ): { jogo: T; invertido: boolean } | null {
-  const normTc = normalizeTeamName(tc);
-  const normTv = normalizeTeamName(tv);
-  const bate = (a: string, b: string) => a.includes(b) || b.includes(a);
-
-  const canonico = jogos.find((j) => {
-    const jc = normalizeTeamName(j.timeCasa);
-    const jv = normalizeTeamName(j.timeVisitante);
-    return bate(jc, normTc) && bate(jv, normTv);
-  });
+  // v3.29.0 — usa `timeCorresponde` (alias + token-match), não só includes.
+  const canonico = jogos.find(
+    (j) => timeCorresponde(tc, j.timeCasa) && timeCorresponde(tv, j.timeVisitante),
+  );
   if (canonico) return { jogo: canonico, invertido: false };
 
-  const invertido = jogos.find((j) => {
-    const jc = normalizeTeamName(j.timeCasa);
-    const jv = normalizeTeamName(j.timeVisitante);
-    return bate(jc, normTv) && bate(jv, normTc);
-  });
+  const invertido = jogos.find(
+    (j) => timeCorresponde(tv, j.timeCasa) && timeCorresponde(tc, j.timeVisitante),
+  );
   if (invertido) return { jogo: invertido, invertido: true };
 
   return null;

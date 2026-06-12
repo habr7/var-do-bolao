@@ -121,6 +121,14 @@ describe('normalizarNomeTime', () => {
     expect(normalizarNomeTime('coreia do sul')).toBe('Coreia do Sul');
   });
 
+  it('v3.29.0 — variantes "Checa"/"Rep Checa" → República Tcheca (caso Mauricio 11/06)', () => {
+    expect(normalizarNomeTime('Coreia')).toBe('Coreia do Sul');
+    expect(normalizarNomeTime('Rep Checa')).toBe('República Tcheca');
+    expect(normalizarNomeTime('Checa')).toBe('República Tcheca');
+    expect(normalizarNomeTime('república checa')).toBe('República Tcheca');
+    expect(normalizarNomeTime('tcheca')).toBe('República Tcheca');
+  });
+
   it('aceita código FIFA', () => {
     expect(normalizarNomeTime('BRA')).toBe('Brasil');
     expect(normalizarNomeTime('eng')).toBe('Inglaterra');

@@ -1,6 +1,6 @@
 import { prisma } from '../../config/database.js';
 import * as palpiteRepo from './palpite.repository.js';
-import { normalizeTeamName } from '../../utils/validators.js';
+import { timeCorresponde } from '../../utils/validators.js';
 
 interface RegistrarPalpiteInput {
   usuarioId: string;
@@ -126,14 +126,12 @@ function encontrarJogo<T extends { timeCasa: string; timeVisitante: string }>(
   timeCasa: string,
   timeVisitante: string,
 ): T | undefined {
-  const normCasa = normalizeTeamName(timeCasa);
-  const normVis = normalizeTeamName(timeVisitante);
-
-  return jogos.find((j) => {
-    const jc = normalizeTeamName(j.timeCasa);
-    const jv = normalizeTeamName(j.timeVisitante);
-    return (jc.includes(normCasa) || normCasa.includes(jc)) && (jv.includes(normVis) || normVis.includes(jv));
-  });
+  // v3.29.0 — `timeCorresponde` resolve abreviação/grafia (alias + token-match):
+  // "Rep Checa"→"República Tcheca", "Coreia"→"Coreia do Sul". Antes era só
+  // includes bidirecional e o usuário via "não achei jogo" com o jogo na tela.
+  return jogos.find(
+    (j) => timeCorresponde(timeCasa, j.timeCasa) && timeCorresponde(timeVisitante, j.timeVisitante),
+  );
 }
 
 /**

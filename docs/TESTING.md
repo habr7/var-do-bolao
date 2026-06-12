@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**866+ tests** distribuídos em `tests/unit/`. Cobre:
+**879+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -34,7 +34,7 @@ npm test
 | `ollama.client.test.ts` | Cliente Ollama (fallback) |
 | `evolution.client.test.ts` | Cliente Evolution (sendText, dry-run) |
 | `password.test.ts` | bcrypt hash + compare |
-| `validators.test.ts` | placar, normalizeTeamName, **validarPlacar absurdo (ISSUE-013)**, **acharJogoPorTimes/resolverPalpiteParaJogo — ordem invertida (v3.25.0)** |
+| `validators.test.ts` | placar, normalizeTeamName, **validarPlacar absurdo (ISSUE-013)**, **acharJogoPorTimes/resolverPalpiteParaJogo — ordem invertida (v3.25.0)**, **`timeCorresponde` — abreviação/grafia "Rep Checa"/"Coreia" + anti-falso-positivo (v3.29.0)** |
 | `broadcast.test.ts` | **(v3.26.0)** Broadcast admin: `ehDono` (JID vs dígitos), `parseBroadcast` (marcador/corpo/vazio/mid-text/case), destinatários TEST (só dono) vs PROD (todos+dedup), idempotência `SET NX`. 14 testes. |
 | `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
 | `paginar.test.ts` | **(v3.28.0)** `paginarBlocos`: páginas ≤ limite, não quebra bloco no meio, rodada de 72 jogos vira N páginas <3500 |
