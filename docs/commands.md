@@ -232,10 +232,20 @@ o que ainda nao palpitei?
 lista de jogos
 mostra os jogos
 ```
-→ Mostra um lote de até **10 jogos cronológicos** abertos da rodada, com ✅/⚪
+→ **v3.27.0**: pedido genérico ("próximos jogos") primeiro **pergunta o
+filtro**: *"1 - Só os que faltam (jogos que você ainda não palpitou) /
+2 - Todos os próximos jogos da Copa"* (estado `ESCOLHENDO_FILTRO_PROXIMOS_JOGOS`).
+Frases que já indicam pendência ("o que falta palpitar?", "quero dar
+palpites", "jogos pendentes") **pulam a pergunta** e vão direto pros
+pendentes. Responder a pergunta com um palpite inline ("Brasil 2x1
+Marrocos") escapa pro fluxo de palpite normalmente.
+
+→ Lista um lote de até **10 jogos cronológicos** abertos da rodada, com ✅/⚪
 de palpite + rodapé honesto: *"Mostrando jogos 1–10 de 72 da rodada. Palpites
 seus neste lote: 4/10. Faltam 68 palpite(s) no bolão. Manda **mais jogos**
-pra ver os próximos 10."* (v3.5.0). Reseta paginação a cada chamada.
+pra ver os próximos 10."* (v3.5.0). No modo "só os que faltam", o rodapé
+conta pendentes: *"Mostrando 1–10 de 23 jogo(s) que ainda faltam seu
+palpite"*. Reseta paginação a cada chamada.
 
 Só lista bolões **ATIVOS**. Se o usuário só tem bolões encerrados, o bot
 detecta o caso e responde com mensagem **auto-diagnóstica** ("Você tem N
@@ -256,7 +266,8 @@ continuar palpitando
 → Avança o ponteiro em +10 e mostra o próximo lote da rodada. Cada bolão tem
 seu próprio offset (Redis, TTL 60min). Quando estoura o total, volta pro topo
 com aviso *"Você já tinha visto até o fim — voltei pro topo da lista pra
-continuar."*
+continuar."* **v3.27.0**: continua no **mesmo filtro** escolhido em
+"próximos jogos" (só pendentes ou todos — `pj_filtro:{waId}`, TTL 60min).
 
 **Cutucada automática**: depois que o usuário palpita em todos os jogos do
 lote visível, o bot manda follow-up oferecendo o próximo lote (idempotente:
@@ -292,6 +303,10 @@ aparece no fim.
 Acessível via `meus palpites` (intent `MEU_PALPITE`). Aceita bolões
 **encerrados** também — palpites passados ficam guardados pra consulta.
 Na lista numerada de múltiplos bolões, encerrados aparecem com `🏁`.
+
+**v3.27.0**: a lista detalhada sai **ordenada por data/hora do jogo** e
+**agrupada por dia** (`📅 qui., 11/06`), com a hora no "ainda não rolou" —
+antes vinha na ordem arbitrária do banco.
 
 ### Quem participa
 ```
@@ -575,11 +590,22 @@ Caso real que motivou (Valéria Midon 22/05/2026):
 qual o placar?
 quanto tá o jogo?
 quem ganhou?
+quem está ganhando?
 como ficou o jogo do Brasil?
 resultado de ontem
 saiu o resultado?
+qual foi placar de México e África?     (v3.27.0)
+quais jogos já finalizaram?             (v3.27.0)
+jogos finalizados / jogos de ontem      (v3.27.0)
+o que já rolou?                         (v3.27.0)
+placar do México                        (v3.27.0)
 ```
-→ Bot responde do BANCO (atualiza a cada ~5min): jogos 🔴 AO VIVO + ✅ encerrados nas últimas 48h dos bolões do user. Filtra por time se mencionado. Perguntas fora de escopo (copa antiga, clube) caem na recusa educada de sempre.
+→ Bot responde do BANCO (placar ao vivo via FIFA): jogos 🔴 AO VIVO + ✅ encerrados nas últimas 48h dos bolões do user. Filtra por time se mencionado. Perguntas fora de escopo (copa antiga, clube) caem na recusa educada de sempre.
+
+⚠️ **"placar dos demais/outros/participantes"** NÃO é placar oficial — é
+pedido de ver os **palpites dos outros** → intent `PALPITE_OUTROS` (v3.27.0):
+com o jogo já iniciado/finalizado, o bot revela os palpites de todos do
+bolão pra aquele jogo (sem limite de 24h quando o time é citado).
 
 ### Pontos por jogo (breakdown)
 ```

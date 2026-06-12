@@ -7,7 +7,7 @@ import {
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA, ehEscolhaTodos } from './lista.helper.js';
 import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo } from '../utils/validators.js';
-import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarHoraBR } from '../utils/datetime.js';
+import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarDataComDiaBR, formatarHoraBR } from '../utils/datetime.js';
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import {
@@ -21,6 +21,9 @@ import {
   setProximosJogosOffset,
   getProximosJogosOffset,
   resetProximosJogosOffset,
+  setProximosJogosFiltro,
+  getProximosJogosFiltro,
+  type FiltroProximosJogos,
   type Session,
 } from './session.manager.js';
 import { env } from '../config/env.js';
@@ -240,6 +243,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handleConfirmandoPalpitesInlineMultiBolao(msg, usuario.id, session);
       case 'ESCOLHENDO_INTENCAO_PALPITES':
         return await handleEscolhendoIntencaoPalpites(msg, usuario.id);
+      case 'ESCOLHENDO_FILTRO_PROXIMOS_JOGOS':
+        return await handleEscolhendoFiltroProximosJogos(msg, usuario.id);
       case 'ESCOLHENDO_BOLAO_CONVITE':
         return await handleEscolhendoBolaoConvite(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_SAIR':
@@ -528,8 +533,12 @@ async function dispatchIntencao(
       return true;
 
     case Intencao.JOGOS_HOJE:
+      // "jogos de hoje" — lista direto (sem pergunta de filtro)
+      await mostrarProximosJogos(msg, usuarioId, { resetOffset: true, filtro: 'todos' });
+      return true;
+
     case Intencao.PROXIMOS_JOGOS:
-      await handleProximosJogos(msg, usuarioId);
+      await handleProximosJogos(msg, usuarioId, raw);
       return true;
 
     case Intencao.MAIS_JOGOS:
@@ -1506,6 +1515,24 @@ async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string, raw 
   const blocos = await revelacoesParaUsuario(usuarioId, filtroTimes);
   if (blocos.length > 0) {
     await sendText({ to: msg.waId, text: montarMensagemRevelacao(blocos) });
+    return;
+  }
+
+  // v3.27.0 — user citou time(s) mas nenhum jogo deles começou nos bolões
+  // dele. Antes caía na explicação genérica de privacidade, que soava
+  // errada quando o jogo citado já tinha FINALIZADO (caso real 11/06:
+  // "placares dos demais no jogo México x África" → "só depois que o
+  // jogo começa"). Agora a resposta diz o que de fato aconteceu.
+  if (filtroTimes.length > 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não achei nos seus bolões nenhum jogo de *${filtroTimes.join(' / ')}* que já tenha começado.\n\n` +
+        `🔒 Lembrando: palpite é secreto *até o jogo começar* — depois do kickoff eu mostro os palpites de todos do bolão pra aquele jogo.\n\n` +
+        `• *palpites de todos* — jogos das últimas 24h\n` +
+        `• *placar* — resultados dos jogos\n` +
+        `• *ranking* — pontuação do bolão`,
+    });
     return;
   }
 
@@ -4127,6 +4154,7 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     'ESCOLHENDO_BOLAO_PARTICIPANTES',
     'CONFIRMANDO_SAIR_BOLAO',
     'ESCOLHENDO_INTENCAO_PALPITES',
+    'ESCOLHENDO_FILTRO_PROXIMOS_JOGOS', // v3.27.0 — pergunta de filtro é leitura, intent forte escapa
     'ESCOLHENDO_BOLAO_PARA_ENTRAR',
     'ESCOLHENDO_BOLAO_EXCLUIR',
     // Sprint 2
@@ -4485,17 +4513,83 @@ const PROXIMOS_JOGOS_LOTE = 10;
  * Pra paginar (lotes 11-20, 21-30, etc) o user manda "mais jogos" →
  * cai em `handleMaisJogos` que avança o offset salvo no Redis.
  */
-async function handleProximosJogos(msg: IncomingMessage, usuarioId: string) {
-  await mostrarProximosJogos(msg, usuarioId, { resetOffset: true });
+/**
+ * v3.27.0 — frases que JÁ deixam claro que o user quer só o que falta
+ * palpitar (ou quer palpitar agora). Nesses casos não faz sentido
+ * perguntar o filtro — vai direto pros pendentes.
+ */
+const RAW_INDICA_PENDENTES =
+  /\bfalta|pendente|n[ãa]o palpitei|preciso palpitar|quero palpitar|vou palpitar|bora palpitar|vamos palpitar|(?:dar|fazer|registrar) (?:um |uns |meus |novos |o |os )?palpites?\b/;
+
+async function handleProximosJogos(msg: IncomingMessage, usuarioId: string, raw = '') {
+  // Direto pros pendentes quando a frase já diz isso ("o que falta
+  // palpitar?", "quero dar palpites").
+  if (RAW_INDICA_PENDENTES.test(raw.toLowerCase())) {
+    await mostrarProximosJogos(msg, usuarioId, { resetOffset: true, filtro: 'pendentes' });
+    return;
+  }
+
+  // v3.27.0 — pergunta o filtro antes de listar: ver só o que falta
+  // palpitar (caminho mais comum com a Copa rolando) ou todos os
+  // próximos jogos da Copa.
+  await setSession(msg.waId, { state: 'ESCOLHENDO_FILTRO_PROXIMOS_JOGOS', ctx: {} });
+  await sendText({
+    to: msg.waId,
+    text:
+      `⚽ O que você quer ver?\n\n` +
+      `1. *Só os que faltam* — jogos que você ainda não palpitou\n` +
+      `2. *Todos* — todos os próximos jogos da Copa\n\n` +
+      `${DICA_RESPOSTA_NUMERICA}`,
+  });
+}
+
+/**
+ * v3.27.0 — resposta da pergunta de filtro do "próximos jogos".
+ * Aceita 1/2, ou texto ("faltam", "todos", "pendentes", "copa").
+ */
+async function handleEscolhendoFiltroProximosJogos(msg: IncomingMessage, usuarioId: string) {
+  const texto = msg.text.trim().toLowerCase();
+
+  let filtro: FiltroProximosJogos | null = null;
+  if (/^1\b/.test(texto) || /falta|pendente|n[ãa]o palpitei|sem palpite/.test(texto)) {
+    filtro = 'pendentes';
+  } else if (/^2\b/.test(texto) || /\btod[oa]s?\b|\bcopa\b|\btudo\b/.test(texto)) {
+    filtro = 'todos';
+  }
+
+  if (!filtro) {
+    // User pode responder com um PALPITE direto ("Brasil 2x1 Marrocos") —
+    // afinal ele pediu "próximos jogos" pra palpitar. Escapa pro fluxo
+    // normal em vez de insistir no 1/2.
+    const parsed = parseIntencao(msg.text);
+    if (parsed.intencao === Intencao.PALPITE_INLINE) {
+      await resetSession(msg.waId);
+      await handleIdle(msg, usuarioId, parsed.intencao, parsed.raw);
+      return;
+    }
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não identifiquei. Manda *1* ou *2*:\n\n` +
+        `1. *Só os que faltam* seus palpites\n` +
+        `2. *Todos* os próximos jogos da Copa`,
+    });
+    return;
+  }
+
+  await resetSession(msg.waId);
+  await mostrarProximosJogos(msg, usuarioId, { resetOffset: true, filtro });
 }
 
 /**
  * Handler do MAIS_JOGOS (v3.5.0) — avança a paginação em +10 por bolão.
  * Se for a 1ª vez (sem offset salvo), comporta-se como PROXIMOS_JOGOS.
+ * v3.27.0 — continua no MESMO filtro escolhido (pendentes/todos).
  */
 async function handleMaisJogos(msg: IncomingMessage, usuarioId: string) {
   void incContador('intent.MAIS_JOGOS');
-  await mostrarProximosJogos(msg, usuarioId, { resetOffset: false, avancar: true });
+  const filtro = await getProximosJogosFiltro(msg.waId);
+  await mostrarProximosJogos(msg, usuarioId, { resetOffset: false, avancar: true, filtro });
 }
 
 /**
@@ -4516,8 +4610,13 @@ async function handleMaisJogos(msg: IncomingMessage, usuarioId: string) {
 async function mostrarProximosJogos(
   msg: IncomingMessage,
   usuarioId: string,
-  opts: { resetOffset?: boolean; avancar?: boolean } = {},
+  opts: { resetOffset?: boolean; avancar?: boolean; filtro?: FiltroProximosJogos } = {},
 ) {
+  // v3.27.0 — persiste o filtro pra "mais jogos" continuar no mesmo modo
+  const filtro: FiltroProximosJogos = opts.filtro ?? 'todos';
+  await setProximosJogosFiltro(msg.waId, filtro);
+  const apenasPendentes = filtro === 'pendentes';
+
   const boloes = await bolaoService.listarBoloesAtivosDoUsuario(usuarioId);
   if (boloes.length === 0) {
     // HOTFIX 17/05: detecta caso "so tem encerrados" pra nao contradizer
@@ -4579,6 +4678,20 @@ async function mostrarProximosJogos(
     });
     const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
 
+    // Totais da rodada ANTES do filtro de pendentes (pro contador honesto)
+    const totalAbertosRodada = rodada.jogos.length;
+
+    // v3.27.0 — modo "só os que faltam": esconde os já palpitados
+    if (apenasPendentes) {
+      rodada.jogos = rodada.jogos.filter((j) => !palpitadosIds.has(j.id));
+      if (rodada.jogos.length === 0 && totalAbertosRodada > 0) {
+        partes.push(
+          `🏆 *${b.nome}*\n🎉 Você já palpitou em *todos* os ${totalAbertosRodada} jogos abertos. Bolão fechado pelo seu lado!\n\n_Manda *próximos jogos* e escolhe *2* pra rever a lista completa._`,
+        );
+        continue;
+      }
+    }
+
     const totalRodada = rodada.jogos.length;
     const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
 
@@ -4626,16 +4739,24 @@ async function mostrarProximosJogos(
     // Rodapé honesto: contador + indicação se há mais jogos
     const temMais = fimDoLote < totalRodada;
     const rodape: string[] = [];
-    rodape.push(
-      `📊 Mostrando jogos *${offset + 1}–${fimDoLote}* de *${totalRodada}* da rodada. ` +
-        `Palpites seus neste lote: *${palpitadosNoLote}/${lote.length}*. ` +
-        `Faltam *${pendentesRodada}* palpite(s) no bolão.`,
-    );
+    if (apenasPendentes) {
+      // v3.27.0 — modo "só os que faltam": contador fala de pendentes
+      rodape.push(
+        `📊 Mostrando *${offset + 1}–${fimDoLote}* de *${totalRodada}* jogo(s) que ainda faltam seu palpite ` +
+          `_(a rodada tem ${totalAbertosRodada} jogos abertos no total)_.`,
+      );
+    } else {
+      rodape.push(
+        `📊 Mostrando jogos *${offset + 1}–${fimDoLote}* de *${totalRodada}* da rodada. ` +
+          `Palpites seus neste lote: *${palpitadosNoLote}/${lote.length}*. ` +
+          `Faltam *${pendentesRodada}* palpite(s) no bolão.`,
+      );
+    }
     if (temMais) {
       rodape.push(`➡️ Manda *mais jogos* pra ver os próximos ${Math.min(PROXIMOS_JOGOS_LOTE, totalRodada - fimDoLote)}.`);
-    } else if (pendentesRodada === 0) {
+    } else if (pendentesRodada === 0 && !apenasPendentes) {
       rodape.push(`🎉 Você já palpitou em *todos* os ${totalRodada} jogos abertos. Bolão fechado pelo seu lado!`);
-    } else {
+    } else if (!apenasPendentes) {
       rodape.push(`🔁 Fim da lista. Manda *próximos jogos* pra voltar ao topo.`);
     }
 
@@ -4889,13 +5010,24 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
 
   await resetSession(msg.waId);
 
-  // Monta a mensagem por rodada
+  // Monta a mensagem por rodada. v3.27.0 — jogos ORDENADOS por data/hora
+  // e agrupados por dia ("qui., 11/06") em vez da ordem arbitrária do
+  // banco (caso real 11/06: lista parecia aleatória).
   const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`];
   for (const rodada of detalhes.rodadas) {
     if (rodada.jogos.length === 0) continue;
     partes.push(`*Rodada ${rodada.rodada.numero}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
-    for (const pj of rodada.jogos) {
+    const jogosOrdenados = [...rodada.jogos].sort(
+      (a, b) => a.jogo.dataHora.getTime() - b.jogo.dataHora.getTime(),
+    );
+    let dataAtual = '';
+    for (const pj of jogosOrdenados) {
       const j = pj.jogo;
+      const diaLabel = formatarDataComDiaBR(j.dataHora);
+      if (diaLabel !== dataAtual) {
+        dataAtual = diaLabel;
+        partes.push(`\n📅 *${diaLabel}*`);
+      }
       const meu = `${pj.golsCasa}x${pj.golsVisitante}`;
       const oficial = j.golsCasa !== null && j.golsVisitante !== null
         ? `${j.golsCasa}x${j.golsVisitante}`
@@ -4906,7 +5038,7 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
         const emoji = resultadoEmoji(pj.pontosObtidos);
         linha += `\n   ↳ oficial: *${oficial}* ${emoji} (${pj.pontosObtidos} pts)`;
       } else if (j.status === 'AGENDADO') {
-        linha += `\n   ↳ _ainda não rolou_`;
+        linha += `\n   ↳ _ainda não rolou (${formatarHoraBR(j.dataHora)})_`;
       } else if (j.status === 'AO_VIVO') {
         linha += `\n   ↳ _ao vivo_`;
       }

@@ -38,6 +38,16 @@ export function formatarDataHoraComDiaBR(d: Date): string {
   });
 }
 
+/** "sáb., 13/06" (dia da semana + data, sem hora — cabeçalho de agrupamento). */
+export function formatarDataComDiaBR(d: Date): string {
+  return d.toLocaleDateString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: TZ_BR,
+  });
+}
+
 /** "13/06" (só dia/mês). */
 export function formatarDataBR(d: Date): string {
   return d.toLocaleDateString('pt-BR', {

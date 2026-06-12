@@ -344,6 +344,24 @@ const PLACAR_JOGO_PATTERNS: RegExp[] = [
   /\bdeu quanto\b/,
   /\bja (?:acabou|terminou) o jogo\b/,
   /\bsaiu (?:o )?(?:placar|resultado)\b/,
+  // v3.27.0 (caso real 11/06) — "qual foi placar de México e África?" e
+  // "quais jogos já finalizaram?" caíam na LLM ("checa no site da FIFA")
+  // mesmo com o placar no banco. Cobre pergunta por jogo específico e
+  // por lista de finalizados.
+  /\bqual foi (?:o )?(?:placar|resultado)\b/,
+  /\bquais? (?:os |foram os )?jogos? (?:ja |j[áa] )?(?:finalizaram|finalizados|acabaram|terminaram|encerraram|encerrados|rolaram)\b/,
+  /\bjogos? (?:finalizados?|encerrados?|conclu[íi]dos?)\b/,
+  /\bjogos? que (?:ja|j[áa]) (?:rolaram|acabaram|terminaram|finalizaram|aconteceram)\b/,
+  // Plural apenas: "jogo de ontem" (singular) aparece em frases de outros
+  // intents ("quem pontuou no jogo de ontem?" → PALPITE_OUTROS).
+  /\bjogos de ontem\b/,
+  /\bresultados? de (?:hoje|ontem)\b/,
+  /\bo que (?:ja|j[áa]) rolou\b/,
+  /\bquem (?:esta|est[áa]|ta|t[áa]) ganhando\b/,
+  // "placar do México", "placar de México e África" — placar de time
+  // específico. Lookahead exclui "dos demais/outros/participantes/galera"
+  // (esses são pedido de PALPITE dos outros → PALPITE_OUTROS).
+  /\bplacar(?:es)? d[eoa]s? (?!demais|outr|participant|galera|pessoal|grupo|cada|quem|todos)\w/,
   // v3.21.0 (caso Bruna 11/06 16:39) — termos curtos/ambíguos que NÃO
   // mencionam jogo nem time. Bot trata como pergunta ambígua: mostra
   // placares dos jogos + sugere `ranking` pro bolão.
@@ -428,6 +446,14 @@ const PALPITE_OUTROS_PATTERNS: RegExp[] = [
   /\bpalpites? de todos?\b/,
   /\bpalpites? d[oe] jogo\b/,
   /\b(?:ver|mostra(?:r)?|quero ver|me mostra) (?:os |o )?palpites? d[oe] (?:jogo|todos)/,
+  // v3.27.0 (caso real 11/06) — user pediu "os placares dos demais
+  // participantes no jogo X" (jogo já finalizado) e caiu na LLM, que
+  // respondeu errado ("só depois que o jogo começa"). "placar dos
+  // demais/outros/participantes" = palpite dos outros, não placar oficial.
+  /\bplacar(?:es)? d[oa]s? (?:demais|outr[oa]s|participantes?|galera|grupo|pessoal|colegas?|amig[oa]s?)\b/,
+  /\bpalpites? d[oa]s? demais\b/,
+  /\bo que (?:os outros|a galera|o pessoal|cada um|todo mundo|os demais) (?:cravou|cravaram|apostou|apostaram|palpitou|palpitaram|botou|botaram|colocou|colocaram|chutou|chutaram)\b/,
+  /\bquem (?:cravou|apostou|botou|chutou) o qu[eê]\b/,
 ];
 
 // PRECEDÊNCIA: antes de MEUS_PONTOS ("meus pontos estão errados").

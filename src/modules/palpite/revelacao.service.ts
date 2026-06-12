@@ -74,6 +74,11 @@ const JANELA_ONDEMAND_MS = 24 * 60 * 60 * 1000; // jogos iniciados nas últimas 
  * Sob demanda: jogos JÁ INICIADOS (kickoff passado) nos bolões do usuário,
  * opcionalmente filtrados por time mencionado. Retorna [] se nenhum jogo
  * começou ainda — o caller decide explicar a regra nesse caso.
+ *
+ * v3.27.0 — quando o user cita um TIME específico ("placares dos demais
+ * no jogo México x África"), a busca ignora a janela de 24h: jogo
+ * finalizado é público pra sempre. A janela só vale pro pedido genérico
+ * ("palpites de todos"), pra não despejar a Copa inteira na conversa.
  */
 export async function revelacoesParaUsuario(
   usuarioId: string,
@@ -84,7 +89,7 @@ export async function revelacoesParaUsuario(
 
   const jogos = await prisma.jogo.findMany({
     where: {
-      dataHora: { lte: agora, gte: desde },
+      dataHora: filtroTimes.length > 0 ? { lte: agora } : { lte: agora, gte: desde },
       status: { notIn: ['ADIADO', 'CANCELADO'] },
       rodada: { bolao: { participacoes: { some: { usuarioId } } } },
     },

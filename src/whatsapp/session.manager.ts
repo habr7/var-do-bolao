@@ -45,6 +45,9 @@ export type ConversaState =
   | 'CONFIRMANDO_PALPITES_INLINE'
   // Usuario digitou so "palpites" — bot pergunta entre opcoes numeradas
   | 'ESCOLHENDO_INTENCAO_PALPITES'
+  // v3.27.0 — "proximos jogos": bot pergunta se quer ver SO os que faltam
+  // palpitar ou TODOS os proximos da Copa
+  | 'ESCOLHENDO_FILTRO_PROXIMOS_JOGOS'
   // Busca por nome retornou multiplos boloes — usuario escolhe qual
   | 'ESCOLHENDO_BOLAO_PARA_ENTRAR'
   // Admin querendo excluir bolao: escolhe qual (>1) e confirma
@@ -273,4 +276,30 @@ export async function getProximosJogosOffset(waId: string, bolaoId: string): Pro
 
 export async function resetProximosJogosOffset(waId: string, bolaoId: string): Promise<void> {
   await redis.del(`${PROXIMOS_JOGOS_OFFSET_PREFIX}${waId}:${bolaoId}`);
+}
+
+/**
+ * v3.27.0 — Filtro escolhido na pergunta de "próximos jogos":
+ *   'pendentes' = só jogos que o user ainda NÃO palpitou
+ *   'todos'     = todos os próximos jogos da Copa
+ * Persistido pra `mais jogos` (MAIS_JOGOS) continuar no MESMO filtro.
+ * Mesmo TTL do offset (60min) — expira junto com a sessão de scroll.
+ */
+export type FiltroProximosJogos = 'todos' | 'pendentes';
+const PROXIMOS_JOGOS_FILTRO_PREFIX = 'pj_filtro:';
+
+export async function setProximosJogosFiltro(
+  waId: string,
+  filtro: FiltroProximosJogos,
+): Promise<void> {
+  await redis.setex(
+    `${PROXIMOS_JOGOS_FILTRO_PREFIX}${waId}`,
+    PROXIMOS_JOGOS_OFFSET_TTL_SECONDS,
+    filtro,
+  );
+}
+
+export async function getProximosJogosFiltro(waId: string): Promise<FiltroProximosJogos> {
+  const v = await redis.get(`${PROXIMOS_JOGOS_FILTRO_PREFIX}${waId}`);
+  return v === 'pendentes' ? 'pendentes' : 'todos';
 }

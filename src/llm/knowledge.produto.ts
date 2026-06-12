@@ -68,8 +68,8 @@ ESCOPO:
 - Mudar nome de user: não dá — vem do WhatsApp.
 
 COMANDOS RÁPIDOS (envia em DM):
-- *próximos jogos* — lote de até 10 jogos abertos pra palpitar + rodapé com contador
-- *mais jogos* — próximo lote de 10 (paginação)
+- *próximos jogos* — pergunta: só os que FALTAM palpite ou todos; lotes de 10
+- *mais jogos* — próximo lote de 10 (mesmo filtro)
 - *meus palpites* — palpites já dados (do próprio usuário)
 - *meus pontos* — pontuação atual
 - *ranking* — tabela do bolão

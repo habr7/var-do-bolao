@@ -698,6 +698,41 @@ describe('parseIntencao', () => {
       expect(parseIntencao('saiu o resultado?').intencao).toBe(Intencao.PLACAR_JOGO);
     });
 
+    describe('v3.27.0 — jogo específico e finalizados (casos reais 11/06)', () => {
+      it('"Qual foi placar de Mexico e Africa?" → PLACAR_JOGO (antes caía na LLM)', () => {
+        expect(parseIntencao('Qual foi placar de Mexico e Africa?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"qual foi o resultado?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('qual foi o resultado?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"Quais jogos ja finalizaram?" → PLACAR_JOGO (antes caía na LLM)', () => {
+        expect(parseIntencao('Quais jogos ja finalizaram?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"quais jogos já acabaram?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('quais jogos já acabaram?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"jogos finalizados" → PLACAR_JOGO', () => {
+        expect(parseIntencao('jogos finalizados').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"jogos de ontem" → PLACAR_JOGO', () => {
+        expect(parseIntencao('jogos de ontem').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"o que já rolou?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('o que já rolou?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"quem está ganhando?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('quem está ganhando?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"placar do México" → PLACAR_JOGO', () => {
+        expect(parseIntencao('placar do México').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"placar dos demais participantes" NÃO é PLACAR_JOGO (é palpite dos outros)', () => {
+        expect(parseIntencao('quais os placares dos demais participantes?').intencao).not.toBe(
+          Intencao.PLACAR_JOGO,
+        );
+      });
+    });
+
     describe('v3.21.0 — termos curtos/ambíguos (caso Bruna 11/06)', () => {
       it('"Placares de todos" → PLACAR_JOGO', () => {
         expect(parseIntencao('Placares de todos').intencao).toBe(Intencao.PLACAR_JOGO);
@@ -806,6 +841,32 @@ describe('parseIntencao', () => {
     });
     it('"deveria ter mais pontos" → RECLAMACAO_BUG', () => {
       expect(parseIntencao('deveria ter mais pontos').intencao).toBe(Intencao.RECLAMACAO_BUG);
+    });
+  });
+
+  describe('v3.27.0 — PALPITE_OUTROS: "placar dos demais" (caso real 11/06)', () => {
+    it('"Quais os placares dos demais participantes no jogo Mexico e Africa do Sul" → PALPITE_OUTROS', () => {
+      expect(
+        parseIntencao('Quais os placares dos demais participantes no jogo Mexico e Africa do Sul')
+          .intencao,
+      ).toBe(Intencao.PALPITE_OUTROS);
+    });
+    it('"placar dos outros" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('placar dos outros').intencao).toBe(Intencao.PALPITE_OUTROS);
+    });
+    it('"placares da galera" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('placares da galera').intencao).toBe(Intencao.PALPITE_OUTROS);
+    });
+    it('"o que cada um cravou?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('o que cada um cravou?').intencao).toBe(Intencao.PALPITE_OUTROS);
+    });
+    it('"o que a galera apostou nesse jogo?" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('o que a galera apostou nesse jogo?').intencao).toBe(
+        Intencao.PALPITE_OUTROS,
+      );
+    });
+    it('"palpites dos demais" → PALPITE_OUTROS', () => {
+      expect(parseIntencao('palpites dos demais').intencao).toBe(Intencao.PALPITE_OUTROS);
     });
   });
 

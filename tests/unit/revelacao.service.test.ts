@@ -105,4 +105,22 @@ describe('revelacoesParaUsuario', () => {
     expect(blocos).toHaveLength(1);
     expect(blocos[0].timeCasa).toBe('Argentina');
   });
+
+  describe('v3.27.0 — janela de busca (caso real 11/06: jogo finalizado e a regra de privacidade)', () => {
+    it('SEM filtro de time: busca limitada às últimas 24h (gte presente)', async () => {
+      findMany.mockResolvedValue([]);
+      await revelacoesParaUsuario('u1');
+      const where = (findMany.mock.calls[0][0] as { where: { dataHora: { lte?: Date; gte?: Date } } }).where;
+      expect(where.dataHora.lte).toBeInstanceOf(Date);
+      expect(where.dataHora.gte).toBeInstanceOf(Date);
+    });
+
+    it('COM filtro de time: busca QUALQUER jogo já iniciado (sem gte) — jogo finalizado é público pra sempre', async () => {
+      findMany.mockResolvedValue([]);
+      await revelacoesParaUsuario('u1', ['México']);
+      const where = (findMany.mock.calls[0][0] as { where: { dataHora: { lte?: Date; gte?: Date } } }).where;
+      expect(where.dataHora.lte).toBeInstanceOf(Date);
+      expect(where.dataHora.gte).toBeUndefined();
+    });
+  });
 });
