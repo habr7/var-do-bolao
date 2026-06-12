@@ -70,9 +70,21 @@ const baseSchema = z.object({
   // staging onde queremos jobs rodando mas sem cutucar usuario.
   ENABLE_BOM_DIA: z.coerce.boolean().default(true),
   ENABLE_PALPITE_CALL: z.coerce.boolean().default(true),
-  ENABLE_REMINDERS: z.coerce.boolean().default(true),
+  // v3.31.0 — DESATIVADO por padrão: o lembrete "faltam ~30 min e você não
+  // palpitou ESTE jogo" (ENABLE_LEMBRETE_30MIN) substitui este, que era
+  // por-rodada e mais propenso a spam. O aviso antecipado segue coberto por
+  // bom-dia + chamada de palpites.
+  ENABLE_REMINDERS: z.coerce.boolean().default(false),
   // v3.24.0 — revelação de palpites no kickoff (push automático).
   ENABLE_PALPITE_REVEAL: z.coerce.boolean().default(true),
+  // v3.31.0 — lembrete de última hora POR JOGO: ~30 min antes do kickoff,
+  // cutuca quem ainda não palpitou aquele jogo. Anti-spam: 1x por (user,
+  // jogo) + cooldown por usuário + cap diário + coalescência por janela.
+  ENABLE_LEMBRETE_30MIN: z.coerce.boolean().default(true),
+  // Antecedência da janela (min). Default 30 (= "faltando 30 min").
+  LEMBRETE_30MIN_ANTECEDENCIA_MIN: z.coerce.number().int().min(5).max(120).default(30),
+  // Cooldown por usuário (min): no máx. 1 lembrete-de-última-hora por janela.
+  LEMBRETE_30MIN_COOLDOWN_MIN: z.coerce.number().int().min(0).default(90),
   // v3.17.0 — cap absoluto de avisos por user por dia (cross-job).
   // Resolve o problema da Camila 11/06 (3 msgs em 3.5h) e protege custo
   // na futura migração Meta Cloud API.

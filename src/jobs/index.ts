@@ -7,6 +7,7 @@ import { calculateScoresJob } from './calculate-scores.job.js';
 import { sendBomDiaJob } from './send-bom-dia.job.js';
 import { sendPalpiteCallJob } from './send-palpite-call.job.js';
 import { sendRemindersJob } from './send-reminders.job.js';
+import { sendLembrete30minJob } from './send-lembrete-30min.job.js';
 import { sendPalpiteRevealJob } from './send-palpite-reveal.job.js';
 import { sendRankingJob } from './send-ranking.job.js';
 import { repararBoloesQuebrados } from './repair-broken-boloes.job.js';
@@ -32,8 +33,14 @@ export function registerJobs() {
   // Calculo — a cada 10min
   cron.schedule('*/10 * * * *', wrap('calculate-scores', calculateScoresJob));
 
-  // Lembrete palpite — a cada 30min
+  // Lembrete palpite por-rodada — a cada 30min. v3.31.0: DESATIVADO por
+  // padrão (ENABLE_REMINDERS=false), substituído pelo lembrete de 30min por
+  // jogo abaixo. Cron mantido pra re-ativação rápida via env, se preciso.
   cron.schedule('*/30 * * * *', wrap('send-reminders', sendRemindersJob));
+
+  // v3.31.0 — Lembrete de última hora POR JOGO: ~30min antes do kickoff,
+  // cutuca quem não palpitou aquele jogo. A cada 5min pra precisão do marco.
+  cron.schedule('*/5 * * * *', wrap('send-lembrete-30min', sendLembrete30minJob));
 
   // Revelação de palpites no kickoff — a cada 2min. Quando um jogo começa,
   // manda pros integrantes os palpites de todos do bolão pra aquele jogo.
