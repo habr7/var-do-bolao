@@ -331,12 +331,14 @@ Tabela: **10** placar exato · **7** resultado + 1 placar parcial · **5** só r
 
 ```
 sair do bolão
+sair do bolão da firma      (v3.30.0 — cita o nome e vai direto)
 quero sair
 me remove
 não quero mais jogar
 ```
-→ Bot pede confirmação `sim/não`. Palpites passados ficam no histórico,
-mas a participação é removida (some do ranking).
+→ Se você participa de **mais de um** bolão, o bot **pergunta de qual** (lista numerada) e depois pede confirmação `sim/não`. Palpites passados ficam no histórico, mas a participação é removida (some do ranking).
+
+→ **v3.30.0**: bolões onde você é **admin** não entram na saída (admin não "sai" — usa *excluir bolão*). Quando isso esconde um bolão, o bot **explica** por que ele não aparece. Você também pode citar o nome direto (`sair do bolão Enter`); se for um que você admina, o bot avisa e sugere *excluir bolão*.
 
 ---
 

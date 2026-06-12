@@ -11,6 +11,7 @@ import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarDataComDiaBR
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import { paginarBlocos } from '../utils/paginar.js';
+import { extrairNomeBolaoInlineSair } from './sair.helper.js';
 import {
   getSession,
   resetSession,
@@ -3309,29 +3310,73 @@ async function enviarConvitePraBolao(
 // ============================================================
 async function handleSairBolao(msg: IncomingMessage, usuarioId: string) {
   const boloes = await bolaoService.listarBoloesDoUsuario(usuarioId);
-  // So pode sair de bolaes que ele NAO eh admin (admin nao pode sair do
-  // proprio bolao via este fluxo — teria que excluir o bolao)
+
+  if (boloes.length === 0) {
+    await sendText({ to: msg.waId, text: '📭 Você não participa de nenhum bolão pra sair.' });
+    return;
+  }
+
+  // So pode sair de bolaes que ele NAO eh admin (admin nao sai do proprio
+  // bolao — teria que excluir).
   const elegiveis = boloes.filter((b) => b.adminId !== usuarioId);
+  const adminBoloes = boloes.filter((b) => b.adminId === usuarioId);
+
+  // v3.30.0 — nota explicando POR QUE bolões do admin não entram na saída.
+  // Antes (caso Mauricio 11/06): com 1 elegível + 1 bolão-admin, o bot
+  // confirmava o elegível direto, sem dizer nada do outro → usuário achava
+  // que o bot tinha "escolhido sozinho" e não conseguia trocar.
+  const notaAdmin =
+    adminBoloes.length > 0
+      ? `\n\n_⚠️ ${
+          adminBoloes.length === 1
+            ? `O bolão *${adminBoloes[0].nome}* não aparece aqui porque você é o *admin* dele`
+            : `Seus bolões onde você é *admin* não aparecem aqui`
+        } — admin não "sai"; pra encerrar, manda *excluir bolão*._`
+      : '';
+
+  // v3.30.0 — nome inline: "sair do bolão da firma" / "sair do bolão Enter".
+  // Resolve contra TODOS os bolões do user (elegíveis + admin) pra dar a
+  // resposta certa: confirma se elegível, explica se for admin.
+  const nomeInline = extrairNomeBolaoInlineSair(msg.text);
+  if (nomeInline) {
+    const alvo = await escolherBolaoDaLista(
+      nomeInline,
+      boloes.map((b) => ({ id: b.id, nome: b.nome })),
+    );
+    if (alvo) {
+      const bolaoAlvo = boloes.find((b) => b.id === alvo.id)!;
+      if (bolaoAlvo.adminId === usuarioId) {
+        await sendText({
+          to: msg.waId,
+          text:
+            `👑 Você é o *admin* do *${bolaoAlvo.nome}* — admin não sai do próprio bolão.\n\n` +
+            `Pra encerrar ele de vez, manda *excluir bolão*.`,
+        });
+        return;
+      }
+      await pedirConfirmacaoSairBolao(msg, bolaoAlvo);
+      return;
+    }
+  }
 
   if (elegiveis.length === 0) {
-    if (boloes.length > 0) {
-      await sendText({
-        to: msg.waId,
-        text:
-          '🤷 Você só é admin dos seus bolões — admin não sai assim.\n\nSe quiser encerrar o bolão de vez, manda *excluir bolão*.',
-      });
-    } else {
-      await sendText({ to: msg.waId, text: '📭 Você não participa de nenhum bolão pra sair.' });
-    }
+    // Todos os bolões são do próprio admin
+    await sendText({
+      to: msg.waId,
+      text:
+        '🤷 Você só é *admin* dos seus bolões — admin não sai assim.\n\n' +
+        'Se quiser encerrar um bolão de vez, manda *excluir bolão*.',
+    });
     return;
   }
 
   if (elegiveis.length === 1) {
-    await pedirConfirmacaoSairBolao(msg, elegiveis[0]);
+    // Confirma o único elegível, mas avisa se há bolão-admin escondido.
+    await pedirConfirmacaoSairBolao(msg, elegiveis[0], notaAdmin);
     return;
   }
 
-  // Múltiplos — pergunta qual
+  // Múltiplos elegíveis — pergunta qual
   await setSession(msg.waId, {
     state: 'ESCOLHENDO_BOLAO_SAIR',
     ctx: { boloesParaEscolher: elegiveis.map((b) => ({ id: b.id, nome: b.nome })) },
@@ -3339,7 +3384,7 @@ async function handleSairBolao(msg: IncomingMessage, usuarioId: string) {
   const lista = formatarBoloesNumerados(elegiveis);
   await sendText({
     to: msg.waId,
-    text: `De qual bolão você quer sair?\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    text: `De qual bolão você quer sair?\n\n${lista}${notaAdmin}\n\n${DICA_RESPOSTA_NUMERICA}`,
   });
 }
 
@@ -3360,7 +3405,11 @@ async function handleEscolhendoBolaoSair(msg: IncomingMessage, usuarioId: string
   await pedirConfirmacaoSairBolao(msg, escolhido);
 }
 
-async function pedirConfirmacaoSairBolao(msg: IncomingMessage, bolao: { id: string; nome: string }) {
+async function pedirConfirmacaoSairBolao(
+  msg: IncomingMessage,
+  bolao: { id: string; nome: string },
+  notaExtra = '',
+) {
   await setSession(msg.waId, {
     state: 'CONFIRMANDO_SAIR_BOLAO',
     ctx: { bolaoId: bolao.id, nomeBolao: bolao.nome },
@@ -3375,7 +3424,8 @@ async function pedirConfirmacaoSairBolao(msg: IncomingMessage, bolao: { id: stri
       `• 📋 Seus palpites passados *ficam no histórico* (mas sem somar pontos novos)\n` +
       `• 🔕 Você *não recebe mais notificações* de jogos desse bolão\n` +
       `• 🤝 Pra voltar depois, você precisa pedir entrada de novo (admin aprova)\n\n` +
-      `_Responde *sim* pra confirmar ou *não* pra cancelar._`,
+      `_Responde *sim* pra confirmar ou *não* pra cancelar._` +
+      notaExtra,
   });
 }
 
