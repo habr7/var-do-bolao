@@ -40,6 +40,7 @@ import { montarMensagemRevelacao } from '../utils/palpite-reveal.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
+import { construirFatosVivos } from '../llm/fatos-vivos.js';
 import { parecePalpiteMasNaoEntendi } from './palpite.heuristics.js';
 import {
   construirFatosCopa2026,
@@ -425,7 +426,11 @@ async function handleIdle(
   // resposta conversacional via LLM com prompt que sabe redirecionar
   // pros comandos certos sem inventar dados. So se isso falhar, cai no
   // "nao entendi" textual + menu.
-  const respostaLLM = await responderConversacional(msg.text);
+  // v3.32.0 — injeta [DADOS AO VIVO] (jogos rolando/finalizados/próximos
+  // dos bolões do user) pro LLM poder responder "quais jogos estão
+  // rolando?" com o dado REAL em vez de "não sei" (caso Humberto 11/06).
+  const fatosVivos = await construirFatosVivos(usuarioId).catch(() => null);
+  const respostaLLM = await responderConversacional(msg.text, fatosVivos);
   if (respostaLLM) {
     void incContador('llm.conversational.hit');
     void registrarMsgNaoEntendida(msg.text, 'IDLE', 'llm_fail', {

@@ -323,7 +323,9 @@ const JOGOS_HOJE_PATTERNS: RegExp[] = [
   /\bjogos? (?:de )?hoje\b/,
   /\btem jogo (?:hoje|agora)\b/,
   /\bagenda\b/,
-  /\bquais jogos? (?:vao|tao|tem) (?:hoje|rolando|acontecendo)\b/,
+  // v3.32.0 (caso Humberto 11/06): inclui "estao/esta" — "quais jogos
+  // estao rolando?" não casava (só vao|tao|tem) e caía na LLM.
+  /\bquais jogos? (?:vao|tao|tem|est[aã]o?|esta) (?:hoje|rolando|acontecendo)\b/,
   /\bo que tem hoje\b/,
 ];
 
@@ -361,6 +363,16 @@ const PLACAR_JOGO_PATTERNS: RegExp[] = [
   /\bresultados? de (?:hoje|ontem)\b/,
   /\bo que (?:ja|j[áa]) rolou\b/,
   /\bquem (?:esta|est[áa]|ta|t[áa]) ganhando\b/,
+  // v3.32.0 (caso Humberto 11/06 23:49) — "quais jogos estão rolando?"
+  // caía na LLM ("não sei") com o jogo AO VIVO no banco. Variações de
+  // "rolando/acontecendo/ao vivo agora" → PLACAR_JOGO (mostra 🔴 + placar).
+  // Precedência: PLACAR_JOGO vem antes de JOGOS_HOJE nas INTENT_RULES.
+  /\b(?:quais?|que|qual) jogos? (?:est[aã]o?|esta|t[aã]o?|ta) (?:rolando|acontecendo|passando|em andamento)\b/,
+  /\bjogos? (?:rolando|em andamento|ao vivo)\b/,
+  /\btem (?:algum )?jogo (?:rolando|acontecendo|ao vivo|em andamento|agora)\b/,
+  /\balgum jogo (?:rolando|acontecendo|agora|ao vivo)\b/,
+  /\bo que (?:ta|t[aá]|esta|est[aá]) (?:rolando|acontecendo|passando)(?: agora)?\b/,
+  /\bquais? jogos? (?:de )?agora\b/,
   // "placar do México", "placar de México e África" — placar de time
   // específico. Lookahead exclui "dos demais/outros/participantes/galera"
   // (esses são pedido de PALPITE dos outros → PALPITE_OUTROS).

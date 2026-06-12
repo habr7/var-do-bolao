@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**894+ tests** distribuídos em `tests/unit/`. Cobre:
+**914+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -50,6 +50,10 @@ npm test
 | `polling-window.test.ts` | **(v3.23.0)** Janela de polling do `fetch-results`: API só consulta jogo AO_VIVO ou AGENDADO com kickoff passado (finalizado lê do banco); rede de segurança re-busca FINALIZADO sem placar. 2 testes. |
 | `palpite-reveal.test.ts` | **(v3.24.0)** Builder da revelação de palpites no kickoff: ordenação (Você → palpiteiros → "não palpitou"), placar parcial null vira "não palpitou", multi-bloco por bolão. 5 testes. |
 | `revelacao.service.test.ts` | **(v3.24.0)** `revelacoesParaUsuario` (sob demanda): escopo por jogo/bolão, filtro por time, skip bolão solo (<2) e jogo sem palpite. 4 testes. |
+| `sair.helper.test.ts` | **(v3.30.0)** `extrairNomeBolaoInlineSair`: nome inline no "sair do bolão X", número puro/artigo → null. 8 testes. |
+| `send-lembrete-30min.test.ts` | **(v3.31.0)** Lembrete por jogo: janela, idempotência (user,jogo), cooldown, coalescência, cap, rollback de cota em falha. 7 testes. |
+| `intent.classifier.drift.test.ts` | **(v3.32.0)** ANTI-DRIFT: toda intent descrita no INTENT_CLASSIFIER_PROMPT ∈ INTENCOES_VALIDAS ∈ enum (bug "não sei" do caso Humberto 11/06). 5 testes. |
+| `fatos-vivos.test.ts` | **(v3.32.0)** `construirFatosVivos`: rolando/finalizado/próximo, dedup multi-bolão, teto de tamanho, null em vazio/erro. 7 testes. |
 
 Tempo: ~5s. Não toca rede nem DB.
 

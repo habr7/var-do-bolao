@@ -748,6 +748,33 @@ describe('parseIntencao', () => {
       });
     });
 
+    describe('v3.32.0 — "rolando agora" (caso Humberto 11/06 23:49)', () => {
+      it('"Quais jogos estao rolando?" → PLACAR_JOGO (antes caía na LLM "não sei")', () => {
+        expect(parseIntencao('Quais jogos estao rolando?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"quais jogos estão acontecendo?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('quais jogos estão acontecendo?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"que jogos tão rolando" → PLACAR_JOGO', () => {
+        expect(parseIntencao('que jogos tão rolando').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"tem jogo rolando?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('tem jogo rolando?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"tem algum jogo agora?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('tem algum jogo agora?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"jogos ao vivo" → PLACAR_JOGO', () => {
+        expect(parseIntencao('jogos ao vivo').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"o que tá rolando agora?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('o que tá rolando agora?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+      it('"algum jogo acontecendo?" → PLACAR_JOGO', () => {
+        expect(parseIntencao('algum jogo acontecendo?').intencao).toBe(Intencao.PLACAR_JOGO);
+      });
+    });
+
     describe('v3.21.0 — termos curtos/ambíguos (caso Bruna 11/06)', () => {
       it('"Placares de todos" → PLACAR_JOGO', () => {
         expect(parseIntencao('Placares de todos').intencao).toBe(Intencao.PLACAR_JOGO);

@@ -8,6 +8,7 @@ import { sendBomDiaJob } from './send-bom-dia.job.js';
 import { sendPalpiteCallJob } from './send-palpite-call.job.js';
 import { sendRemindersJob } from './send-reminders.job.js';
 import { sendLembrete30minJob } from './send-lembrete-30min.job.js';
+import { revisaoDiariaJob } from './revisao-diaria.job.js';
 import { sendPalpiteRevealJob } from './send-palpite-reveal.job.js';
 import { sendRankingJob } from './send-ranking.job.js';
 import { repararBoloesQuebrados } from './repair-broken-boloes.job.js';
@@ -59,6 +60,12 @@ export function registerJobs() {
   // Chamada de palpites — hourly, dispara PALPITE_CALL_HORAS_ANTES horas
   // antes do 1o jogo do dia (default 6h). Idempotente via flag em Redis.
   cron.schedule('5 * * * *', wrap('send-palpite-call', sendPalpiteCallJob), {
+    timezone: env.TIMEZONE,
+  });
+
+  // v3.32.0 — revisão diária das mensagens não-entendidas: 09:00 BRT manda
+  // o relatório das últimas 24h pro(s) dono(s). Idempotente por dia (Redis).
+  cron.schedule('0 9 * * *', wrap('revisao-diaria', revisaoDiariaJob), {
     timezone: env.TIMEZONE,
   });
 

@@ -16,7 +16,8 @@ import { INTENT_CLASSIFIER_PROMPT } from './system-prompts.js';
  * mais o usuario).
  */
 
-const INTENCOES_VALIDAS = [
+// Exportada pro teste anti-drift (compara com o INTENT_CLASSIFIER_PROMPT).
+export const INTENCOES_VALIDAS = [
   Intencao.SAUDACAO,
   Intencao.MENU,
   Intencao.AJUDA,
@@ -61,6 +62,23 @@ const INTENCOES_VALIDAS = [
   Intencao.PERGUNTA_GERAL_FUTEBOL,
   Intencao.PENDENTES,
   Intencao.CANCELAR,
+  // v3.32.0 — BUG ESTRUTURAL corrigido (caso Humberto 11/06 23:49): as
+  // intents abaixo estavam DESCRITAS no INTENT_CLASSIFIER_PROMPT (o LLM as
+  // devolvia certo), mas esta whitelist as REJEITAVA — a rede de segurança
+  // pra gaps de regex tinha buraco pra tudo da v3.8+. "Quais jogos estao
+  // rolando?" era classificado como PLACAR_JOGO e descartado → "não sei".
+  // Teste anti-drift (intent.classifier.drift.test.ts) impede regressão.
+  Intencao.PLACAR_JOGO,
+  Intencao.PONTOS_DETALHE,
+  Intencao.STATUS_RODADA,
+  Intencao.DESABAFO_RANKING,
+  Intencao.RECLAMACAO_BUG,
+  Intencao.PALPITE_OUTROS,
+  Intencao.MAIS_JOGOS,
+  Intencao.PROGRESSO_PALPITES,
+  Intencao.CUTUCAR_PENDENTES,
+  Intencao.DICAS_PALPITE,
+  Intencao.ACOLHIMENTO_NOVATO,
 ] as const;
 
 // Prompt antigo (inline) — comentado pra rollback rapido. O ativo agora

@@ -77,6 +77,9 @@ const baseSchema = z.object({
   ENABLE_REMINDERS: z.coerce.boolean().default(false),
   // v3.24.0 — revelação de palpites no kickoff (push automático).
   ENABLE_PALPITE_REVEAL: z.coerce.boolean().default(true),
+  // v3.32.0 — revisão diária: 1x/dia manda pro(s) dono(s) (OWNER_WHATSAPP_IDS)
+  // o relatório das mensagens não-entendidas das últimas 24h (loop de melhoria).
+  ENABLE_REVISAO_DIARIA: z.coerce.boolean().default(true),
   // v3.31.0 — lembrete de última hora POR JOGO: ~30 min antes do kickoff,
   // cutuca quem ainda não palpitou aquele jogo. Anti-spam: 1x por (user,
   // jogo) + cooldown por usuário + cap diário + coalescência por janela.
