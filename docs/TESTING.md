@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**914+ tests** distribuídos em `tests/unit/`. Cobre:
+**922+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -54,6 +54,7 @@ npm test
 | `send-lembrete-30min.test.ts` | **(v3.31.0)** Lembrete por jogo: janela, idempotência (user,jogo), cooldown, coalescência, cap, rollback de cota em falha. 7 testes. |
 | `intent.classifier.drift.test.ts` | **(v3.32.0)** ANTI-DRIFT: toda intent descrita no INTENT_CLASSIFIER_PROMPT ∈ INTENCOES_VALIDAS ∈ enum (bug "não sei" do caso Humberto 11/06). 5 testes. |
 | `fatos-vivos.test.ts` | **(v3.32.0)** `construirFatosVivos`: rolando/finalizado/próximo, dedup multi-bolão, teto de tamanho, null em vazio/erro. 7 testes. |
+| `palpite-render.test.ts` | **(v3.33.0)** `montarStatusResultado`: jogo AO VIVO com placar parcial NÃO vira "oficial 0 pts ❌" (bug Humberto 12/06); finalizado+calculado/calculando; adiado/cancelado/agendado. 8 testes. |
 
 Tempo: ~5s. Não toca rede nem DB.
 

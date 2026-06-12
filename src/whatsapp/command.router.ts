@@ -12,6 +12,7 @@ import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
 import { paginarBlocos } from '../utils/paginar.js';
 import { extrairNomeBolaoInlineSair } from './sair.helper.js';
+import { montarStatusResultado } from './palpite-render.js';
 import {
   getSession,
   resetSession,
@@ -5186,6 +5187,8 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
   // Monta a mensagem por rodada. v3.27.0 — jogos ORDENADOS por data/hora
   // e agrupados por dia ("qui., 11/06") em vez da ordem arbitrária do
   // banco (caso real 11/06: lista parecia aleatória).
+  const agoraPalpites = new Date();
+  let temJogoEmAberto = false;
   const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`];
   for (const rodada of detalhes.rodadas) {
     if (rodada.jogos.length === 0) continue;
@@ -5202,24 +5205,20 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
         partes.push(`\n📅 *${diaLabel}*`);
       }
       const meu = `${pj.golsCasa}x${pj.golsVisitante}`;
-      const oficial = j.golsCasa !== null && j.golsVisitante !== null
-        ? `${j.golsCasa}x${j.golsVisitante}`
-        : null;
-
-      let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}`;
-      if (oficial) {
-        const emoji = resultadoEmoji(pj.pontosObtidos);
-        linha += `\n   ↳ oficial: *${oficial}* ${emoji} (${pj.pontosObtidos} pts)`;
-      } else if (j.status === 'AGENDADO') {
-        linha += `\n   ↳ _ainda não rolou (${formatarHoraBR(j.dataHora)})_`;
-      } else if (j.status === 'AO_VIVO') {
-        linha += `\n   ↳ _ao vivo_`;
-      }
-      partes.push(linha);
+      // v3.33.0 — rótulo decidido pelo STATUS do jogo (não pela presença de
+      // placar). Antes, jogo AO_VIVO com placar parcial aparecia como
+      // "oficial: 0x1 ❌ (0 pts)" — final + zerado — enganando o usuário
+      // (caso Humberto 12/06 00:22). Agora mostra "🔴 ao vivo: parcial…".
+      if (j.status !== 'FINALIZADO') temJogoEmAberto = true;
+      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites);
+      partes.push(`• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`);
     }
     partes.push('');
   }
   partes.push(`Total: *${detalhes.pontuacaoTotal} pts*`);
+  if (temJogoEmAberto) {
+    partes.push(`\n⏳ _Tem jogo ainda em aberto/rolando — sua pontuação pode mudar até o apito final._`);
+  }
 
   // v3.28.0 — pagina em mensagens de até 3500 chars. Rodada de Copa (72
   // jogos) passava dos 4096 do WhatsApp e a Evolution cortava em silêncio.
