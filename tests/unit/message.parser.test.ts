@@ -1511,6 +1511,44 @@ Grêmio 1x2 Inter`;
     expect(r.length).toBeLessThanOrEqual(80);
   });
 
+  describe('v3.34.0 — separados por VÍRGULA (caso Felipe 11/06 20:44, palpites perdidos)', () => {
+    it('mensagem EXATA do Felipe (3 palpites por vírgula numa linha) → extrai os 3', () => {
+      const msg =
+        'Coreia do Sul 1x1 República Tcheca, Canadá 0x2 Bósnia e Herzegovina, Estados Unidos 1x0 Paraguai';
+      const r = parseMultiplePalpites(msg);
+      expect(r).toHaveLength(3);
+      expect(r[0]).toMatchObject({ timeCasa: 'Coreia do Sul', golsCasa: 1, golsVisitante: 1, timeVisitante: 'República Tcheca' });
+      expect(r[1]).toMatchObject({ timeCasa: 'Canadá', golsCasa: 0, golsVisitante: 2 });
+      expect(r[2]).toMatchObject({ golsCasa: 1, golsVisitante: 0, timeVisitante: 'Paraguai' });
+    });
+
+    it('parseIntencao da mensagem do Felipe → PALPITE_INLINE (não TEXTO_LIVRE)', () => {
+      const msg =
+        'Coreia do Sul 1x1 República Tcheca, Canadá 0x2 Bósnia e Herzegovina, Estados Unidos 1x0 Paraguai';
+      expect(parseIntencao(msg).intencao).toBe(Intencao.PALPITE_INLINE);
+    });
+
+    it('exemplo que o PRÓPRIO bot anuncia ("...separados por vírgula") funciona', () => {
+      const r = parseMultiplePalpites('Brasil 2x1 Marrocos, México 1x1 África do Sul');
+      expect(r).toHaveLength(2);
+    });
+
+    it('ponto e vírgula também separa', () => {
+      const r = parseMultiplePalpites('Brasil 2x1 Marrocos; França 1x0 Argentina');
+      expect(r).toHaveLength(2);
+    });
+
+    it('vírgula + quebra de linha misturados', () => {
+      const r = parseMultiplePalpites('Brasil 2x1 Marrocos, França 1x0 Argentina\nEspanha 3x0 Japão');
+      expect(r).toHaveLength(3);
+    });
+
+    it('palpite ÚNICO não é quebrado por vírgula inexistente', () => {
+      const r = parseMultiplePalpites('Brasil 2x1 Marrocos');
+      expect(r).toHaveLength(1);
+    });
+  });
+
   describe('v3.10.0 — formato invertido + tokenizer (caso Valéria 22/05)', () => {
     it('parseia uma linha invertida "1x1 México x África do Sul"', () => {
       const r = parseMultiplePalpites('1x1 México x África do Sul');

@@ -796,10 +796,13 @@ const CENARIOS: Cenario[] = [
     esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
   },
   {
+    // v3.15.0: "quem ganhou" casa PLACAR_JOGO no parser; o HANDLER delega
+    // fora-de-escopo (copa antiga) pro fluxo PERGUNTA_GERAL_FUTEBOL.
+    // Alinhado ao vitest (message.parser.test.ts).
     grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
-    desc: '"quem ganhou copa de 94?" → PERGUNTA_GERAL_FUTEBOL',
+    desc: '"quem ganhou copa de 94?" → PLACAR_JOGO (handler delega fora-de-escopo)',
     msg: 'quem ganhou copa de 94?',
-    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+    esperado: { intencao: Intencao.PLACAR_JOGO },
   },
   {
     grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',

@@ -1205,8 +1205,12 @@ export function parseIntencao(text: string): ParsedMessage {
   // que casa palpite (pra cobrir multi-palpite em IDLE — handler depois
   // re-parseia com parseMultiplePalpites).
   let palpite = tentarParsearPalpiteInline(raw);
-  if (!palpite && raw.includes('\n')) {
-    for (const linha of raw.split('\n').map((l) => l.trim()).filter(Boolean)) {
+  // v3.34.0 — multi-palpite separado por \n, VÍRGULA ou ; (antes só \n →
+  // "A 1x1 B, C 0x2 D, E 1x0 F" virava TEXTO_LIVRE e o palpite se perdia,
+  // caso Felipe 11/06). Se qualquer segmento casar, é PALPITE_INLINE e o
+  // handler re-parseia o lote inteiro com parseMultiplePalpites.
+  if (!palpite && /[\n,;]/.test(raw)) {
+    for (const linha of raw.split(/[\n,;]+/).map((l) => l.trim()).filter(Boolean)) {
       const p = tentarParsearPalpiteInline(linha);
       if (p) {
         palpite = p;
@@ -1447,13 +1451,15 @@ export function parseMultiplePalpitesDetalhado(text: string): {
   ok: PalpiteInline[];
   descartadas: string[];
 } {
-  // v3.28.0 — teto anti-abuso: uma rodada de Copa tem no máx. 72 jogos,
-  // então 80 linhas cobre qualquer lote legítimo. Acima disso é spam/cola
-  // acidental — processa só as 80 primeiras (evita iterar/armazenar 200+
-  // linhas e inflar a sessão no Redis).
+  // v3.34.0 — separadores de palpites: quebra de linha, VÍRGULA e ponto-e-
+  // vírgula. BUG GRAVE (caso Felipe 11/06 20:44): o bot anuncia "vários
+  // palpites separados por vírgula", mas o parser só dividia por \n — então
+  // "Coreia 1x1 Tcheca, Canadá 0x2 Bósnia, EUA 1x0 Paraguai" (1 linha, com
+  // vírgulas) extraía 0 palpites e o usuário perdia tudo. Nomes de seleção
+  // não têm vírgula, então split é seguro.
   const MAX_LINHAS = 80;
   const lines = text
-    .split('\n')
+    .split(/[\n,;]+/)
     .map((l) => l.trim())
     .filter(Boolean)
     .slice(0, MAX_LINHAS);
