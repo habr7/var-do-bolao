@@ -261,6 +261,8 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.36.0** (2026-06-12) — **"Bom dia boleiros" em hora fixa (9h BRT) pra todos de uma vez**: antes disparava "kickoff−6h do 1º jogo", que pra jogo cedo caía 22h da véspera e só parte do pessoal recebia. Agora é 1x/dia de manhã, pra todos, com flag própria. Chamada de palpites desativada (redundante com bom-dia + lembrete de 30min). 941 tests.
+
 - **v3.35.0** (2026-06-12) — **Fix grave: lista de palpites rotulada "Meus palpites:" era ignorada** (caso +5531): a usuária copiou o formato do bot ("Meus palpites:\n11/06, 23:00 — Time NxN Time") e virava a intent de *ver* palpites → "registrados: 0". Agora um lote de 2+ palpites vence a intent de leitura, e o prefixo de data/hora é removido. 936 tests, simulador 116/116.
 
 - **v3.34.0** (2026-06-12) — **Fix grave: palpites separados por vírgula não registravam** (caso Felipe): "Coreia 1x1 Tcheca, Canadá 0x2 Bósnia, EUA 1x0 Paraguai" (vírgulas, 1 linha) extraía 0 palpites — o parser só dividia por quebra de linha, embora o bot anuncie a vírgula como separador. Agora aceita vírgula e `;`. 928 tests, simulador 116/116.

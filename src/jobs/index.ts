@@ -51,14 +51,16 @@ export function registerJobs() {
   // Ranking personalizado — a cada hora
   cron.schedule('0 * * * *', wrap('send-ranking', sendRankingJob));
 
-  // Bom dia boleiros — hourly. Decide internamente se eh a hora certa
-  // (default HORARIO_BOM_DIA, ou kickoff-6h quando default cai depois de kickoff-8h).
+  // Bom dia boleiros — hourly; só dispara na HORA FIXA HORARIO_BOM_DIA
+  // (default 09:00 BRT). v3.36.0: horário fixo + flag própria pra entrega
+  // uniforme a TODOS de uma vez (antes era kickoff-6h e espalhava).
   cron.schedule('0 * * * *', wrap('send-bom-dia', sendBomDiaJob), {
     timezone: env.TIMEZONE,
   });
 
-  // Chamada de palpites — hourly, dispara PALPITE_CALL_HORAS_ANTES horas
-  // antes do 1o jogo do dia (default 6h). Idempotente via flag em Redis.
+  // Chamada de palpites — hourly. v3.36.0: DESATIVADA por padrão
+  // (ENABLE_PALPITE_CALL=false) — redundante com bom-dia (9h) + lembrete
+  // de 30min. Cron mantido pra re-ativação rápida via env.
   cron.schedule('5 * * * *', wrap('send-palpite-call', sendPalpiteCallJob), {
     timezone: env.TIMEZONE,
   });

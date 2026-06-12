@@ -62,6 +62,9 @@ const baseSchema = z.object({
   BOT_PREFIX: z.string().default('!'),
   TIMEZONE: z.string().default('America/Sao_Paulo'),
   DEFAULT_CAMPEONATO: z.string().default('copa-2026-fase-grupos'),
+  // v3.36.0 — hora (BRT) do "bom dia boleiros" diário. Voltou a ser usado:
+  // o bom-dia agora dispara em horário FIXO de manhã (não mais kickoff-6h),
+  // pra entrega uniforme a TODOS de uma vez.
   HORARIO_BOM_DIA: z.string().default('09:00'),
   // Quantas horas antes do 1o jogo do dia disparar a chamada de palpites.
   PALPITE_CALL_HORAS_ANTES: z.coerce.number().default(6),
@@ -69,7 +72,11 @@ const baseSchema = z.object({
   // sem mexer em DRY_RUN_WHATSAPP (que afeta TODO envio). Util pra
   // staging onde queremos jobs rodando mas sem cutucar usuario.
   ENABLE_BOM_DIA: z.coerce.boolean().default(true),
-  ENABLE_PALPITE_CALL: z.coerce.boolean().default(true),
+  // v3.36.0 — DESATIVADO por padrão: redundante com o bom-dia (9h, lista
+  // quem falta palpitar pra TODOS) + lembrete de 30min (última chance por
+  // jogo). Mantê-la dava mensagem dobrada e dividia a trava com o bom-dia
+  // (entrega desigual). Re-ative só se quiser a chamada 6h-antes separada.
+  ENABLE_PALPITE_CALL: z.coerce.boolean().default(false),
   // v3.31.0 — DESATIVADO por padrão: o lembrete "faltam ~30 min e você não
   // palpitou ESTE jogo" (ENABLE_LEMBRETE_30MIN) substitui este, que era
   // por-rodada e mais propenso a spam. O aviso antecipado segue coberto por

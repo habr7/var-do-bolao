@@ -50,8 +50,8 @@ processo principal via `node-cron`, registrados em `src/jobs/index.ts`.
 |---|---|---|---|---|
 | `fetch-results` | `*/5 * * * *` (5min) | Busca placares da API FIFA/openfootball, atualiza jogos no banco. Se placar de jogo FINALIZADO mudou (correção VAR), reseta `Palpite.calculado=false` (v3.13.0). | Idempotente (compara antes/depois) | — |
 | `calculate-scores` | `*/10 * * * *` (10min) | Pra cada rodada FINALIZADA com palpites `calculado=false`, calcula pontos e atualiza ranking. | Flag `calculado=true` por palpite | — |
-| `send-bom-dia` | `0 * * * *` (hourly) | v3.13.0: dispara "6h antes do próximo jogo" (não em hora fixa). Clamp [07:00–22:00 BRT]. Lista TODOS os jogos próximos com ✅ palpitado / ⚪ pendente. | Redis `aviso_jogo:{waId}` TTL 24h. Compartilha cooldown com `send-palpite-call`. | `ENABLE_BOM_DIA` |
-| `send-palpite-call` | `5 * * * *` (hourly :05) | Chamada ativa de palpites — 6h antes do 1º jogo do dia. Lista jogos + abre fluxo PALPITANDO. | Redis `palpite-call:{bolaoId}:{date}` TTL 30h + cooldown cross-job `aviso_jogo:{waId}` 24h. | `ENABLE_PALPITE_CALL` |
+| `send-bom-dia` | `0 * * * *` (hourly; só dispara na hora de `HORARIO_BOM_DIA`) | **v3.36.0**: HORA FIXA (9h BRT), 1x/dia, pra TODOS com jogo nas próx. ~30h. Lista ✅ palpitado / ⚪ pendente; adapta ("falta palpitar" vs "🎉 Boa sorte"). | Redis `bomdia:{waId}:{dia}` (SET NX, flag própria) + cap `MAX_AVISOS_DIA` | `ENABLE_BOM_DIA`, `HORARIO_BOM_DIA` |
+| `send-palpite-call` | `5 * * * *` (hourly :05) | **DESATIVADO (v3.36.0)** — redundante com bom-dia (9h) + lembrete de 30min. Era a chamada 6h antes do 1º jogo. Cron mantido, gate em env. | Redis `palpite-call:{bolaoId}:{date}` + cap | `ENABLE_PALPITE_CALL` (default **false**) |
 | `send-reminders` | `*/30 * * * *` (30min) | **DESATIVADO (v3.31.0)** — era por-rodada (cutuca quem não palpitou nada a <3h do fechamento). Substituído pelo `send-lembrete-30min`. Cron mantido, gate em env. | Por usuário/rodada | `ENABLE_REMINDERS` (default **false**) |
 | `send-lembrete-30min` | `*/5 * * * *` (5min) | **v3.31.0**: lembrete de última hora POR JOGO — ~30min antes do kickoff, cutuca quem ainda não palpitou AQUELE jogo. Coalesce jogos da janela em 1 msg. CONTA no `MAX_AVISOS_DIA`. **NÃO** honra `aviso_jogo` (tem cooldown próprio). | Redis `lembrete30:{wa}:{jogoId}` 2h (1x/jogo) + `lembrete30_cd:{wa}` cooldown (default 90min) | `ENABLE_LEMBRETE_30MIN`, `LEMBRETE_30MIN_ANTECEDENCIA_MIN`, `LEMBRETE_30MIN_COOLDOWN_MIN` |
 | `send-palpite-reveal` | `*/2 * * * *` (2min) | v3.24.0: no kickoff de um jogo, revela pros integrantes os palpites de TODOS do bolão pra aquele jogo (quem não palpitou = "não palpitou"). Time-driven (independe da FIFA). Multi-bolão = 1 msg com 1 bloco por bolão. CONTA no `MAX_AVISOS_DIA`. | Redis `reveal:{waId}:{apiJogoId}` TTL 6h (1 envio por pessoa/jogo) | `ENABLE_PALPITE_REVEAL` |
@@ -65,19 +65,19 @@ processo principal via `node-cron`, registrados em `src/jobs/index.ts`.
 | Var | Default | Onde afeta |
 |---|---|---|
 | `TIMEZONE` | `America/Sao_Paulo` | Cron + display + clamp horário civilizado |
-| `HORARIO_BOM_DIA` | `09:00` | *Deprecated em v3.13.0* — `send-bom-dia` agora é adaptativo |
+| `HORARIO_BOM_DIA` | `09:00` | **(v3.36.0)** Hora BRT do bom-dia diário (voltou a ser usado) |
 | `PALPITE_CALL_HORAS_ANTES` | `6` | Janela do `send-palpite-call` |
 | `ENABLE_BOM_DIA` | `true` | v3.13.0 — desliga só esse canal |
-| `ENABLE_PALPITE_CALL` | `true` | v3.13.0 — desliga só esse canal |
-| `ENABLE_REMINDERS` | `true` | v3.13.0 — desliga só esse canal |
+| `ENABLE_PALPITE_CALL` | **`false`** | v3.36.0 — desativado (redundante c/ bom-dia + lembrete 30min) |
+| `ENABLE_REMINDERS` | **`false`** | v3.31.0 — desativado (substituído pelo lembrete de 30min) |
 | `ENABLE_PALPITE_REVEAL` | `true` | v3.24.0 — desliga o push de revelação de palpites no kickoff |
 | `MAX_AVISOS_DIA` | `8` | v3.17.0 (subido p/ 8 na v3.24.0) — cap diário de avisos/user, cross-job. A revelação no kickoff conta; a resposta sob demanda não. |
 | `DRY_RUN_WHATSAPP` | `false` | Captura msgs em memória, não envia |
 
 ## Garantias
 
-- **Idempotência cross-job**: `send-bom-dia` e `send-palpite-call` compartilham a flag Redis `aviso_jogo:{waId}` com TTL 24h. Garantia firme de **máximo 1 aviso de jogo por usuário por dia**, independente de qual job rodou primeiro.
-- **Clamp horário civilizado** (`send-bom-dia` v3.13.0): nunca envia entre 22:00 e 07:00 BRT. Pra jogos da madrugada (01h BRT comum na Copa 2026 sede Costa Oeste EUA), antecipa pra 22:00 do dia anterior.
+- **Idempotência do bom-dia (v3.36.0)**: flag PRÓPRIA `bomdia:{waId}:{dia}` (SET NX) — 1 por usuário por dia, sem dividir trava com outros jobs (a trava compartilhada `aviso_jogo` causava entrega desigual e foi removida do bom-dia).
+- **Hora fixa do bom-dia (v3.36.0)**: dispara só na hora de `HORARIO_BOM_DIA` (9h BRT). Jogos de madrugada são cobertos pela janela de listagem de 30h do envio da manhã anterior.
 - **Reset de cálculo em correção de placar** (`fetch-results` v3.13.0): se API corrigir resultado pós-VAR/gol anulado, palpites afetados têm `calculado=false` setado → próximo tick de `calculate-scores` recalcula.
 
 ## Como desabilitar canais isoladamente
