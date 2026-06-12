@@ -219,10 +219,13 @@ const MEU_PALPITE_PATTERNS: RegExp[] = [
 // especifico. Esses casos caem em PERGUNTA_GERAL_FUTEBOL ou no LLM.
 const PROXIMOS_JOGOS_PATTERNS: RegExp[] = [
   // Bare "proximos jogos" — apenas se NAO seguido de preposicao + entidade
-  /\bproximos? jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
-  /\bjogos? proximos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/, // ordem invertida — Bug 4
-  /\bquais (?:os )?proximos? jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
-  /\bquais (?:os )?jogos? proximos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)/,
+  // v3.28.0 — além de bloquear "...da Inglaterra" (time específico), bloqueia
+  // também "...quando/onde/que dia?" (pergunta de horário/local → QUANDO_COMECA
+  // ou LLM, não a lista do bolão).
+  /\bproximos? jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)(?!\s+(?:quando|onde|que dia|qual dia|a que horas?|que horas?)\b)/,
+  /\bjogos? proximos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)(?!\s+(?:quando|onde|que dia|qual dia|a que horas?|que horas?)\b)/, // ordem invertida — Bug 4
+  /\bquais (?:os )?proximos? jogos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)(?!\s+(?:quando|onde|que dia|qual dia|a que horas?|que horas?)\b)/,
+  /\bquais (?:os )?jogos? proximos?\b(?!\s+(?:d[aoe]|contra|com|sobre|na|no|em)\s+\w)(?!\s+(?:quando|onde|que dia|qual dia|a que horas?|que horas?)\b)/,
   /\bjogos? que (?:ainda )?(?:nao palpitei|faltam|tem)\b/,
   /\bo que (?:ainda )?(?:nao palpitei|falta palpitar)\b/,
   /\bquais (?:eu )?(?:ainda )?(?:nao palpitei|preciso palpitar)\b/,
@@ -1432,10 +1435,16 @@ export function parseMultiplePalpitesDetalhado(text: string): {
   ok: PalpiteInline[];
   descartadas: string[];
 } {
+  // v3.28.0 — teto anti-abuso: uma rodada de Copa tem no máx. 72 jogos,
+  // então 80 linhas cobre qualquer lote legítimo. Acima disso é spam/cola
+  // acidental — processa só as 80 primeiras (evita iterar/armazenar 200+
+  // linhas e inflar a sessão no Redis).
+  const MAX_LINHAS = 80;
   const lines = text
     .split('\n')
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, MAX_LINHAS);
 
   const ok: PalpiteInline[] = [];
   const descartadas: string[] = [];
@@ -1464,7 +1473,8 @@ export function parseMultiplePalpitesDetalhado(text: string): {
   if (descartadas.length > 0) {
     console.log(`[multi-palpite] ok=${ok.length} descartadas=${descartadas.length}`);
   }
-  return { ok, descartadas };
+  // Limita o array de descartadas guardado/retornado (o display já corta em 3).
+  return { ok, descartadas: descartadas.slice(0, 10) };
 }
 
 // Suprime "imports usados apenas pelo regex"

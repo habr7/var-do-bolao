@@ -152,6 +152,21 @@ describe('parseIntencao', () => {
     it('"jogos pendentes"', () => {
       expect(parseIntencao('jogos pendentes').intencao).toBe(Intencao.PROXIMOS_JOGOS);
     });
+
+    describe('v3.28.0 — "próximos jogos" + pergunta de horário NÃO vira listagem', () => {
+      it('"próximos jogos quando?" → NÃO é PROXIMOS_JOGOS', () => {
+        expect(parseIntencao('próximos jogos quando?').intencao).not.toBe(Intencao.PROXIMOS_JOGOS);
+      });
+      it('"proximos jogos que dia" → NÃO é PROXIMOS_JOGOS', () => {
+        expect(parseIntencao('proximos jogos que dia').intencao).not.toBe(Intencao.PROXIMOS_JOGOS);
+      });
+      it('"próximos jogos onde" → NÃO é PROXIMOS_JOGOS', () => {
+        expect(parseIntencao('próximos jogos onde').intencao).not.toBe(Intencao.PROXIMOS_JOGOS);
+      });
+      it('"próximos jogos" puro continua PROXIMOS_JOGOS', () => {
+        expect(parseIntencao('próximos jogos').intencao).toBe(Intencao.PROXIMOS_JOGOS);
+      });
+    });
   });
 
   describe('variantes naturais — MAIS_JOGOS (v3.5.0 paginação)', () => {
@@ -1460,6 +1475,13 @@ Grêmio 1x2 Inter`;
 
   it('retorna array vazio se nenhum palpite', () => {
     expect(parseMultiplePalpites('oi tudo bem?')).toEqual([]);
+  });
+
+  it('v3.28.0 — teto anti-abuso: processa no máximo 80 linhas', () => {
+    // 100 palpites válidos numa mensagem → só as 80 primeiras entram
+    const linhas = Array.from({ length: 100 }, (_, i) => `Brasil ${i % 5}x0 Time${i}`);
+    const r = parseMultiplePalpites(linhas.join('\n'));
+    expect(r.length).toBeLessThanOrEqual(80);
   });
 
   describe('v3.10.0 — formato invertido + tokenizer (caso Valéria 22/05)', () => {

@@ -3,7 +3,7 @@ import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
 import { env } from '../config/env.js';
 import { formatarDataHoraCurtaBR, formatarHoraBR } from '../utils/datetime.js';
-import { podeEnviarAvisoHoje, registrarAvisoEnviado } from '../utils/aviso-cap.js';
+import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
 
 /**
  * Job "aviso de jogo" — v3.13.0 reescrito (caso real Jeniffer 11/06).
@@ -127,8 +127,8 @@ export async function sendBomDiaJob() {
     const ja = await redis.get(flag);
     if (ja) continue;
 
-    // v3.17.0 — cap absoluto de avisos/dia (defesa de profundidade)
-    if (!(await podeEnviarAvisoHoje(alvo.waId))) continue;
+    // v3.28.0 — cap absoluto de avisos/dia, reserva ATÔMICA (corrige TOCTOU)
+    if (!(await reservarCotaAviso(alvo.waId))) continue;
 
     // Monta mensagem
     const header = headerPorHorario(agora);
@@ -147,13 +147,13 @@ export async function sendBomDiaJob() {
 
     try {
       await sendText({ to: alvo.waId, text: mensagem });
-      await registrarAvisoEnviado(alvo.waId);
       // Flag cross-job: bloqueia outros avisos de jogo nas próximas 24h
       await redis.set(flag, '1', 'EX', 24 * 3600);
       console.log(
         `[bom-dia] waId=${alvo.waId} jogos=${alvo.jogos.length} proximo=${proximo.dataHora.toISOString()} pendentes=${faltaPalpitar}`,
       );
     } catch (error) {
+      await devolverCotaAviso(alvo.waId); // envio falhou — devolve a cota
       console.error(
         `[bom-dia] falha ao enviar pra ${alvo.waId} (${alvo.nome}):`,
         (error as Error).message,

@@ -10,6 +10,7 @@ import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo } from '../ut
 import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarDataComDiaBR, formatarHoraBR } from '../utils/datetime.js';
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
 import { regrasTexto, boasVindasComRegras } from './regras.text.js';
+import { paginarBlocos } from '../utils/paginar.js';
 import {
   getSession,
   resetSession,
@@ -47,7 +48,8 @@ import {
 import { extrairPalpites } from '../llm/palpite.extractor.js';
 import { escolherBolaoDaLista, interpretarSimNao } from '../llm/bolao.matcher.js';
 import { prisma } from '../config/database.js';
-import { hashPassword, comparePassword, isValidPassword } from '../utils/password.js';
+import { randomUUID } from 'node:crypto';
+import { hashPassword, comparePassword } from '../utils/password.js';
 import { formatAjuda, formatRanking } from '../utils/formatting.js';
 import { confirmacao, naoEntendi, resultadoEmoji } from '../utils/football.terms.js';
 import { extrairCodigoBolao } from '../utils/bolao-codigo.js';
@@ -1512,9 +1514,15 @@ async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string, raw 
     filtroTimes = [];
   }
 
-  const blocos = await revelacoesParaUsuario(usuarioId, filtroTimes);
+  const { blocos, total } = await revelacoesParaUsuario(usuarioId, filtroTimes);
   if (blocos.length > 0) {
-    await sendText({ to: msg.waId, text: montarMensagemRevelacao(blocos) });
+    let texto = montarMensagemRevelacao(blocos);
+    // v3.28.0 — avisa quando há mais jogos do que coube (antes cortava em 8
+    // sem dizer nada).
+    if (total > blocos.length) {
+      texto += `\n\n_Mostrei ${blocos.length} de ${total} jogos. Cita um time (ex: "palpites de México") pra filtrar._`;
+    }
+    await sendText({ to: msg.waId, text: texto });
     return;
   }
 
@@ -1679,8 +1687,16 @@ async function tentarFsmEscapeCriandoBolao(
       `🤔 "${msg.text}" parece um comando, não nome/senha do bolão.\n\n` +
       `Cancelei a criação. Vou processar o comando agora — se você quiser criar bolão depois, é só mandar *criar bolão*.`,
   });
-  // Re-processa a mensagem do zero (agora em IDLE, sem state ativo)
-  await handleIncomingMessage(msg);
+  // Re-processa a mensagem do zero (agora em IDLE, sem state ativo).
+  // v3.28.0 — try/catch: se o reprocessamento falhar, o usuário já viu
+  // "Cancelei a criação"; engolimos o erro aqui (o catch externo do
+  // handleIncomingMessage mandaria um 2º "Ops, algo deu errado" logo
+  // após o "Cancelei", o que confunde).
+  try {
+    await handleIncomingMessage(msg);
+  } catch (error) {
+    console.error('[fsm-escape] erro reprocessando após auto-cancelar criação:', error);
+  }
   return true;
 }
 
@@ -1704,31 +1720,40 @@ async function handleCriandoBolaoNome(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
-  await updateSession(msg.waId, { state: 'CRIANDO_BOLAO_SENHA', ctxPatch: { nomeBolao: nome } });
-  await sendText({
-    to: msg.waId,
-    text: `✅ Nome: *${nome}*\n\nAgora define uma *senha* (mínimo 6 caracteres).\nEssa senha é pra quem quiser entrar no bolão:`,
-  });
+  // v3.28.0 — cria o bolão DIRETO após o nome. O passo de "senha" foi
+  // removido: a entrada é por ID curto (#ABCD12), nunca por senha — pedir
+  // senha confundia (usuário definia, amigos nunca usavam). O schema ainda
+  // exige senhaHash, então geramos um valor interno aleatório e descartável.
+  await finalizarCriacaoBolao(msg, usuarioId, nome);
 }
 
+/**
+ * v3.28.0 — COMPAT: o passo de senha foi removido do fluxo de criação.
+ * Sessões que ficaram presas em `CRIANDO_BOLAO_SENHA` (deploy no meio de
+ * uma criação) são recuperadas aqui: cria o bolão direto com o nome já
+ * informado, ignorando o texto digitado (que seria a senha).
+ */
 async function handleCriandoBolaoSenha(msg: IncomingMessage, usuarioId: string, session: Session) {
-  // FSM escape: se input bate intent forte, abandona criacao
   if (await tentarFsmEscapeCriandoBolao(msg, usuarioId)) return;
-
-  const senha = msg.text.trim();
-  if (!isValidPassword(senha)) {
-    await sendText({ to: msg.waId, text: '⚠️ Senha deve ter entre 6 e 100 caracteres. Tenta de novo:' });
-    return;
-  }
-
   const nomeBolao = session.ctx?.nomeBolao;
   if (!nomeBolao) {
     await resetSession(msg.waId);
     await sendText({ to: msg.waId, text: '❌ Sessão expirou. Envie *criar bolão* pra começar de novo.' });
     return;
   }
+  await finalizarCriacaoBolao(msg, usuarioId, nomeBolao);
+}
 
-  const senhaHash = await hashPassword(senha);
+/**
+ * v3.28.0 — Cria o bolão e manda confirmação + convite. Chamado direto
+ * por `handleCriandoBolaoNome` (sem passo de senha).
+ *
+ * O schema (`Bolao.senhaHash`) ainda é obrigatório, mas a entrada no bolão
+ * é 100% por ID curto — então geramos um hash interno aleatório que ninguém
+ * usa. Quando/se o schema deixar o campo opcional, isto some.
+ */
+async function finalizarCriacaoBolao(msg: IncomingMessage, usuarioId: string, nomeBolao: string) {
+  const senhaHash = await hashPassword(`auto-${randomUUID()}`);
 
   // PIX DESATIVADO nesta fase — bolao criado de graca pra ganhar tracao.
   // Quando reativar pagamento, voltar a chamar `pagamentoService.gerarCobranca`
@@ -5048,8 +5073,13 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
   }
   partes.push(`Total: *${detalhes.pontuacaoTotal} pts*`);
 
-  // WhatsApp aceita ate ~4096 chars; em geral cabe. Se passar, paginamos no futuro.
-  await sendText({ to: msg.waId, text: partes.join('\n') });
+  // v3.28.0 — pagina em mensagens de até 3500 chars. Rodada de Copa (72
+  // jogos) passava dos 4096 do WhatsApp e a Evolution cortava em silêncio.
+  const paginas = paginarBlocos(partes, 3500);
+  for (let i = 0; i < paginas.length; i++) {
+    const sufixo = paginas.length > 1 ? `\n\n_(${i + 1}/${paginas.length})_` : '';
+    await sendText({ to: msg.waId, text: paginas[i] + sufixo });
+  }
 }
 
 // ============================================================

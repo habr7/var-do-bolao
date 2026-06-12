@@ -54,7 +54,7 @@ describe('revelacoesParaUsuario', () => {
         palpites: [{ usuarioId: 'u1', golsCasa: 2, golsVisitante: 1 }],
       }),
     ]);
-    const blocos = await revelacoesParaUsuario('u1');
+    const { blocos } = await revelacoesParaUsuario('u1');
     expect(blocos).toHaveLength(1);
     expect(blocos[0].nomeBolao).toBe('Firma');
     expect(blocos[0].linhas.find((l) => l.nome === 'Ana')!.ehVoce).toBe(true);
@@ -69,7 +69,7 @@ describe('revelacoesParaUsuario', () => {
         palpites: [{ usuarioId: 'u1', golsCasa: 1, golsVisitante: 0 }],
       }),
     ]);
-    expect(await revelacoesParaUsuario('u1')).toEqual([]);
+    expect((await revelacoesParaUsuario('u1')).blocos).toEqual([]);
   });
 
   it('ignora jogo sem nenhum palpite', async () => {
@@ -81,7 +81,7 @@ describe('revelacoesParaUsuario', () => {
         palpites: [],
       }),
     ]);
-    expect(await revelacoesParaUsuario('u1')).toEqual([]);
+    expect((await revelacoesParaUsuario('u1')).blocos).toEqual([]);
   });
 
   it('filtra por time mencionado', async () => {
@@ -101,7 +101,7 @@ describe('revelacoesParaUsuario', () => {
         palpites: [{ usuarioId: 'u1', golsCasa: 0, golsVisitante: 0 }],
       }),
     ]);
-    const blocos = await revelacoesParaUsuario('u1', ['Argentina']);
+    const { blocos } = await revelacoesParaUsuario('u1', ['Argentina']);
     expect(blocos).toHaveLength(1);
     expect(blocos[0].timeCasa).toBe('Argentina');
   });

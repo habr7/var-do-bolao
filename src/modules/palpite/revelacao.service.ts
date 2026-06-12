@@ -80,10 +80,12 @@ const JANELA_ONDEMAND_MS = 24 * 60 * 60 * 1000; // jogos iniciados nas últimas 
  * finalizado é público pra sempre. A janela só vale pro pedido genérico
  * ("palpites de todos"), pra não despejar a Copa inteira na conversa.
  */
+const TETO_BLOCOS = 8; // teto defensivo de tamanho de mensagem
+
 export async function revelacoesParaUsuario(
   usuarioId: string,
   filtroTimes: string[] = [],
-): Promise<BlocoRevelacao[]> {
+): Promise<{ blocos: BlocoRevelacao[]; total: number }> {
   const agora = new Date();
   const desde = new Date(agora.getTime() - JANELA_ONDEMAND_MS);
 
@@ -105,7 +107,9 @@ export async function revelacoesParaUsuario(
     const bloco = blocoDoJogo(jogo, usuarioId);
     if (bloco) blocos.push(bloco);
   }
-  return blocos.slice(0, 8); // teto defensivo de tamanho de mensagem
+  // v3.28.0 — devolve o total pra o caller avisar quando cortar (antes
+  // cortava em 8 silenciosamente).
+  return { blocos: blocos.slice(0, TETO_BLOCOS), total: blocos.length };
 }
 
 function jogoBateTime(casa: string, visitante: string, filtroTimes: string[]): boolean {

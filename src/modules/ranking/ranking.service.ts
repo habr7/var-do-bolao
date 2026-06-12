@@ -40,38 +40,40 @@ export async function calcularPontuacaoRodada(rodadaId: string) {
 export async function recalcularRanking(bolaoId: string) {
   const participacoes = await rankingRepo.buscarRankingBolao(bolaoId);
 
-  const pontuacoes = await Promise.all(
-    participacoes.map(async (p) => {
-      const palpites = await prisma.palpite.aggregate({
-        where: {
-          usuarioId: p.usuarioId,
-          rodada: { bolaoId },
-          calculado: true,
-        },
-        _sum: { pontuacao: true },
-      });
+  // v3.28.0 — antes isto fazia 2 queries POR USUÁRIO (aggregate + count),
+  // ou seja 1+2N queries por recálculo (a cada 5-10min). Agora puxa todos
+  // os palpites do bolão de uma vez (1 findMany) e agrega em memória:
+  //   total       = soma de pontuacao dos palpites JÁ calculados
+  //   totalPalpites = nº de PalpiteJogo do user (desempate, conta todos)
+  const palpitesDoBolao = await prisma.palpite.findMany({
+    where: { rodada: { bolaoId } },
+    select: {
+      usuarioId: true,
+      pontuacao: true,
+      calculado: true,
+      _count: { select: { jogos: true } },
+    },
+  });
 
-      // v3.14.0 — desempate: conta total de palpites individuais (PalpiteJogo)
-      // do user nesse bolão, pra usar como critério secundário.
-      // regras.text.ts: "vence quem registrou mais palpites e/ou entrou primeiro".
-      const totalPalpitesJogo = await prisma.palpiteJogo.count({
-        where: {
-          palpite: {
-            usuarioId: p.usuarioId,
-            rodada: { bolaoId },
-          },
-        },
-      });
+  const pontosPorUsuario = new Map<string, number>();
+  const palpitesPorUsuario = new Map<string, number>();
+  for (const p of palpitesDoBolao) {
+    if (p.calculado) {
+      pontosPorUsuario.set(p.usuarioId, (pontosPorUsuario.get(p.usuarioId) ?? 0) + p.pontuacao);
+    }
+    palpitesPorUsuario.set(
+      p.usuarioId,
+      (palpitesPorUsuario.get(p.usuarioId) ?? 0) + p._count.jogos,
+    );
+  }
 
-      return {
-        participacaoId: p.id,
-        nome: p.usuario.nome,
-        total: palpites._sum.pontuacao ?? 0,
-        totalPalpites: totalPalpitesJogo,
-        entradaEm: p.entradaEm,
-      };
-    }),
-  );
+  const pontuacoes = participacoes.map((p) => ({
+    participacaoId: p.id,
+    nome: p.usuario.nome,
+    total: pontosPorUsuario.get(p.usuarioId) ?? 0,
+    totalPalpites: palpitesPorUsuario.get(p.usuarioId) ?? 0,
+    entradaEm: p.entradaEm,
+  }));
 
   // v3.14.0 — ordenação em cascata (regras canônicas):
   //   1. pontuacaoTotal DESC

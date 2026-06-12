@@ -3,8 +3,16 @@ import { atualizarResultados } from '../modules/resultado/resultado.service.js';
 import { calcularPontuacaoRodada, recalcularRanking } from '../modules/ranking/ranking.service.js';
 import { enviarRankingParaParticipantes } from '../modules/notificacao/notificacao.service.js';
 import { prisma } from '../config/database.js';
+import { comLockJob } from '../utils/lock.js';
 
 export async function fetchResultsJob() {
+  // v3.28.0 — lock contra sobreposição (crons defasados / 2 instâncias):
+  // sem isso, dois ticks podiam recalcular a mesma rodada em paralelo e
+  // deixar pontuacaoTotal/posicaoAtual momentaneamente inconsistentes.
+  await comLockJob('fetch-results', fetchResultsJobInterno);
+}
+
+async function fetchResultsJobInterno() {
   const rodadas = await buscarRodadasComJogosEmAndamento();
   if (rodadas.length === 0) return;
 

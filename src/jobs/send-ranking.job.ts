@@ -48,7 +48,13 @@ export async function sendRankingJob() {
     const pontosPorUsuario = new Map(palpitesRodada.map((p) => [p.usuarioId, p.pontuacao]));
 
     let envios = 0;
+    let falhas = 0;
     for (const p of bolao.participacoes) {
+      // v3.28.0 — idempotência POR USUÁRIO: na retry (quando a rodada não
+      // foi 100% entregue), quem já recebeu não recebe de novo.
+      const flagUser = `ranking-sent:${rodada.id}:${p.usuarioId}`;
+      if (await redis.get(flagUser)) continue;
+
       const pontosRodada = pontosPorUsuario.get(p.usuarioId) ?? 0;
       const entradaRanking = ranking.find((r) => r.nome === p.usuario.nome);
       const posicao = entradaRanking?.posicao ?? 0;
@@ -72,8 +78,10 @@ export async function sendRankingJob() {
 
       try {
         await sendText({ to: p.usuario.whatsappId, text: mensagem });
+        await redis.set(flagUser, '1', 'EX', 7 * 24 * 3600);
         envios++;
       } catch (error) {
+        falhas++;
         console.error(
           `[send-ranking] falha ao enviar pra ${p.usuario.whatsappId}:`,
           (error as Error).message,
@@ -81,7 +89,11 @@ export async function sendRankingJob() {
       }
     }
 
-    if (envios > 0) {
+    // v3.28.0 — só marca a rodada como concluída quando NINGUÉM falhou.
+    // Com falhas, a flag fica aberta e o próximo tick reenvia SÓ pra quem
+    // faltou (graças à flag por usuário acima). Antes bastava 1 envio ok
+    // pra marcar concluída → os que falharam nunca recebiam.
+    if (falhas === 0 && envios >= 0) {
       await redis.set(flag, '1', 'EX', 7 * 24 * 3600);
     }
   }

@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**850+ tests** distribuídos em `tests/unit/`. Cobre:
+**866+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -37,6 +37,9 @@ npm test
 | `validators.test.ts` | placar, normalizeTeamName, **validarPlacar absurdo (ISSUE-013)**, **acharJogoPorTimes/resolverPalpiteParaJogo — ordem invertida (v3.25.0)** |
 | `broadcast.test.ts` | **(v3.26.0)** Broadcast admin: `ehDono` (JID vs dígitos), `parseBroadcast` (marcador/corpo/vazio/mid-text/case), destinatários TEST (só dono) vs PROD (todos+dedup), idempotência `SET NX`. 14 testes. |
 | `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
+| `paginar.test.ts` | **(v3.28.0)** `paginarBlocos`: páginas ≤ limite, não quebra bloco no meio, rodada de 72 jogos vira N páginas <3500 |
+| `lock.test.ts` | **(v3.28.0)** `comLockJob`: executa+libera, pula quando tomado, libera no `finally` mesmo se `fn` lança |
+| `aviso-cap.test.ts` | cap diário de avisos + **(v3.28.0)** reserva atômica `reservarCotaAviso`/`devolverCotaAviso` (corrige TOCTOU) |
 | `copa-2026.test.ts` | **(v3.4.0)** Dados oficiais da Copa: 48 seleções em 12 grupos, composição correta (Inglaterra/L, Brasil/C, etc.), normalização PT/EN/aliases (EUA, canarinha, albiceleste, BRA), `getProximosJogosDoTime` |
 | `copa-ground.test.ts` | **(v3.4.0)** Grounding `construirFatosCopa2026`: bug original ("Inglaterra grupo L, não C"), motivos TIME/GRUPO/DATA/ESTADIO_SEDE/GERAL_COPA, recusa fora-de-escopo (Libertadores/Brasileirão/Flamengo/Vinicius Jr/Real Madrid/Copa de 94) |
 | `knowledge.produto.test.ts` | **(v3.6.0)** Knowledge base do produto: bate pontuação contra `PONTUACAO_PADRAO` (anti-drift), garante que cobre multi-palpite, editar/apagar, prazo, ranking+desempate, multi-bolão+padrão, admin+convite+ID curto, grátis, escopo Copa 2026, privacidade, lista de comandos. 14 testes. |

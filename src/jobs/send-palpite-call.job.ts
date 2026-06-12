@@ -2,7 +2,7 @@ import { prisma } from '../config/database.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
 import { setSession, getSession } from '../whatsapp/session.manager.js';
-import { podeEnviarAvisoHoje, registrarAvisoEnviado } from '../utils/aviso-cap.js';
+import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
 import { env } from '../config/env.js';
 import { chamadaPalpite } from '../utils/football.terms.js';
 
@@ -110,8 +110,8 @@ export async function sendPalpiteCallJob() {
       const flagCross = `aviso_jogo:${p.usuario.whatsappId}`;
       if (await redis.get(flagCross)) continue;
 
-      // v3.17.0 — cap absoluto de avisos/dia (defesa de profundidade)
-      if (!(await podeEnviarAvisoHoje(p.usuario.whatsappId))) continue;
+      // v3.28.0 — cap absoluto de avisos/dia, reserva ATÔMICA (corrige TOCTOU)
+      if (!(await reservarCotaAviso(p.usuario.whatsappId))) continue;
 
       // v3.15.0 — BUG: setSession incondicional ATROPELAVA sessão em
       // andamento. User no meio de criar bolão / confirmar palpites
@@ -134,10 +134,10 @@ export async function sendPalpiteCallJob() {
           });
         }
         await sendText({ to: p.usuario.whatsappId, text: mensagem });
-        await registrarAvisoEnviado(p.usuario.whatsappId);
         await redis.set(flagCross, '1', 'EX', 24 * 3600);
         enviados++;
       } catch (error) {
+        await devolverCotaAviso(p.usuario.whatsappId); // envio falhou — devolve a cota
         console.error(
           `[palpite-call] falha ao enviar pra ${p.usuario.whatsappId}:`,
           (error as Error).message,

@@ -2,7 +2,7 @@ import { prisma } from '../config/database.js';
 import { redis } from '../config/redis.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { env } from '../config/env.js';
-import { podeEnviarAvisoHoje, registrarAvisoEnviado } from '../utils/aviso-cap.js';
+import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
 import { INCLUDE_REVELACAO, blocoDoJogo } from '../modules/palpite/revelacao.service.js';
 import { montarMensagemRevelacao, type BlocoRevelacao } from '../utils/palpite-reveal.js';
 
@@ -75,14 +75,15 @@ export async function sendPalpiteRevealJob() {
     for (const [apiJogoId, blocos] of acc.matches) {
       const flag = `reveal:${acc.whatsappId}:${apiJogoId}`;
       if (await redis.get(flag)) continue; // já revelado pra essa pessoa/jogo
-      if (!(await podeEnviarAvisoHoje(acc.whatsappId))) continue; // push CONTA no cap
+      // v3.28.0 — push CONTA no cap; reserva ATÔMICA (corrige TOCTOU)
+      if (!(await reservarCotaAviso(acc.whatsappId))) continue;
 
       try {
         await sendText({ to: acc.whatsappId, text: montarMensagemRevelacao(blocos) });
-        await registrarAvisoEnviado(acc.whatsappId);
         await redis.set(flag, '1', 'EX', 6 * 3600); // 6h cobre o jogo + folga
         enviados++;
       } catch (error) {
+        await devolverCotaAviso(acc.whatsappId); // envio falhou — devolve a cota
         console.error(`[palpite-reveal] falha ao enviar pra ${acc.whatsappId}:`, (error as Error).message);
       }
     }

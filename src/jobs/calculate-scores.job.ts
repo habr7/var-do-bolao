@@ -1,7 +1,15 @@
 import { prisma } from '../config/database.js';
 import { calcularPontuacaoRodada, recalcularRanking } from '../modules/ranking/ranking.service.js';
+import { comLockJob } from '../utils/lock.js';
 
 export async function calculateScoresJob() {
+  // v3.28.0 — compartilha o MESMO lock do fetch-results: os dois mexem na
+  // pontuação/ranking das mesmas rodadas; rodar em paralelo causaria
+  // recálculo concorrente e ranking inconsistente.
+  await comLockJob('fetch-results', calculateScoresJobInterno);
+}
+
+async function calculateScoresJobInterno() {
   console.log('[JOB] Verificando rodadas para calcular pontuação...');
 
   // v3.14.0 (pré-Copa): aceita rodadas em qualquer status. Antes filtrava

@@ -3,7 +3,7 @@ import { sendText } from '../whatsapp/evolution.client.js';
 import { lembrete } from '../utils/football.terms.js';
 import { env } from '../config/env.js';
 import { redis } from '../config/redis.js';
-import { podeEnviarAvisoHoje, registrarAvisoEnviado } from '../utils/aviso-cap.js';
+import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
 
 /**
  * Cutuca via DM quem ainda tem jogosPendentes em rodada cuja data de fechamento
@@ -49,8 +49,8 @@ export async function sendRemindersJob() {
       // v3.17.0 — cross-job flag (antes este job não honrava)
       const flagCross = `aviso_jogo:${waId}`;
       if (await redis.get(flagCross)) continue;
-      // v3.17.0 — cap absoluto/dia
-      if (!(await podeEnviarAvisoHoje(waId))) continue;
+      // v3.28.0 — cap absoluto/dia, reserva ATÔMICA (corrige TOCTOU)
+      if (!(await reservarCotaAviso(waId))) continue;
 
       try {
         await sendText({
@@ -60,9 +60,9 @@ export async function sendRemindersJob() {
             `⏰ Rodada *${rodada.numero}* do bolão *${rodada.bolao.nome}* fecha logo!\n` +
             `Você ainda não palpitou. Manda aí craque! ⚽`,
         });
-        await registrarAvisoEnviado(waId);
         await redis.set(flagCross, '1', 'EX', 24 * 3600);
       } catch (error) {
+        await devolverCotaAviso(waId); // envio falhou — devolve a cota
         console.error(`[reminders] erro em ${waId}:`, (error as Error).message);
       }
     }

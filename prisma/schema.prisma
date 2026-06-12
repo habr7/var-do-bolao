@@ -11,23 +11,23 @@ datasource db {
 // USUARIO — Qualquer pessoa que conversa com o bot
 // ============================================
 model Usuario {
-  id           String   @id @default(uuid())
-  whatsappId   String   @unique // wa_id da Meta (so digitos, ex: 5511999999999)
-  nome         String // pushName do WhatsApp Business
-  telefone     String   @unique // igual ao whatsappId em geral (mantido pra clareza)
+  id            String   @id @default(uuid())
+  whatsappId    String   @unique // wa_id da Meta (so digitos, ex: 5511999999999)
+  nome          String // pushName do WhatsApp Business
+  telefone      String   @unique // igual ao whatsappId em geral (mantido pra clareza)
   // Bolao padrao do usuario (ISSUE-016). Quando setado, comandos como
   // "ranking", "meus pontos", "quando comeca" pulam a etapa de escolha
   // entre N boloes — usam direto este. Nullable: opt-in do usuario.
   bolaoPadraoId String?
-  criadoEm     DateTime @default(now())
-  atualizadoEm DateTime @updatedAt
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
 
-  participacoes        Participacao[]
-  palpites             Palpite[]
-  pagamentos           Pagamento[]
-  boloesAdministrados  Bolao[]             @relation("BolaoAdmin")
-  solicitacoesFeitas   SolicitacaoEntrada[]
-  bolaoPadrao          Bolao?              @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
+  participacoes          Participacao[]
+  palpites               Palpite[]
+  pagamentos             Pagamento[]
+  boloesAdministrados    Bolao[]                @relation("BolaoAdmin")
+  solicitacoesFeitas     SolicitacaoEntrada[]
+  bolaoPadrao            Bolao?                 @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
   mensagensNaoEntendidas MensagemNaoEntendida[]
 
   @@map("usuarios")
@@ -37,30 +37,30 @@ model Usuario {
 // BOLAO — Bolao privado, protegido por senha
 // ============================================
 model Bolao {
-  id              String      @id @default(uuid())
+  id             String      @id @default(uuid())
   // Codigo curto publico (6 chars alfanum sem chars confundiveis: ex: "K3MZ8P").
   // Usado pra entrar no bolao sem ambiguidade ("nomes parecidos" risco zero).
   // O usuario manda "entrar #K3MZ8P" ou cola a mensagem-convite gerada na
   // criacao, e o bot identifica o bolao certo. Unique globalmente.
-  codigo          String      @unique
-  nome            String // Nome visivel ("Bolao da Firma")
-  senhaHash       String // bcrypt hash da senha que participantes usam pra entrar
-  adminId         String // Usuario criador
-  campeonatoId    String // ID do campeonato na API de futebol
-  campeonatoNome  String // Ex: "Brasileirao Serie A 2026"
-  status          StatusBolao @default(ATIVO)
-  regras          Json? // Regras customizadas em JSON
-  pagamentoId     String?     @unique // Pagamento que originou o bolao
-  criadoEm        DateTime    @default(now())
-  atualizadoEm    DateTime    @updatedAt
+  codigo         String      @unique
+  nome           String // Nome visivel ("Bolao da Firma")
+  senhaHash      String // bcrypt hash da senha que participantes usam pra entrar
+  adminId        String // Usuario criador
+  campeonatoId   String // ID do campeonato na API de futebol
+  campeonatoNome String // Ex: "Brasileirao Serie A 2026"
+  status         StatusBolao @default(ATIVO)
+  regras         Json? // Regras customizadas em JSON
+  pagamentoId    String?     @unique // Pagamento que originou o bolao
+  criadoEm       DateTime    @default(now())
+  atualizadoEm   DateTime    @updatedAt
 
-  admin         Usuario              @relation("BolaoAdmin", fields: [adminId], references: [id])
-  pagamento     Pagamento?           @relation(fields: [pagamentoId], references: [id])
-  participacoes Participacao[]
-  rodadas       Rodada[]
-  solicitacoes  SolicitacaoEntrada[]
+  admin              Usuario              @relation("BolaoAdmin", fields: [adminId], references: [id])
+  pagamento          Pagamento?           @relation(fields: [pagamentoId], references: [id])
+  participacoes      Participacao[]
+  rodadas            Rodada[]
+  solicitacoes       SolicitacaoEntrada[]
   // Usuarios que setaram este bolao como padrao (ISSUE-016)
-  usuariosComoPadrao Usuario[]       @relation("BolaoPadrao")
+  usuariosComoPadrao Usuario[]            @relation("BolaoPadrao")
 
   @@unique([adminId, nome])
   @@map("boloes")
@@ -108,12 +108,12 @@ enum PagamentoStatus {
 // SOLICITACAO_ENTRADA — Pedido pendente de aprovacao pelo admin
 // ============================================
 model SolicitacaoEntrada {
-  id           String             @id @default(uuid())
+  id           String            @id @default(uuid())
   usuarioId    String
   bolaoId      String
-  status       SolicitacaoStatus  @default(PENDENTE)
+  status       SolicitacaoStatus @default(PENDENTE)
   respondidoEm DateTime?
-  criadoEm     DateTime           @default(now())
+  criadoEm     DateTime          @default(now())
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
   bolao   Bolao   @relation(fields: [bolaoId], references: [id])
@@ -163,6 +163,8 @@ model Rodada {
   palpites Palpite[]
 
   @@unique([bolaoId, numero])
+  // v3.28.0 — hot path: rodadas ABERTAS por bolão (fetch-results/bom-dia).
+  @@index([bolaoId, status])
   @@map("rodadas")
 }
 
@@ -225,6 +227,8 @@ model Palpite {
   jogos   PalpiteJogo[]
 
   @@unique([usuarioId, rodadaId])
+  // v3.28.0 — hot path do calculate-scores: rodadas com palpite calculado=false.
+  @@index([rodadaId, calculado])
   @@map("palpites")
 }
 
@@ -267,15 +271,15 @@ model PalpiteJogo {
 // TTL: removido pelo job mensal `limpar-mensagens-antigas` (default 180 dias,
 // configuravel via MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS).
 model MensagemNaoEntendida {
-  id              String   @id @default(uuid())
-  usuarioId       String?
-  whatsappIdHash  String                          // SHA-256(whatsappId).slice(0,16)
-  texto           String   @db.Text               // truncado em 500 chars
-  state           String                          // estado FSM no momento ("IDLE", "CONFIRMANDO_*", etc)
-  motivo          String                          // 'regex_fail' | 'llm_fail' | 'final_fallback' | 'low_confidence'
-  llmIntent       String?                         // intent que o LLM tentou (mesmo low-conf)
-  llmConfianca    Float?                          // 0-1
-  criadoEm        DateTime @default(now())
+  id             String   @id @default(uuid())
+  usuarioId      String?
+  whatsappIdHash String // SHA-256(whatsappId).slice(0,16)
+  texto          String   @db.Text // truncado em 500 chars
+  state          String // estado FSM no momento ("IDLE", "CONFIRMANDO_*", etc)
+  motivo         String // 'regex_fail' | 'llm_fail' | 'final_fallback' | 'low_confidence'
+  llmIntent      String? // intent que o LLM tentou (mesmo low-conf)
+  llmConfianca   Float? // 0-1
+  criadoEm       DateTime @default(now())
 
   usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 

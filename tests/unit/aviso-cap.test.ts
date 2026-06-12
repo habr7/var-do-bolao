@@ -28,6 +28,13 @@ vi.mock('../../src/config/redis.js', () => ({
       redisStore.set(key, { value: String(next), expireAt });
       return next;
     }),
+    decr: vi.fn(async (key: string) => {
+      const cur = parseInt(redisStore.get(key)?.value ?? '0', 10);
+      const next = cur - 1;
+      const expireAt = redisStore.get(key)?.expireAt;
+      redisStore.set(key, { value: String(next), expireAt });
+      return next;
+    }),
     expire: vi.fn(async (key: string, seconds: number) => {
       const e = redisStore.get(key);
       if (!e) return 0;
@@ -41,7 +48,8 @@ vi.mock('../../src/config/env.js', () => ({
   env: { MAX_AVISOS_DIA: 2 },
 }));
 
-const { podeEnviarAvisoHoje, registrarAvisoEnviado } = await import('../../src/utils/aviso-cap.js');
+const { podeEnviarAvisoHoje, registrarAvisoEnviado, reservarCotaAviso, devolverCotaAviso } =
+  await import('../../src/utils/aviso-cap.js');
 
 describe('aviso-cap (v3.17.0 — caso Camila 11/06)', () => {
   beforeEach(() => {
@@ -79,5 +87,34 @@ describe('aviso-cap (v3.17.0 — caso Camila 11/06)', () => {
     await registrarAvisoEnviado('5511444444444');
     // 13:30 — reminders BLOQUEADO
     expect(await podeEnviarAvisoHoje('5511444444444')).toBe(false);
+  });
+
+  describe('v3.28.0 — reserva atômica (corrige TOCTOU)', () => {
+    it('reservarCotaAviso permite até o cap e bloqueia além', async () => {
+      const wa = '5511555555555';
+      expect(await reservarCotaAviso(wa)).toBe(true); // 1
+      expect(await reservarCotaAviso(wa)).toBe(true); // 2 (cap=2)
+      expect(await reservarCotaAviso(wa)).toBe(false); // 3 → bloqueia
+    });
+
+    it('quando bloqueia, NÃO deixa o contador acima do cap (devolveu)', async () => {
+      const wa = '5511666666666';
+      await reservarCotaAviso(wa);
+      await reservarCotaAviso(wa);
+      await reservarCotaAviso(wa); // bloqueado, faz decr
+      // ainda no cap: uma devolução libera exatamente 1 slot
+      await devolverCotaAviso(wa);
+      expect(await reservarCotaAviso(wa)).toBe(true);
+      expect(await reservarCotaAviso(wa)).toBe(false);
+    });
+
+    it('devolverCotaAviso (rollback de envio falho) libera a cota', async () => {
+      const wa = '5511777777777';
+      expect(await reservarCotaAviso(wa)).toBe(true);
+      expect(await reservarCotaAviso(wa)).toBe(true);
+      expect(await reservarCotaAviso(wa)).toBe(false); // cheio
+      await devolverCotaAviso(wa); // simula falha de envio → devolve
+      expect(await reservarCotaAviso(wa)).toBe(true); // agora cabe de novo
+    });
   });
 });

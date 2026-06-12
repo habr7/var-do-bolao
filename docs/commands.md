@@ -32,9 +32,10 @@ quero criar um bolão
 abrir bolão novo
 montar um bolão
 ```
-→ Bot inicia FSM em 2 passos:
-1. "Qual o nome?" → você manda (3-60 chars)
-2. "Defina uma senha" → você manda (≥6 chars, legado — não é mais cobrada pra entrar via ID)
+→ Bot pede só **1 passo** (v3.28.0 — passo de senha removido):
+1. "Qual o nome?" → você manda (3-60 chars) → bolão criado na hora.
+
+_(A entrada é 100% por ID curto; não há mais senha. Sessões antigas presas no passo de senha são recuperadas criando o bolão direto.)_
 
 → Bot devolve **ID curto** (ex: `#K3MZ8P`) + **link wa.me clicável** pra
 encaminhar pros convidados.

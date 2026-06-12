@@ -58,3 +58,30 @@ export async function registrarAvisoEnviado(waId: string): Promise<void> {
     await redis.expire(key, 30 * 3600);
   }
 }
+
+/**
+ * v3.28.0 — Reserva uma cota de aviso de forma ATÔMICA (corrige TOCTOU:
+ * antes `podeEnviarAvisoHoje` (GET) + `registrarAvisoEnviado` (INCR) não
+ * eram atômicos, então 2 jobs no mesmo tick podiam ambos passar no check).
+ *
+ * Faz `INCR` primeiro e compara o retorno: se passou do cap, devolve a
+ * cota (`DECR`) e retorna false. O caller deve chamar `devolverCotaAviso`
+ * se o envio falhar, pra não consumir cota à toa.
+ */
+export async function reservarCotaAviso(waId: string): Promise<boolean> {
+  const key = chaveContador(waId);
+  const novo = await redis.incr(key);
+  if (novo === 1) {
+    await redis.expire(key, 30 * 3600);
+  }
+  if (novo > env.MAX_AVISOS_DIA) {
+    await redis.decr(key); // estourou o cap — devolve e não envia
+    return false;
+  }
+  return true;
+}
+
+/** Devolve uma cota reservada (rollback quando o envio falha). */
+export async function devolverCotaAviso(waId: string): Promise<void> {
+  await redis.decr(chaveContador(waId));
+}
