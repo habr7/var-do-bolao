@@ -42,7 +42,7 @@ import * as rankingService from '../modules/ranking/ranking.service.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
 import { construirFatosVivos } from '../llm/fatos-vivos.js';
-import { parecePalpiteMasNaoEntendi } from './palpite.heuristics.js';
+import { parecePalpiteMasNaoEntendi, parecePalpiteIncompleto } from './palpite.heuristics.js';
 import {
   construirFatosCopa2026,
   descreverGround,
@@ -419,6 +419,23 @@ async function handleIdle(
         `Pode mandar *vários palpites* de uma vez, *um por linha*:\n` +
         `\`\`\`\nBrasil 2x1 Marrocos\nFrança 1x0 Argentina\n\`\`\`\n\n` +
         `Manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais dos times.`,
+    });
+    return;
+  }
+
+  // v3.37.0 — palpite INCOMPLETO (um time só): "Espanha 4x1". Não dá pra
+  // adivinhar o adversário (o time joga vários jogos), então pede o nome —
+  // melhor que cair em "não entendi" ou na LLM. (Caso real 14/06.)
+  const incompleto = parecePalpiteIncompleto(msg.text);
+  if (incompleto) {
+    void incContador('msg.palpite_incompleto');
+    await sendText({
+      to: msg.waId,
+      text:
+        `⚽ Quase! Faltou o *adversário* — qual time o *${incompleto.time}* enfrentou?\n\n` +
+        `Manda assim: \`${incompleto.time} ${incompleto.placar} Adversário\`\n` +
+        `_(ex: ${incompleto.time} ${incompleto.placar} Japão)_\n\n` +
+        `Ou manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais.`,
     });
     return;
   }

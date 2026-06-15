@@ -261,6 +261,8 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.37.1** (2026-06-15) — Palpites que falhavam no parse (revisão diária): separador × (unicode do celular) e "c" (typo de x) agora viram placar; "Espanha 4x1" (um time só) pede o adversário em vez de "não entendi". 953 tests.
+
 - **v3.37.0** (2026-06-15) — **Fix grave: placar de Costa do Marfim x Equador nunca atualizava** (e jogos de Irã/RD Congo): o `nome` no teams.json ("Cote d'Ivoire"/"IR Iran"/"Congo DR") divergia dos fixtures/DB, quebrando o matcher FIFA (fifaCode→nome→fixture) e o grounding. Nomes alinhados + teste de consistência que trava re-syncs. Auto-corrige no próximo tick do fetch-results. 944 tests.
 
 - **v3.36.0** (2026-06-12) — **"Bom dia boleiros" em hora fixa (9h BRT) pra todos de uma vez**: antes disparava "kickoff−6h do 1º jogo", que pra jogo cedo caía 22h da véspera e só parte do pessoal recebia. Agora é 1x/dia de manhã, pra todos, com flag própria. Chamada de palpites desativada (redundante com bom-dia + lembrete de 30min). 941 tests.

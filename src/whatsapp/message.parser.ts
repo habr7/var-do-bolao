@@ -109,7 +109,11 @@ export interface PalpiteInline {
 //   "Brasil 2-1 Marrocos"
 //   "Brasil 2 a 1 Marrocos"
 //   "Brasil 2 por 1 Marrocos"
-const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+)$/;
+// v3.37.0 — separadores de placar: x/X, × (U+00D7 do teclado de celular),
+// hífen, e "a"/"por"/"c"/"C" entre espaços ("2 a 1", "2 c 2" = typo de x,
+// teclas vizinhas). × e "c" eram gaps reais (caso "Holanda 2 × 2 Japão" /
+// "2 c 2" caíam em "não entendi").
+const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX×-]|\s+(?:a|por|c|C)\s+)\s*(\d+)\s+(.+)$/;
 
 // v3.10.0 — formato INVERTIDO: "NxN Time1 x Time2" (placar antes dos
 // times). Caso real Valéria 22/05: ela mandou 10 linhas nesse formato
@@ -119,7 +123,7 @@ const PALPITE_REGEX = /^(.+?)\s+(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+)
 //   "2-1 Brasil x Marrocos"
 //   "1 a 0 BRA x ARG"
 // O separador entre os 2 times pode ser " x ", " X ", " vs ", " - ", " contra ".
-const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.+?)\s+(?:[xX]|vs|contra|-)\s+(.+)$/;
+const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX×-]|\s+(?:a|por|c|C)\s+)\s*(\d+)\s+(.+?)\s+(?:[xX×]|vs|contra|-)\s+(.+)$/;
 
 // v3.19.0 — formato GOLS SEPARADOS: "N Time1 X N Time2" (gols colados
 // em cada time, separador "x"/"X" no meio). Caso real Natane 11/06:
@@ -136,13 +140,13 @@ const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)\s+(.
 // PRECEDÊNCIA importante: este regex é mais GENÉRICO que os outros (não
 // exige placar grudado), então só tentar DEPOIS dos canônico/invertido
 // falharem. Ordem em `tentarParsearPalpiteInline`.
-const PALPITE_GOLS_SEPARADOS_REGEX = /^(\d+)\s+(.+?)\s+[xX]\s+(\d+)\s+(.+)$/;
+const PALPITE_GOLS_SEPARADOS_REGEX = /^(\d+)\s+(.+?)\s+[xX×]\s+(\d+)\s+(.+)$/;
 
 // v3.10.0 — detecta um "âncora" de placar (NxN) dentro de uma linha.
 // Usado pra: (1) tokenizar linhas com vários palpites concatenados sem
 // quebra de linha, (2) validar que um time parseado não tem placar
 // embutido (sinal de match ruim do regex canônico).
-const PLACAR_ANCHOR_REGEX = /(\d+)\s*(?:[xX-]|\s+(?:a|por)\s+)\s*(\d+)/g;
+const PLACAR_ANCHOR_REGEX = /(\d+)\s*(?:[xX×-]|\s+(?:a|por|c|C)\s+)\s*(\d+)/g;
 
 // Mapa de numeros por extenso → digito. So 0-10 — placar maior que 10 eh
 // raro o suficiente pra forcar o usuario a digitar.

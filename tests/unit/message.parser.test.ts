@@ -1,5 +1,45 @@
 import { describe, it, expect } from 'vitest';
 import { parseIntencao, parseMultiplePalpites, Intencao } from '../../src/whatsapp/message.parser.js';
+import { parecePalpiteIncompleto } from '../../src/whatsapp/palpite.heuristics.js';
+
+describe('v3.37.0 — separadores × (unicode) e "c" (typo de x), revisão diária 14/06', () => {
+  it('"Holanda 2 × 2 Japão" (× unicode) → PALPITE_INLINE', () => {
+    const p = parseIntencao('Holanda 2 × 2 Japão');
+    expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+    expect(p.palpite).toMatchObject({ timeCasa: 'Holanda', golsCasa: 2, golsVisitante: 2, timeVisitante: 'Japão' });
+  });
+  it('"Holanda 2 c 2 Japão" (c = typo de x) → PALPITE_INLINE', () => {
+    const p = parseIntencao('Holanda 2 c 2 Japão');
+    expect(p.intencao).toBe(Intencao.PALPITE_INLINE);
+    expect(p.palpite).toMatchObject({ golsCasa: 2, golsVisitante: 2 });
+  });
+  it('"Brasil 2x1 Marrocos" (x normal) continua funcionando', () => {
+    expect(parseIntencao('Brasil 2x1 Marrocos').intencao).toBe(Intencao.PALPITE_INLINE);
+  });
+  it('"as 2 da tarde" NÃO vira palpite (sem âncora NxN)', () => {
+    expect(parseIntencao('as 2 da tarde').intencao).not.toBe(Intencao.PALPITE_INLINE);
+  });
+});
+
+describe('parecePalpiteIncompleto (v3.37.0 — "Espanha 4x1", um time só)', () => {
+  it('detecta time + placar sem adversário', () => {
+    expect(parecePalpiteIncompleto('Espanha 4x1')).toEqual({ time: 'Espanha', placar: '4x1' });
+  });
+  it('detecta com "a"/× e pontuação final', () => {
+    expect(parecePalpiteIncompleto('Brasil 2 a 1.')).toEqual({ time: 'Brasil', placar: '2x1' });
+    expect(parecePalpiteIncompleto('Holanda 2 × 0')).toEqual({ time: 'Holanda', placar: '2x0' });
+  });
+  it('palpite COMPLETO (2 times) NÃO é incompleto', () => {
+    expect(parecePalpiteIncompleto('Espanha 4x1 Japão')).toBeNull();
+  });
+  it('LOTE (2+ placares) NÃO é incompleto', () => {
+    expect(parecePalpiteIncompleto('Espanha 4x1, Brasil 2x0')).toBeNull();
+  });
+  it('texto sem placar NÃO é incompleto', () => {
+    expect(parecePalpiteIncompleto('quando começa a Espanha')).toBeNull();
+    expect(parecePalpiteIncompleto('meus pontos')).toBeNull();
+  });
+});
 
 describe('parseIntencao', () => {
   describe('saudacoes e menu', () => {
