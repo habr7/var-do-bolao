@@ -261,6 +261,8 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.37.0** (2026-06-15) — **Fix grave: placar de Costa do Marfim x Equador nunca atualizava** (e jogos de Irã/RD Congo): o `nome` no teams.json ("Cote d'Ivoire"/"IR Iran"/"Congo DR") divergia dos fixtures/DB, quebrando o matcher FIFA (fifaCode→nome→fixture) e o grounding. Nomes alinhados + teste de consistência que trava re-syncs. Auto-corrige no próximo tick do fetch-results. 944 tests.
+
 - **v3.36.0** (2026-06-12) — **"Bom dia boleiros" em hora fixa (9h BRT) pra todos de uma vez**: antes disparava "kickoff−6h do 1º jogo", que pra jogo cedo caía 22h da véspera e só parte do pessoal recebia. Agora é 1x/dia de manhã, pra todos, com flag própria. Chamada de palpites desativada (redundante com bom-dia + lembrete de 30min). 941 tests.
 
 - **v3.35.0** (2026-06-12) — **Fix grave: lista de palpites rotulada "Meus palpites:" era ignorada** (caso +5531): a usuária copiou o formato do bot ("Meus palpites:\n11/06, 23:00 — Time NxN Time") e virava a intent de *ver* palpites → "registrados: 0". Agora um lote de 2+ palpites vence a intent de leitura, e o prefixo de data/hora é removido. 936 tests, simulador 116/116.

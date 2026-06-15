@@ -194,6 +194,7 @@ const ALIASES: Record<string, string> = {
   // Irã
   ira: 'Irã',
   iran: 'Irã',
+  iriran: 'Irã', // nome FIFA antigo no teams.json (corrigido em v3.37.0)
   // Catar
   qatar: 'Catar',
   // Holanda
@@ -201,10 +202,12 @@ const ALIASES: Record<string, string> = {
   paisesbaixos: 'Holanda',
   // Costa do Marfim
   ivorycoast: 'Costa do Marfim',
+  cotedivoire: 'Costa do Marfim', // nome FIFA antigo no teams.json (corrigido v3.37.0)
   marfim: 'Costa do Marfim',
   costademarfim: 'Costa do Marfim',
   // RD Congo
   drcongo: 'RD Congo',
+  congodr: 'RD Congo', // nome FIFA antigo no teams.json (corrigido v3.37.0)
   congo: 'RD Congo',
   rdcongo: 'RD Congo',
   // Cabo Verde
