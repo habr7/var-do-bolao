@@ -194,6 +194,30 @@ const CENARIOS: Cenario[] = [
     msg: 'meus pontos',
     esperado: { intencao: Intencao.MEUS_PONTOS },
   },
+  {
+    grupo: '🔎 JOGOS_POR_FAIXA',
+    desc: 'Caso Humberto 22/06: "Quais jogos eu cravei?" → JOGOS_POR_FAIXA',
+    msg: 'Quais jogos eu cravei?',
+    esperado: { intencao: Intencao.JOGOS_POR_FAIXA },
+  },
+  {
+    grupo: '🔎 JOGOS_POR_FAIXA',
+    desc: '"quais jogos fiz 7 pontos?" → JOGOS_POR_FAIXA',
+    msg: 'quais jogos fiz 7 pontos?',
+    esperado: { intencao: Intencao.JOGOS_POR_FAIXA },
+  },
+  {
+    grupo: '🔎 JOGOS_POR_FAIXA',
+    desc: '"me mostra as cravadas" → JOGOS_POR_FAIXA',
+    msg: 'me mostra as cravadas',
+    esperado: { intencao: Intencao.JOGOS_POR_FAIXA },
+  },
+  {
+    grupo: '🔎 JOGOS_POR_FAIXA — não-regressão',
+    desc: '"quantas cravadas eu fiz?" continua ESTATISTICA_PONTOS (contagem)',
+    msg: 'quantas cravadas eu fiz?',
+    esperado: { intencao: Intencao.ESTATISTICA_PONTOS },
+  },
 
   // ====================================================================
   // GRUPO 4: Novos handlers (Fase 2)

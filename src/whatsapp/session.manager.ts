@@ -101,6 +101,9 @@ export interface ConversaContext {
   // v3.38.0 — faixa de pontos destacada no pedido de estatística (10/7/5/3/0),
   // preservada quando o user precisa escolher o bolão antes de ver a quebra.
   estatisticaFaixaDestaque?: number;
+  // v3.39.0 — true quando o pedido era pra LISTAR os jogos da faixa
+  // (JOGOS_POR_FAIXA), não a contagem; preservado na escolha de bolão.
+  estatisticaListarJogos?: boolean;
   // Fluxo admin de aprovacao em DM natural
   solicitacaoIdParaConfirmar?: string;
   nomeSolicitanteParaConfirmar?: string;

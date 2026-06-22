@@ -633,6 +633,18 @@ meu aproveitamento
 ```
 → Conta quantos palpites seus pontuaram em cada faixa (🎯 cravadas/10 • 🔥 7 • 👍 5 • 😐 3 • ❌ 0) e soma o total. Só conta jogos já FINALIZADOS e calculados. Se você perguntou uma faixa específica (ex: "quantas cravadas?"), vem um destaque no topo + a quebra completa logo abaixo. Diferente de **pontos por jogo** (lista das últimas 48h) e de **meus pontos** (só o número total).
 
+### Jogos de uma faixa (drill-down)
+```
+quais jogos eu cravei?
+me mostra as cravadas
+quais jogos fiz 7 pontos?
+quais deram 5
+me mostra os de 3 pontos
+quais jogos eu zerei?
+em quais errei tudo
+```
+→ Lista os jogos da faixa pedida com o seu palpite + o resultado real (ex: "🎯 Suas cravadas — • Brasil 2x1 Marrocos — você cravou! ✅"). No rodapé vem a régua de faixas (🎯6 🔥10 👍9 😐7 ❌8) + dica pra ver outra faixa. É o **detalhamento** da estatística: enquanto "quantas cravadas?" **conta**, "quais cravei?" **lista os jogos**. Só jogos FINALIZADOS e calculados.
+
 ### Status da rodada
 ```
 quando atualiza o ranking?

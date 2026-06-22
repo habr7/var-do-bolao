@@ -651,6 +651,10 @@ async function dispatchIntencao(
       await handleEstatisticaPontos(msg, usuarioId, raw);
       return true;
 
+    case Intencao.JOGOS_POR_FAIXA:
+      await handleJogosPorFaixa(msg, usuarioId, raw);
+      return true;
+
     case Intencao.STATUS_RODADA:
       await handleStatusRodada(msg, usuarioId);
       return true;
@@ -4166,15 +4170,17 @@ async function handleEscolhendoBolaoRanking(msg: IncomingMessage, session: Sessi
 }
 
 /**
- * v3.38.0 — ESTATISTICA_PONTOS: quebra dos pontos do user por faixa
- * (cravadas/10, 7, 5, 3, 0). Read-only — NUNCA registra palpite nem chama o
- * responder conversacional, então é impossível alucinar "anotei palpite".
- * Resolve o bolão espelhando o RANKING (padrão → 1 direto → senão escolha).
+ * v3.38.0/v3.39.0 — Resolve QUAL bolão usar pra estatística/drill-down,
+ * espelhando o RANKING: 0 bolões → avisa; 1 → direto; >1 com padrão → padrão;
+ * >1 sem padrão → guarda a intenção (faixa + modo lista) no ctx e entra em
+ * `ESCOLHENDO_BOLAO_ESTATISTICA`. Devolve o bolaoId ou `null` (quando já
+ * respondeu/pediu escolha — o caller deve retornar).
  */
-async function handleEstatisticaPontos(msg: IncomingMessage, usuarioId: string, raw: string) {
-  void incContador('intent.ESTATISTICA_PONTOS');
-
-  const faixaDestaque = detectarFaixaEstatistica(raw);
+async function resolverBolaoEstatistica(
+  msg: IncomingMessage,
+  usuarioId: string,
+  opts: { listarJogos: boolean; faixa: number | null },
+): Promise<string | null> {
   const boloesDoUsuario = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
 
   if (boloesDoUsuario.length === 0) {
@@ -4184,46 +4190,84 @@ async function handleEstatisticaPontos(msg: IncomingMessage, usuarioId: string, 
         '📭 Você ainda não participa de nenhum bolão.\n\n' +
         'Para entrar: *entrar em bolão*\nPara criar: *criar bolão*',
     });
-    return;
+    return null;
   }
 
-  let bolaoId: string;
-  if (boloesDoUsuario.length > 1) {
-    const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
-    const padraoMatch = boloesDoUsuario.find((b) => b.id === padraoId);
-    if (padraoMatch) {
-      bolaoId = padraoMatch.id;
-    } else {
-      const temEncerrados = boloesDoUsuario.some((b) => b.status === 'FINALIZADO');
-      const opcoes = boloesDoUsuario.map((b) => ({
-        id: b.id,
-        nome: b.status === 'FINALIZADO' ? `${b.nome} 🏁` : b.nome,
-        codigo: b.codigo,
-      }));
-      await setSession(msg.waId, {
-        state: 'ESCOLHENDO_BOLAO_ESTATISTICA',
-        ctx: {
-          boloesParaEscolher: opcoes.map((o) => ({ id: o.id, nome: o.nome })),
-          estatisticaFaixaDestaque: faixaDestaque ?? undefined,
-        },
-      });
-      const lista = formatarBoloesNumerados(opcoes);
-      const legenda = temEncerrados
-        ? '\n\n_🏁 = bolão encerrado (estatística final guardada)_'
-        : '';
-      await sendText({
-        to: msg.waId,
-        text:
-          `Você está em vários bolões. De qual deles você quer a estatística de pontos?\n\n${lista}${legenda}\n\n${DICA_RESPOSTA_NUMERICA}\n\n` +
-          `_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
-      });
-      return;
-    }
-  } else {
-    bolaoId = boloesDoUsuario[0].id;
-  }
+  if (boloesDoUsuario.length === 1) return boloesDoUsuario[0].id;
+
+  const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+  const padraoMatch = boloesDoUsuario.find((b) => b.id === padraoId);
+  if (padraoMatch) return padraoMatch.id;
+
+  const temEncerrados = boloesDoUsuario.some((b) => b.status === 'FINALIZADO');
+  const opcoes = boloesDoUsuario.map((b) => ({
+    id: b.id,
+    nome: b.status === 'FINALIZADO' ? `${b.nome} 🏁` : b.nome,
+    codigo: b.codigo,
+  }));
+  await setSession(msg.waId, {
+    state: 'ESCOLHENDO_BOLAO_ESTATISTICA',
+    ctx: {
+      boloesParaEscolher: opcoes.map((o) => ({ id: o.id, nome: o.nome })),
+      estatisticaFaixaDestaque: opts.faixa ?? undefined,
+      estatisticaListarJogos: opts.listarJogos || undefined,
+    },
+  });
+  const lista = formatarBoloesNumerados(opcoes);
+  const legenda = temEncerrados
+    ? '\n\n_🏁 = bolão encerrado (estatística final guardada)_'
+    : '';
+  const pergunta = opts.listarJogos
+    ? 'Você está em vários bolões. De qual deles você quer ver os jogos?'
+    : 'Você está em vários bolões. De qual deles você quer a estatística de pontos?';
+  await sendText({
+    to: msg.waId,
+    text:
+      `${pergunta}\n\n${lista}${legenda}\n\n${DICA_RESPOSTA_NUMERICA}\n\n` +
+      `_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
+  });
+  return null;
+}
+
+/**
+ * v3.38.0 — ESTATISTICA_PONTOS: quebra dos pontos do user por faixa
+ * (cravadas/10, 7, 5, 3, 0). Read-only — NUNCA registra palpite nem chama o
+ * responder conversacional, então é impossível alucinar "anotei palpite".
+ */
+async function handleEstatisticaPontos(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void incContador('intent.ESTATISTICA_PONTOS');
+
+  const faixaDestaque = detectarFaixaEstatistica(raw);
+  const bolaoId = await resolverBolaoEstatistica(msg, usuarioId, {
+    listarJogos: false,
+    faixa: faixaDestaque,
+  });
+  if (!bolaoId) return;
 
   await enviarEstatisticaDoBolao(msg.waId, usuarioId, bolaoId, faixaDestaque);
+}
+
+/**
+ * v3.39.0 — JOGOS_POR_FAIXA: drill-down da estatística — lista os JOGOS de
+ * uma faixa de pontos (ex.: "quais jogos eu cravei?" → os de 10 pts) com o
+ * palpite do user + resultado real. Read-only. Se a faixa não for detectável
+ * ("me mostra meus jogos por pontuação"), cai no resumo agregado + dica.
+ */
+async function handleJogosPorFaixa(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void incContador('intent.JOGOS_POR_FAIXA');
+
+  const faixa = detectarFaixaEstatistica(raw);
+  const bolaoId = await resolverBolaoEstatistica(msg, usuarioId, {
+    listarJogos: faixa !== null,
+    faixa,
+  });
+  if (!bolaoId) return;
+
+  if (faixa === null) {
+    await enviarEstatisticaDoBolao(msg.waId, usuarioId, bolaoId, null);
+    return;
+  }
+  await enviarJogosPorFaixaDoBolao(msg.waId, usuarioId, bolaoId, faixa);
 }
 
 async function handleEscolhendoBolaoEstatistica(
@@ -4248,9 +4292,14 @@ async function handleEscolhendoBolaoEstatistica(
     return;
   }
 
-  const faixaDestaque = session.ctx?.estatisticaFaixaDestaque ?? null;
+  const faixa = session.ctx?.estatisticaFaixaDestaque ?? null;
+  const listarJogos = session.ctx?.estatisticaListarJogos ?? false;
   await resetSession(msg.waId);
-  await enviarEstatisticaDoBolao(msg.waId, usuarioId, escolhido.id, faixaDestaque);
+  if (listarJogos && faixa !== null) {
+    await enviarJogosPorFaixaDoBolao(msg.waId, usuarioId, escolhido.id, faixa);
+  } else {
+    await enviarEstatisticaDoBolao(msg.waId, usuarioId, escolhido.id, faixa);
+  }
 }
 
 /**
@@ -4261,12 +4310,81 @@ async function handleEscolhendoBolaoEstatistica(
 function detectarFaixaEstatistica(raw: string): number | null {
   const norm = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   if (/\bcravad|placar(?:es)? exato|em cheio|cravei\b/.test(norm)) return 10;
-  if (/\bzerei|errei tudo|fiz 0\b|fiz zero|tirei 0\b|tirei zero|zero ponto/.test(norm)) return 0;
-  if (/\b(?:7|sete)\s*pontos?\b/.test(norm)) return 7;
-  if (/\b(?:5|cinco)\s*pontos?\b/.test(norm)) return 5;
-  if (/\b(?:3|tres)\s*pontos?\b/.test(norm)) return 3;
-  if (/\b(?:10|dez)\s*pontos?\b/.test(norm)) return 10;
+  if (/\bzerei|errei tudo|nao pontuei|fiz 0\b|fiz zero|tirei 0\b|tirei zero|zero ponto/.test(norm)) return 0;
+  // "N pontos" OU "deu/deram/valeu/fiz/tirei N" (v3.39.0 — drill-down "quais
+  // deram 5" não traz a palavra "pontos").
+  const m =
+    norm.match(/\b(10|dez|7|sete|5|cinco|3|tres|0|zero)\s*pontos?\b/) ??
+    norm.match(/\b(?:deu|deram|valeu|valeram|fiz|fizeram|tirei|peguei|foram?)\s+(10|dez|7|sete|5|cinco|3|tres)\b/);
+  if (m) {
+    const mapa: Record<string, number> = {
+      '10': 10, dez: 10, '7': 7, sete: 7, '5': 5, cinco: 5, '3': 3, tres: 3, '0': 0, zero: 0,
+    };
+    return mapa[m[1]] ?? null;
+  }
   return null;
+}
+
+/** Título da listagem de jogos de uma faixa (v3.39.0). */
+function tituloFaixaJogos(faixa: number, nomeBolao: string): string {
+  if (faixa === 10) return `🎯 *Suas cravadas (placar exato, 10 pts) — ${nomeBolao}*`;
+  if (faixa === 0) return `❌ *Jogos que você zerou (0 pts) — ${nomeBolao}*`;
+  const criterio =
+    faixa === 7 ? 'vencedor + gols de um time' : faixa === 5 ? 'só o resultado' : 'só os gols de um time';
+  return `${resultadoEmoji(faixa)} *Seus jogos de ${faixa} pts (${criterio}) — ${nomeBolao}*`;
+}
+
+/**
+ * v3.39.0 — Lista os JOGOS do usuário de uma faixa específica (drill-down),
+ * com palpite + resultado real. Read-only.
+ */
+async function enviarJogosPorFaixaDoBolao(
+  waId: string,
+  usuarioId: string,
+  bolaoId: string,
+  faixa: number,
+) {
+  const { jogos, nomeBolao, stats } = await rankingService.getJogosPorFaixa(usuarioId, bolaoId, faixa);
+  const regua = `Faixas: 🎯${stats.cravadas} 🔥${stats.sete} 👍${stats.cinco} 😐${stats.tres} ❌${stats.zero}`;
+  const dicaOutras = `_Manda *quais cravei*, *quais fiz 7 pontos* (ou 5/3/0) pra ver outra faixa._`;
+
+  if (jogos.length === 0) {
+    if (stats.totalJogos === 0) {
+      await sendText({
+        to: waId,
+        text:
+          `📊 Ainda não tem nenhum jogo seu pontuado no *${nomeBolao}*. ` +
+          `Assim que os jogos que você palpitou forem finalizados, eles aparecem aqui! 🍀`,
+      });
+      return;
+    }
+    let vazio: string;
+    if (faixa === 10) vazio = `🎯 Você ainda não cravou nenhum placar exato no *${nomeBolao}* — mas tá na busca! 🍀`;
+    else if (faixa === 0) vazio = `🎉 Você ainda não zerou nenhum jogo no *${nomeBolao}*!`;
+    else vazio = `${resultadoEmoji(faixa)} Você ainda não fez nenhum jogo de ${faixa} pontos no *${nomeBolao}*.`;
+    await sendText({ to: waId, text: `${vazio}\n\n${regua}\n${dicaOutras}` });
+    return;
+  }
+
+  const linhas = jogos.map((j) => {
+    const real =
+      j.golsCasaReal !== null && j.golsVisitanteReal !== null
+        ? `${j.golsCasaReal}x${j.golsVisitanteReal}`
+        : '—';
+    if (faixa === 10) {
+      return `• ${j.timeCasa} *${real}* ${j.timeVisitante} — você cravou! ✅`;
+    }
+    return `• ${j.timeCasa} ${real} ${j.timeVisitante} — seu palpite: *${j.golsCasaPalpite}x${j.golsVisitantePalpite}*`;
+  });
+
+  const total = jogos.length === 1 ? '1 jogo' : `${jogos.length} jogos`;
+  const texto =
+    `${tituloFaixaJogos(faixa, nomeBolao)}\n\n` +
+    `${linhas.join('\n')}\n\n` +
+    `Total: ${total} nessa faixa.\n` +
+    `${regua}\n` +
+    `${dicaOutras}`;
+  await sendText({ to: waId, text: texto });
 }
 
 function vezes(n: number): string {
@@ -4335,7 +4453,7 @@ async function enviarEstatisticaDoBolao(
     `😐 Só os gols de um time (${PONTUACAO_PADRAO.golsDeUmTime} pts): ${stats.tres}\n` +
     `❌ Errou (${PONTUACAO_PADRAO.errouTudo} pts): ${stats.zero}\n\n` +
     `⚽ ${stats.totalJogos} ${stats.totalJogos === 1 ? 'jogo pontuado' : 'jogos pontuados'} • *Total: ${stats.totalPontos} pts*${posicao}\n` +
-    `_Manda *meus palpites* pra ver jogo a jogo, ou *ranking* pra a classificação._`;
+    `_Quer ver os jogos de uma faixa? Manda *quais cravei*, *quais fiz 7 pontos*… Ou *ranking* pra a classificação._`;
 
   const texto = destaque ? `${destaque}\n\n${corpo}` : corpo;
   await sendText({ to: waId, text: texto });

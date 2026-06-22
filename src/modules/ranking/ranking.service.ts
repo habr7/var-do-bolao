@@ -184,6 +184,52 @@ export async function getEstatisticaPontos(
   };
 }
 
+export interface JogoDaFaixa {
+  timeCasa: string;
+  timeVisitante: string;
+  golsCasaReal: number | null;
+  golsVisitanteReal: number | null;
+  golsCasaPalpite: number;
+  golsVisitantePalpite: number;
+  pontos: number;
+}
+
+export interface JogosPorFaixa {
+  faixa: number;
+  nomeBolao: string;
+  jogos: JogoDaFaixa[];
+  stats: EstatisticaPontos; // régua de faixas pro rodapé
+}
+
+/**
+ * v3.39.0 — Drill-down da estatística: lista os jogos de UMA faixa de pontos
+ * (10/7/5/3/0), com palpite do user + resultado real. Read-only — só palpites
+ * já calculados (jogo FINALIZADO). Reusa `getEstatisticaPontos` pra a régua de
+ * faixas exibida no rodapé.
+ */
+export async function getJogosPorFaixa(
+  usuarioId: string,
+  bolaoId: string,
+  faixa: number,
+): Promise<JogosPorFaixa> {
+  const [pjs, stats] = await Promise.all([
+    rankingRepo.buscarPalpitesJogosPorFaixa(usuarioId, bolaoId, faixa),
+    getEstatisticaPontos(usuarioId, bolaoId),
+  ]);
+
+  const jogos: JogoDaFaixa[] = pjs.map((pj) => ({
+    timeCasa: pj.jogo.timeCasa,
+    timeVisitante: pj.jogo.timeVisitante,
+    golsCasaReal: pj.jogo.golsCasa,
+    golsVisitanteReal: pj.jogo.golsVisitante,
+    golsCasaPalpite: pj.golsCasa,
+    golsVisitantePalpite: pj.golsVisitante,
+    pontos: pj.pontosObtidos,
+  }));
+
+  return { faixa, nomeBolao: stats.nomeBolao, jogos, stats };
+}
+
 export async function getMeusPontosNoBolao(usuarioId: string, bolaoId: string) {
   const detalhes = await rankingRepo.buscarPontuacaoDetalhada(usuarioId, bolaoId);
   const participacao = await bolaoRepo.buscarParticipacao(bolaoId, usuarioId);

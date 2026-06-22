@@ -25,7 +25,7 @@ vi.mock('../../src/config/database.js', () => ({
   },
 }));
 
-const { getEstatisticaPontos } = await import('../../src/modules/ranking/ranking.service.js');
+const { getEstatisticaPontos, getJogosPorFaixa } = await import('../../src/modules/ranking/ranking.service.js');
 
 describe('getEstatisticaPontos', () => {
   beforeEach(() => {
@@ -82,5 +82,70 @@ describe('getEstatisticaPontos', () => {
     expect(stats.totalJogos).toBe(0);
     expect(stats.totalPontos).toBe(0);
     expect(stats.cravadas + stats.sete + stats.cinco + stats.tres + stats.zero).toBe(0);
+  });
+});
+
+describe('getJogosPorFaixa (v3.39.0 — drill-down)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.usuarioFindUnique.mockResolvedValue({ id: 'u1', nome: 'Humberto' });
+    h.bolaoFindUnique.mockResolvedValue({ id: 'b1', nome: 'Bolão kzados' });
+    h.participacaoFindUnique.mockResolvedValue({ posicaoAtual: 1, pontuacaoTotal: 20 });
+
+    // palpiteJogo.findMany é chamado 2x: com `include` (lista da faixa) e com
+    // `select` (agregado da estatística do rodapé). Distingue pelos args.
+    h.palpiteJogoFindMany.mockImplementation((arg: any) => {
+      if (arg?.include) {
+        const faixa = arg.where.pontosObtidos;
+        if (faixa === 10) {
+          return Promise.resolve([
+            {
+              golsCasa: 2,
+              golsVisitante: 1,
+              pontosObtidos: 10,
+              jogo: { timeCasa: 'Brasil', timeVisitante: 'Marrocos', golsCasa: 2, golsVisitante: 1 },
+            },
+          ]);
+        }
+        return Promise.resolve([]); // outras faixas vazias neste fixture
+      }
+      // agregado: 1×10 + 1×7
+      return Promise.resolve([{ pontosObtidos: 10 }, { pontosObtidos: 7 }]);
+    });
+  });
+
+  it('lista os jogos da faixa 10 com palpite e resultado real', async () => {
+    const res = await getJogosPorFaixa('u1', 'b1', 10);
+    expect(res.faixa).toBe(10);
+    expect(res.nomeBolao).toBe('Bolão kzados');
+    expect(res.jogos).toHaveLength(1);
+    expect(res.jogos[0]).toMatchObject({
+      timeCasa: 'Brasil',
+      timeVisitante: 'Marrocos',
+      golsCasaReal: 2,
+      golsVisitanteReal: 1,
+      golsCasaPalpite: 2,
+      golsVisitantePalpite: 1,
+      pontos: 10,
+    });
+    // régua de faixas (stats) vem junto pro rodapé
+    expect(res.stats.cravadas).toBe(1);
+    expect(res.stats.sete).toBe(1);
+  });
+
+  it('query filtra pela faixa pedida (pontosObtidos) + calculado + FINALIZADO', async () => {
+    await getJogosPorFaixa('u1', 'b1', 7);
+    const includeCall = h.palpiteJogoFindMany.mock.calls
+      .map((c) => c[0])
+      .find((a: any) => a?.include);
+    expect(includeCall.where.pontosObtidos).toBe(7);
+    expect(includeCall.where.palpite.calculado).toBe(true);
+    expect(includeCall.where.jogo.status).toBe('FINALIZADO');
+  });
+
+  it('faixa sem jogos devolve lista vazia (mas com a régua de faixas)', async () => {
+    const res = await getJogosPorFaixa('u1', 'b1', 3);
+    expect(res.jogos).toHaveLength(0);
+    expect(res.stats.totalJogos).toBe(2);
   });
 });
