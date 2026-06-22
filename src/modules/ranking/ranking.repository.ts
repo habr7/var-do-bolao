@@ -54,3 +54,29 @@ export async function buscarPontosCalculadosDoUsuario(usuarioId: string, bolaoId
     select: { pontosObtidos: true },
   });
 }
+
+/**
+ * v3.39.0 — Jogos do usuário de UMA faixa de pontos (drill-down da
+ * estatística): mesmos filtros de `buscarPontosCalculadosDoUsuario` +
+ * `pontosObtidos === faixa`, mas inclui o jogo (placar real) e o nome do
+ * bolão pra montar a lista "palpite x resultado real". Ordena do mais
+ * recente pro mais antigo.
+ */
+export async function buscarPalpitesJogosPorFaixa(
+  usuarioId: string,
+  bolaoId: string,
+  pontos: number,
+) {
+  return prisma.palpiteJogo.findMany({
+    where: {
+      palpite: { usuarioId, rodada: { bolaoId }, calculado: true },
+      jogo: { status: 'FINALIZADO' },
+      pontosObtidos: pontos,
+    },
+    include: {
+      jogo: true,
+      palpite: { include: { rodada: { include: { bolao: { select: { nome: true } } } } } },
+    },
+    orderBy: { jogo: { dataHora: 'desc' } },
+  });
+}

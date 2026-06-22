@@ -72,6 +72,8 @@ export const INTENCOES_VALIDAS = [
   Intencao.PONTOS_DETALHE,
   // v3.38.0 — estatística de pontos por faixa (cravadas/7/5/3/0)
   Intencao.ESTATISTICA_PONTOS,
+  // v3.39.0 — drill-down: listar os jogos de uma faixa
+  Intencao.JOGOS_POR_FAIXA,
   Intencao.STATUS_RODADA,
   Intencao.DESABAFO_RANKING,
   Intencao.RECLAMACAO_BUG,

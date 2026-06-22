@@ -142,6 +142,46 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.39.0 — JOGOS_POR_FAIXA (drill-down: listar jogos da faixa)', () => {
+    // Caso real Humberto 22/06: "Quais jogos eu cravei?" caía no handler genérico.
+    const FRASES_JOGOS_FAIXA = [
+      'Quais jogos eu cravei?',
+      'quais cravei',
+      'me mostra as cravadas',
+      'quais jogos acertei o placar exato',
+      'em quais cravei o placar',
+      'quais jogos fiz 7 pontos?',
+      'quais deram 5',
+      'me mostra os de 3 pontos',
+      'quais jogos eu zerei?',
+      'em quais errei tudo',
+      'quais fiz 10 pontos',
+      'quais valeram 7',
+    ];
+    for (const frase of FRASES_JOGOS_FAIXA) {
+      it(`"${frase}" → JOGOS_POR_FAIXA`, () => {
+        expect(parseIntencao(frase).intencao).toBe(Intencao.JOGOS_POR_FAIXA);
+      });
+    }
+
+    // NÃO-REGRESSÃO: contagem continua ESTATISTICA; demais intents intactas.
+    it('"quantas cravadas eu fiz?" continua ESTATISTICA_PONTOS (contagem)', () => {
+      expect(parseIntencao('quantas cravadas eu fiz?').intencao).toBe(Intencao.ESTATISTICA_PONTOS);
+    });
+    it('"quantos fiz 7 pontos" continua ESTATISTICA_PONTOS (contagem)', () => {
+      expect(parseIntencao('quantos fiz 7 pontos').intencao).toBe(Intencao.ESTATISTICA_PONTOS);
+    });
+    it('"estatística dos meus pontos" continua ESTATISTICA_PONTOS', () => {
+      expect(parseIntencao('estatística dos meus pontos').intencao).toBe(Intencao.ESTATISTICA_PONTOS);
+    });
+    it('"meus palpites" continua MEU_PALPITE', () => {
+      expect(parseIntencao('meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"quantos pontos fiz ontem" continua PONTOS_DETALHE', () => {
+      expect(parseIntencao('quantos pontos fiz ontem').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+  });
+
   describe('admin approvals', () => {
     it('parseia !aprovar com nome', () => {
       const r = parseIntencao('!aprovar João Silva');

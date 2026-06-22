@@ -32,6 +32,7 @@ export enum Intencao {
   PLACAR_JOGO = 'PLACAR_JOGO',               // v3.15.0 — "qual o placar?", "quem ganhou?" (Copa rolando — banco TEM os placares)
   PONTOS_DETALHE = 'PONTOS_DETALHE',         // v3.15.0 — "quantos pontos fiz ontem?" (breakdown por jogo)
   ESTATISTICA_PONTOS = 'ESTATISTICA_PONTOS', // v3.38.0 — "quantas cravadas fiz?", "estatística dos meus pontos" (quebra por faixa 10/7/5/3/0)
+  JOGOS_POR_FAIXA = 'JOGOS_POR_FAIXA',       // v3.39.0 — "quais jogos eu cravei?", "quais fiz 7 pontos" (lista os jogos de uma faixa)
   STATUS_RODADA = 'STATUS_RODADA',           // v3.15.0 — "quando atualiza o ranking?", "quando sai o resultado?"
   DESABAFO_RANKING = 'DESABAFO_RANKING',     // v3.15.0 — "tô em último", "fui mal demais" (acolhimento)
   RECLAMACAO_BUG = 'RECLAMACAO_BUG',         // v3.15.0 — "meus pontos estão errados", "tá bugado" (loga + acolhe)
@@ -446,6 +447,32 @@ const ESTATISTICA_PONTOS_PATTERNS: RegExp[] = [
   /\bde onde (?:vem|sai|saem|saiu|vieram|sairam) .*pontos?\b/,
   /\bmeu aproveitamento\b/,
   /\bminha m[ée]dia de pontos?\b/,
+];
+
+// v3.39.0 — JOGOS_POR_FAIXA: drill-down da estatística. Diferente de
+// ESTATISTICA_PONTOS (que CONTA: "quantas cravadas"), aqui o user quer a
+// LISTA dos jogos de uma faixa ("quais jogos eu cravei?", "quais fiz 7
+// pontos?"). Caso Humberto 22/06: "Quais jogos eu cravei?" caía no handler
+// genérico de pontuação.
+//
+// Todos os patterns EXIGEM um gatilho de LISTAGEM (quais/que jogos/me
+// mostra/ver/lista/em quais) + uma faixa. Como ESTATISTICA exige "quantos/
+// quantas", os dois não colidem. PRECEDÊNCIA: JOGOS_POR_FAIXA vem ANTES de
+// ESTATISTICA_PONTOS nas INTENT_RULES (pra "quais ... cravei o placar"
+// LISTAR, não cair no "acertei o placar"→contagem da ESTATISTICA).
+const _GATILHO_LISTA = '(?:quais?|que|me mostra|mostra|mostrar|ver|listar?|liste|quero ver|em quais)';
+const JOGOS_POR_FAIXA_PATTERNS: RegExp[] = [
+  // Cravadas / placar exato / em cheio (faixa 10)
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\bcravei\\b`),
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\bcravad`),
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\bplacar(?:es)? exato`),
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\bacertei (?:o )?placar`),
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\bem cheio\\b`),
+  // Por nº de pontos (10/7/5/3)
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\b(?:10|dez|7|sete|5|cinco|3|tres)\\s*pontos?\\b`),
+  /\bquais?\b.*\b(?:fiz|tirei|peguei|deu|deram|valeu|valeram|foram?)\b.*\b(?:10|dez|7|sete|5|cinco|3|tres)\b/,
+  // Zerados / errou tudo (faixa 0)
+  new RegExp(`\\b${_GATILHO_LISTA}\\b.*\\b(?:zerei|errei tudo|nao pontuei|fiz 0|fiz zero|tirei 0|tirei zero)\\b`),
 ];
 
 // v3.15.0 — STATUS_RODADA: quando atualiza ranking/pontos/resultado.
@@ -1034,6 +1061,12 @@ const INTENT_RULES: IntentRules[] = [
   // errados" contém "meus pontos"). STATUS_RODADA antes de QUANDO_COMECA.
   { intencao: Intencao.RECLAMACAO_BUG, padroes: RECLAMACAO_BUG_PATTERNS },
   { intencao: Intencao.STATUS_RODADA, padroes: STATUS_RODADA_PATTERNS },
+  // v3.39.0 — JOGOS_POR_FAIXA ANTES de ESTATISTICA_PONTOS: "quais jogos eu
+  // cravei?" (listar) tem que ganhar dos patterns standalone de contagem
+  // ("acertei o placar"/"cravei o placar"). Os patterns de JOGOS exigem
+  // gatilho de listagem (quais/me mostra/ver), então "quantas cravadas"
+  // (contagem) continua caindo em ESTATISTICA_PONTOS.
+  { intencao: Intencao.JOGOS_POR_FAIXA, padroes: JOGOS_POR_FAIXA_PATTERNS },
   // v3.38.0 — ESTATISTICA_PONTOS ANTES de PONTOS_DETALHE e MEUS_PONTOS:
   // "quantas cravadas fiz?" / "estatística dos meus pontos" pedem a quebra
   // por faixa, não a lista 48h (PONTOS_DETALHE) nem o total (MEUS_PONTOS).
