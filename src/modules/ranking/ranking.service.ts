@@ -7,6 +7,7 @@ import * as bolaoRepo from '../bolao/bolao.repository.js';
 export { calcularPontos } from './pontuacao.calc.js';
 import { calcularPontos } from './pontuacao.calc.js';
 import { ordenarParticipacoesRanking } from './ranking.sort.js';
+import { PONTUACAO_PADRAO } from './ranking.types.js';
 
 export async function calcularPontuacaoRodada(rodadaId: string) {
   const palpites = await palpiteRepo.buscarPalpitesDaRodada(rodadaId);
@@ -123,6 +124,63 @@ export async function getRankingPorBolao(bolaoId: string) {
       pontuacaoTotal: p.pontuacaoTotal,
       posicao: i + 1,
     })),
+  };
+}
+
+export interface EstatisticaPontos {
+  nome: string;
+  nomeBolao: string;
+  cravadas: number; // placar exato — 10 pts
+  sete: number; // vencedor + gols de um time — 7 pts
+  cinco: number; // só o resultado — 5 pts
+  tres: number; // só os gols de um time — 3 pts
+  zero: number; // errou tudo — 0 pts
+  totalJogos: number; // jogos JÁ pontuados (calculados)
+  totalPontos: number; // soma das faixas
+  posicao: number; // posição atual no ranking (0 = desconhecida)
+}
+
+/**
+ * v3.38.0 — Estatística dos pontos do usuário num bolão, quebrada por faixa
+ * (quantas cravadas/7/5/3/0). Read-only: só lê `pontosObtidos` de palpites
+ * JÁ calculados (jogo FINALIZADO + Palpite.calculado=true). As faixas vêm de
+ * PONTUACAO_PADRAO — sem números soltos hardcodados.
+ */
+export async function getEstatisticaPontos(
+  usuarioId: string,
+  bolaoId: string,
+): Promise<EstatisticaPontos> {
+  const pontuados = await rankingRepo.buscarPontosCalculadosDoUsuario(usuarioId, bolaoId);
+  const participacao = await bolaoRepo.buscarParticipacao(bolaoId, usuarioId);
+  const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+  const bolao = await bolaoRepo.buscarBolaoPorId(bolaoId);
+
+  let cravadas = 0;
+  let sete = 0;
+  let cinco = 0;
+  let tres = 0;
+  let zero = 0;
+  let totalPontos = 0;
+  for (const { pontosObtidos } of pontuados) {
+    totalPontos += pontosObtidos;
+    if (pontosObtidos === PONTUACAO_PADRAO.placarExato) cravadas++;
+    else if (pontosObtidos === PONTUACAO_PADRAO.resultadoMaisGols) sete++;
+    else if (pontosObtidos === PONTUACAO_PADRAO.resultadoCerto) cinco++;
+    else if (pontosObtidos === PONTUACAO_PADRAO.golsDeUmTime) tres++;
+    else zero++;
+  }
+
+  return {
+    nome: usuario?.nome ?? '',
+    nomeBolao: bolao?.nome ?? '',
+    cravadas,
+    sete,
+    cinco,
+    tres,
+    zero,
+    totalJogos: pontuados.length,
+    totalPontos,
+    posicao: participacao?.posicaoAtual ?? 0,
   };
 }
 
