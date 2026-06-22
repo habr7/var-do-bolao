@@ -22,6 +22,9 @@ export type ConversaState =
   | 'ENTRANDO_SENHA'
   | 'PALPITANDO'
   | 'ESCOLHENDO_BOLAO_RANKING'
+  // v3.38.0 — estatística de pontos por faixa, quando user tem >1 bolão
+  // sem padrão definido (espelha ESCOLHENDO_BOLAO_RANKING)
+  | 'ESCOLHENDO_BOLAO_ESTATISTICA'
   | 'ESCOLHENDO_BOLAO_PALPITES'
   | 'CONFIRMANDO_VER_PALPITES'
   // Estados do fluxo admin (aprovacao em DM natural)
@@ -95,6 +98,9 @@ export interface ConversaContext {
   // Lista de bolaoes possiveis quando o usuario precisa escolher
   // (estados ESCOLHENDO_BOLAO_*).
   boloesParaEscolher?: BolaoParaEscolher[];
+  // v3.38.0 — faixa de pontos destacada no pedido de estatística (10/7/5/3/0),
+  // preservada quando o user precisa escolher o bolão antes de ver a quebra.
+  estatisticaFaixaDestaque?: number;
   // Fluxo admin de aprovacao em DM natural
   solicitacaoIdParaConfirmar?: string;
   nomeSolicitanteParaConfirmar?: string;

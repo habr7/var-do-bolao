@@ -162,6 +162,40 @@ const CENARIOS: Cenario[] = [
   },
 
   // ====================================================================
+  // v3.38.0 — ESTATISTICA_PONTOS (quebra por faixa) + não-regressão
+  // ====================================================================
+  {
+    grupo: '📊 ESTATISTICA_PONTOS',
+    desc: '"quantas cravadas eu fiz?" → ESTATISTICA_PONTOS',
+    msg: 'quantas cravadas eu fiz?',
+    esperado: { intencao: Intencao.ESTATISTICA_PONTOS },
+  },
+  {
+    grupo: '📊 ESTATISTICA_PONTOS',
+    desc: '"estatística dos meus pontos" → ESTATISTICA_PONTOS',
+    msg: 'estatística dos meus pontos',
+    esperado: { intencao: Intencao.ESTATISTICA_PONTOS },
+  },
+  {
+    grupo: '📊 ESTATISTICA_PONTOS',
+    desc: 'Caso Humberto 22/06: "Quantos jogos eu fiz 10ponto"',
+    msg: 'Quantos jogos eu fiz 10ponto',
+    esperado: { intencao: Intencao.ESTATISTICA_PONTOS },
+  },
+  {
+    grupo: '📊 ESTATISTICA_PONTOS — não-regressão',
+    desc: '"quantos pontos fiz ontem" continua PONTOS_DETALHE',
+    msg: 'quantos pontos fiz ontem',
+    esperado: { intencao: Intencao.PONTOS_DETALHE },
+  },
+  {
+    grupo: '📊 ESTATISTICA_PONTOS — não-regressão',
+    desc: '"meus pontos" continua MEUS_PONTOS',
+    msg: 'meus pontos',
+    esperado: { intencao: Intencao.MEUS_PONTOS },
+  },
+
+  // ====================================================================
   // GRUPO 4: Novos handlers (Fase 2)
   // ====================================================================
   {

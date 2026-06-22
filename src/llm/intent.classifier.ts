@@ -70,6 +70,8 @@ export const INTENCOES_VALIDAS = [
   // Teste anti-drift (intent.classifier.drift.test.ts) impede regressão.
   Intencao.PLACAR_JOGO,
   Intencao.PONTOS_DETALHE,
+  // v3.38.0 — estatística de pontos por faixa (cravadas/7/5/3/0)
+  Intencao.ESTATISTICA_PONTOS,
   Intencao.STATUS_RODADA,
   Intencao.DESABAFO_RANKING,
   Intencao.RECLAMACAO_BUG,

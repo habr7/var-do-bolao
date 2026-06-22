@@ -619,6 +619,20 @@ pontos de ontem
 ```
 → Lista jogo a jogo: placar real, palpite do user e pontos obtidos (🎯 10 / 🥈 5-7 / 👍 3 / ❌ 0). Marca "⏳ calculando" se a pontuação do jogo ainda não rodou (~10min após o fim).
 
+### Estatística de pontos (quebra por faixa)
+```
+quantas cravadas eu fiz?
+quantos placares exatos acertei?
+quantos fiz 10 pontos?
+quantos de 7 / 5 / 3 pontos?
+quantas vezes zerei?
+estatística dos meus pontos
+resumo da minha pontuação
+de onde vêm meus pontos?
+meu aproveitamento
+```
+→ Conta quantos palpites seus pontuaram em cada faixa (🎯 cravadas/10 • 🔥 7 • 👍 5 • 😐 3 • ❌ 0) e soma o total. Só conta jogos já FINALIZADOS e calculados. Se você perguntou uma faixa específica (ex: "quantas cravadas?"), vem um destaque no topo + a quebra completa logo abaixo. Diferente de **pontos por jogo** (lista das últimas 48h) e de **meus pontos** (só o número total).
+
 ### Status da rodada
 ```
 quando atualiza o ranking?

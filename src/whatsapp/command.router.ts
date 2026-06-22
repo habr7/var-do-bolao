@@ -39,6 +39,7 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import { revelacoesParaUsuario } from '../modules/palpite/revelacao.service.js';
 import { montarMensagemRevelacao } from '../utils/palpite-reveal.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
+import { PONTUACAO_PADRAO } from '../modules/ranking/ranking.types.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
 import { construirFatosVivos } from '../llm/fatos-vivos.js';
@@ -230,6 +231,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
         return await handlePalpitando(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_RANKING':
         return await handleEscolhendoBolaoRanking(msg, session);
+      case 'ESCOLHENDO_BOLAO_ESTATISTICA':
+        return await handleEscolhendoBolaoEstatistica(msg, usuario.id, session);
       case 'ESCOLHENDO_BOLAO_PALPITES':
         return await handleEscolhendoBolaoPalpites(msg, usuario.id, session);
       case 'CONFIRMANDO_VER_PALPITES':
@@ -642,6 +645,10 @@ async function dispatchIntencao(
 
     case Intencao.PONTOS_DETALHE:
       await handlePontosDetalhe(msg, usuarioId);
+      return true;
+
+    case Intencao.ESTATISTICA_PONTOS:
+      await handleEstatisticaPontos(msg, usuarioId, raw);
       return true;
 
     case Intencao.STATUS_RODADA:
@@ -4158,6 +4165,182 @@ async function handleEscolhendoBolaoRanking(msg: IncomingMessage, session: Sessi
   await enviarRankingDoBolao(msg.waId, escolhido.id);
 }
 
+/**
+ * v3.38.0 — ESTATISTICA_PONTOS: quebra dos pontos do user por faixa
+ * (cravadas/10, 7, 5, 3, 0). Read-only — NUNCA registra palpite nem chama o
+ * responder conversacional, então é impossível alucinar "anotei palpite".
+ * Resolve o bolão espelhando o RANKING (padrão → 1 direto → senão escolha).
+ */
+async function handleEstatisticaPontos(msg: IncomingMessage, usuarioId: string, raw: string) {
+  void incContador('intent.ESTATISTICA_PONTOS');
+
+  const faixaDestaque = detectarFaixaEstatistica(raw);
+  const boloesDoUsuario = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
+
+  if (boloesDoUsuario.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text:
+        '📭 Você ainda não participa de nenhum bolão.\n\n' +
+        'Para entrar: *entrar em bolão*\nPara criar: *criar bolão*',
+    });
+    return;
+  }
+
+  let bolaoId: string;
+  if (boloesDoUsuario.length > 1) {
+    const padraoId = await bolaoService.getBolaoPadrao(usuarioId);
+    const padraoMatch = boloesDoUsuario.find((b) => b.id === padraoId);
+    if (padraoMatch) {
+      bolaoId = padraoMatch.id;
+    } else {
+      const temEncerrados = boloesDoUsuario.some((b) => b.status === 'FINALIZADO');
+      const opcoes = boloesDoUsuario.map((b) => ({
+        id: b.id,
+        nome: b.status === 'FINALIZADO' ? `${b.nome} 🏁` : b.nome,
+        codigo: b.codigo,
+      }));
+      await setSession(msg.waId, {
+        state: 'ESCOLHENDO_BOLAO_ESTATISTICA',
+        ctx: {
+          boloesParaEscolher: opcoes.map((o) => ({ id: o.id, nome: o.nome })),
+          estatisticaFaixaDestaque: faixaDestaque ?? undefined,
+        },
+      });
+      const lista = formatarBoloesNumerados(opcoes);
+      const legenda = temEncerrados
+        ? '\n\n_🏁 = bolão encerrado (estatística final guardada)_'
+        : '';
+      await sendText({
+        to: msg.waId,
+        text:
+          `Você está em vários bolões. De qual deles você quer a estatística de pontos?\n\n${lista}${legenda}\n\n${DICA_RESPOSTA_NUMERICA}\n\n` +
+          `_Dica: manda *bolão padrão* pra pular essa pergunta sempre._`,
+      });
+      return;
+    }
+  } else {
+    bolaoId = boloesDoUsuario[0].id;
+  }
+
+  await enviarEstatisticaDoBolao(msg.waId, usuarioId, bolaoId, faixaDestaque);
+}
+
+async function handleEscolhendoBolaoEstatistica(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const opcoes = session.ctx?.boloesParaEscolher ?? [];
+  if (opcoes.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda *estatística dos meus pontos* de novo.' });
+    return;
+  }
+
+  const escolhido = await escolherBolaoDaLista(msg.text, opcoes);
+  if (!escolhido) {
+    const lista = formatarBoloesNumerados(opcoes);
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não identifiquei qual bolão. Manda o número ou o nome de um destes:\n\n${lista}\n\n${DICA_RESPOSTA_NUMERICA}`,
+    });
+    return;
+  }
+
+  const faixaDestaque = session.ctx?.estatisticaFaixaDestaque ?? null;
+  await resetSession(msg.waId);
+  await enviarEstatisticaDoBolao(msg.waId, usuarioId, escolhido.id, faixaDestaque);
+}
+
+/**
+ * Detecta se o usuário perguntou por uma FAIXA específica de pontos pra
+ * destacar no topo da resposta. Devolve o valor da faixa (10/7/5/3/0) ou
+ * null (pedido genérico de estatística). Trabalha no texto normalizado.
+ */
+function detectarFaixaEstatistica(raw: string): number | null {
+  const norm = raw.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/\bcravad|placar(?:es)? exato|em cheio|cravei\b/.test(norm)) return 10;
+  if (/\bzerei|errei tudo|fiz 0\b|fiz zero|tirei 0\b|tirei zero|zero ponto/.test(norm)) return 0;
+  if (/\b(?:7|sete)\s*pontos?\b/.test(norm)) return 7;
+  if (/\b(?:5|cinco)\s*pontos?\b/.test(norm)) return 5;
+  if (/\b(?:3|tres)\s*pontos?\b/.test(norm)) return 3;
+  if (/\b(?:10|dez)\s*pontos?\b/.test(norm)) return 10;
+  return null;
+}
+
+function vezes(n: number): string {
+  return n === 1 ? '1 vez' : `${n} vezes`;
+}
+
+/**
+ * Monta o destaque (linha extra no topo) quando o user perguntou por uma
+ * faixa específica. Sempre seguido da quebra completa, então mesmo se a
+ * detecção errar a faixa, o usuário ainda recebe o resumo inteiro.
+ */
+function montarDestaqueFaixa(faixa: number, stats: rankingService.EstatisticaPontos): string | null {
+  switch (faixa) {
+    case 10:
+      return stats.cravadas > 0
+        ? `🎯 Você cravou o placar exato *${vezes(stats.cravadas)}*!`
+        : `🎯 Você ainda não cravou nenhum placar exato — mas tá na busca! 🍀`;
+    case 7:
+      return stats.sete > 0
+        ? `🔥 Você fez 7 pontos *${vezes(stats.sete)}* (vencedor + gols de um time)!`
+        : `🔥 Você ainda não fez nenhum palpite de 7 pontos.`;
+    case 5:
+      return stats.cinco > 0
+        ? `👍 Você fez 5 pontos *${vezes(stats.cinco)}* (acertou só o resultado)!`
+        : `👍 Você ainda não fez nenhum palpite de 5 pontos.`;
+    case 3:
+      return stats.tres > 0
+        ? `😐 Você fez 3 pontos *${vezes(stats.tres)}* (acertou só os gols de um time)!`
+        : `😐 Você ainda não fez nenhum palpite de 3 pontos.`;
+    case 0:
+      return stats.zero > 0
+        ? `❌ Você zerou *${vezes(stats.zero)}*.`
+        : `🎉 Você ainda não zerou nenhum palpite!`;
+    default:
+      return null;
+  }
+}
+
+async function enviarEstatisticaDoBolao(
+  waId: string,
+  usuarioId: string,
+  bolaoId: string,
+  faixaDestaque: number | null,
+) {
+  const stats = await rankingService.getEstatisticaPontos(usuarioId, bolaoId);
+
+  if (stats.totalJogos === 0) {
+    await sendText({
+      to: waId,
+      text:
+        `📊 *Estatística dos seus pontos — ${stats.nomeBolao}*\n\n` +
+        `Ainda não tem nenhum jogo seu pontuado nesse bolão. Assim que os jogos que você palpitou forem finalizados, a contagem aparece aqui! 🍀\n\n` +
+        `Manda *próximos jogos* pra palpitar ou *ranking* pra ver a tabela.`,
+    });
+    return;
+  }
+
+  const destaque = faixaDestaque !== null ? montarDestaqueFaixa(faixaDestaque, stats) : null;
+
+  const posicao = stats.posicao > 0 ? ` • Posição: ${stats.posicao}º` : '';
+  const corpo =
+    `📊 *Estatística dos seus pontos — ${stats.nomeBolao}*\n\n` +
+    `🎯 Cravadas (placar exato, ${PONTUACAO_PADRAO.placarExato} pts): ${stats.cravadas}\n` +
+    `🔥 Vencedor + gols de um time (${PONTUACAO_PADRAO.resultadoMaisGols} pts): ${stats.sete}\n` +
+    `👍 Só o resultado (${PONTUACAO_PADRAO.resultadoCerto} pts): ${stats.cinco}\n` +
+    `😐 Só os gols de um time (${PONTUACAO_PADRAO.golsDeUmTime} pts): ${stats.tres}\n` +
+    `❌ Errou (${PONTUACAO_PADRAO.errouTudo} pts): ${stats.zero}\n\n` +
+    `⚽ ${stats.totalJogos} ${stats.totalJogos === 1 ? 'jogo pontuado' : 'jogos pontuados'} • *Total: ${stats.totalPontos} pts*${posicao}\n` +
+    `_Manda *meus palpites* pra ver jogo a jogo, ou *ranking* pra a classificação._`;
+
+  const texto = destaque ? `${destaque}\n\n${corpo}` : corpo;
+  await sendText({ to: waId, text: texto });
+}
+
 async function handlePendentes(msg: IncomingMessage, usuarioId: string) {
   const pendentes = await solicitacaoService.listarPendentesDoAdmin(usuarioId);
   if (pendentes.length === 0) {
@@ -4295,6 +4478,7 @@ async function escapouFsmStaleParaAcaoAdmin(
   // States que sao "leitura/escolha" e podem ser interrompidos
   const ESTADOS_INTERROMPIVEIS = new Set<string>([
     'ESCOLHENDO_BOLAO_RANKING',
+    'ESCOLHENDO_BOLAO_ESTATISTICA',
     'ESCOLHENDO_BOLAO_PALPITES',
     'CONFIRMANDO_VER_PALPITES',
   ]);
@@ -4338,6 +4522,7 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
   // States onde a intent forte do user vence o estado anterior
   const ESTADOS_INTERROMPIVEIS = new Set<string>([
     'ESCOLHENDO_BOLAO_RANKING',
+    'ESCOLHENDO_BOLAO_ESTATISTICA',
     'ESCOLHENDO_BOLAO_PALPITES',
     'CONFIRMANDO_VER_PALPITES',
     'ESCOLHENDO_BOLAO_CONVITE',
@@ -4365,6 +4550,7 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     Intencao.MEU_PALPITE,
     Intencao.RANKING,
     Intencao.MEUS_PONTOS,
+    Intencao.ESTATISTICA_PONTOS,
     Intencao.MEUS_BOLOES,
     Intencao.CRIAR_BOLAO,
     Intencao.ENTRAR_BOLAO,

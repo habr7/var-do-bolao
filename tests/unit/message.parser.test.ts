@@ -101,6 +101,47 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.38.0 — ESTATISTICA_PONTOS (quebra por faixa)', () => {
+    // Caso real Humberto 22/06 — frases que ANTES caíam em PONTOS_DETALHE.
+    const FRASES_ESTATISTICA = [
+      'Quantos jogos eu fiz 10ponto',
+      'quantos fiz 10 pontos',
+      'De todos meus palpites, quantos eu acertei o placar exato e fiz 10 pontos?',
+      'quantas cravadas eu fiz?',
+      'quantos placares exatos acertei',
+      'quantos de 7 pontos',
+      'quantas vezes tirei 5 pontos',
+      'quantas vezes eu zerei',
+      'estatistica dos meus pontos',
+      'resumo da minha pontuacao',
+      'de onde vem meus pontos',
+      'meu aproveitamento',
+      'acertei em cheio quantas vezes',
+    ];
+    for (const frase of FRASES_ESTATISTICA) {
+      it(`"${frase}" → ESTATISTICA_PONTOS`, () => {
+        expect(parseIntencao(frase).intencao).toBe(Intencao.ESTATISTICA_PONTOS);
+      });
+    }
+
+    // NÃO-REGRESSÃO: estatística não pode roubar PONTOS_DETALHE / MEUS_PONTOS / RANKING.
+    it('"quantos pontos fiz ontem" continua PONTOS_DETALHE', () => {
+      expect(parseIntencao('quantos pontos fiz ontem').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+    it('"quantos pontos fiz hoje" continua PONTOS_DETALHE', () => {
+      expect(parseIntencao('quantos pontos fiz hoje').intencao).toBe(Intencao.PONTOS_DETALHE);
+    });
+    it('"meus pontos" continua MEUS_PONTOS', () => {
+      expect(parseIntencao('meus pontos').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"quantos pontos eu tenho" continua MEUS_PONTOS', () => {
+      expect(parseIntencao('quantos pontos eu tenho').intencao).toBe(Intencao.MEUS_PONTOS);
+    });
+    it('"ranking" continua RANKING', () => {
+      expect(parseIntencao('ranking').intencao).toBe(Intencao.RANKING);
+    });
+  });
+
   describe('admin approvals', () => {
     it('parseia !aprovar com nome', () => {
       const r = parseIntencao('!aprovar João Silva');

@@ -37,3 +37,20 @@ export async function buscarPontuacaoDetalhada(usuarioId: string, bolaoId: strin
     orderBy: { rodada: { numero: 'desc' } },
   });
 }
+
+/**
+ * v3.38.0 — Pontos JÁ calculados do usuário num bolão, pra estatística por
+ * faixa (cravadas/7/5/3/0). Só PalpiteJogo de palpite `calculado=true` em
+ * jogo `FINALIZADO` → `pontosObtidos` é o valor OFICIAL (exatamente
+ * 10/7/5/3/0), nunca um parcial de jogo rolando. Devolve só `pontosObtidos`
+ * pra o service agregar em memória.
+ */
+export async function buscarPontosCalculadosDoUsuario(usuarioId: string, bolaoId: string) {
+  return prisma.palpiteJogo.findMany({
+    where: {
+      palpite: { usuarioId, rodada: { bolaoId }, calculado: true },
+      jogo: { status: 'FINALIZADO' },
+    },
+    select: { pontosObtidos: true },
+  });
+}

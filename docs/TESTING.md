@@ -18,7 +18,7 @@ Mais um nível **com WhatsApp real**:
 npm test
 ```
 
-**953+ tests** distribuídos em `tests/unit/`. Cobre:
+**974+ tests** distribuídos em `tests/unit/`. Cobre:
 
 | Arquivo | O que testa |
 |---------|-------------|
@@ -37,6 +37,7 @@ npm test
 | `validators.test.ts` | placar, normalizeTeamName, **validarPlacar absurdo (ISSUE-013)**, **acharJogoPorTimes/resolverPalpiteParaJogo — ordem invertida (v3.25.0)**, **`timeCorresponde` — abreviação/grafia "Rep Checa"/"Coreia" + anti-falso-positivo (v3.29.0)** |
 | `broadcast.test.ts` | **(v3.26.0)** Broadcast admin: `ehDono` (JID vs dígitos), `parseBroadcast` (marcador/corpo/vazio/mid-text/case), destinatários TEST (só dono) vs PROD (todos+dedup), idempotência `SET NX`. 14 testes. |
 | `ranking.service.test.ts` | Pontuação 10/7/5/3/0 |
+| `estatistica-pontos.test.ts` | **(v3.38.0)** `getEstatisticaPontos`: contagem por faixa (cravadas/7/5/3/0) + total, query filtra só calculado=true + FINALIZADO, caso sem jogo pontuado (mock prisma) |
 | `paginar.test.ts` | **(v3.28.0)** `paginarBlocos`: páginas ≤ limite, não quebra bloco no meio, rodada de 72 jogos vira N páginas <3500 |
 | `lock.test.ts` | **(v3.28.0)** `comLockJob`: executa+libera, pula quando tomado, libera no `finally` mesmo se `fn` lança |
 | `aviso-cap.test.ts` | cap diário de avisos + **(v3.28.0)** reserva atômica `reservarCotaAviso`/`devolverCotaAviso` (corrige TOCTOU) |

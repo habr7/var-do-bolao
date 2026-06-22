@@ -31,6 +31,7 @@ export enum Intencao {
   ACOLHIMENTO_NOVATO = 'ACOLHIMENTO_NOVATO', // v3.9.0 — "nao entendo de futebol", "to perdida", "primeira vez"
   PLACAR_JOGO = 'PLACAR_JOGO',               // v3.15.0 — "qual o placar?", "quem ganhou?" (Copa rolando — banco TEM os placares)
   PONTOS_DETALHE = 'PONTOS_DETALHE',         // v3.15.0 — "quantos pontos fiz ontem?" (breakdown por jogo)
+  ESTATISTICA_PONTOS = 'ESTATISTICA_PONTOS', // v3.38.0 — "quantas cravadas fiz?", "estatística dos meus pontos" (quebra por faixa 10/7/5/3/0)
   STATUS_RODADA = 'STATUS_RODADA',           // v3.15.0 — "quando atualiza o ranking?", "quando sai o resultado?"
   DESABAFO_RANKING = 'DESABAFO_RANKING',     // v3.15.0 — "tô em último", "fui mal demais" (acolhimento)
   RECLAMACAO_BUG = 'RECLAMACAO_BUG',         // v3.15.0 — "meus pontos estão errados", "tá bugado" (loga + acolhe)
@@ -407,6 +408,44 @@ const PONTOS_DETALHE_PATTERNS: RegExp[] = [
   /\bmeus pontos? (?:de|do) (?:ontem|hoje|cada jogo)/,
   /\bdetalhe[s]? (?:da |de )?(?:minha )?pontua/,
   /\bpontos? por jogo\b/,
+];
+
+// v3.38.0 — ESTATISTICA_PONTOS: quebra dos pontos do user por FAIXA
+// (quantas cravadas/10, quantos de 7/5/3, quantos zerou). Distinto de:
+//   - PONTOS_DETALHE (breakdown por JOGO das últimas 48h)
+//   - MEUS_PONTOS (só o total geral)
+// Caso real Humberto 22/06: "Quantos jogos eu fiz 10ponto?" e "de todos
+// meus palpites, quantos acertei o placar exato?" caíam em PONTOS_DETALHE
+// (lista 48h), que não CONTA por faixa nem cobre o histórico todo.
+//
+// PRECEDÊNCIA: deve vir ANTES de PONTOS_DETALHE e MEUS_PONTOS nas
+// INTENT_RULES. Os patterns EXIGEM menção a faixa/estatística pra NÃO
+// roubar "quantos pontos fiz ontem" (→ PONTOS_DETALHE) nem "meus pontos"
+// (→ MEUS_PONTOS). Read-only — handler nunca registra palpite.
+const ESTATISTICA_PONTOS_PATTERNS: RegExp[] = [
+  // Faixa específica por nº de pontos: "quantos fiz 10 pontos?", "quantos
+  // jogos eu fiz 10ponto", "quantos de 7", "quantas vezes tirei 5 pontos".
+  // Aceita número grudado em "ponto" ("10ponto") e singular ("ponto").
+  /\bquant[oa]s?\b.*\b(?:fiz|tirei|peguei|acertei|cravei|ganhei|pontuei|de)\b.*\b(?:10|dez|7|sete|5|cinco|3|tres)\s*pontos?\b/,
+  /\bquant[oa]s?\b.*\b(?:10|dez|7|sete|5|cinco|3|tres)\s*pontos?\b.*\b(?:fiz|tirei|peguei|acertei|cravei|ganhei|pontuei)\b/,
+  // Cravadas / placar exato / em cheio.
+  /\bquant[oa]s?\b.*\bcravad/,
+  /\bquant[oa]s?\b.*\bplacar(?:es)? exato/,
+  /\bacertei em cheio\b/,
+  /\bquant[oa]s? (?:vezes )?(?:eu )?cravei\b/,
+  /\bacertei (?:o )?placar exato\b/,
+  /\bcravei (?:o )?placar\b/,
+  // Zerados / errou tudo.
+  /\bquant[oa]s?\b.*\b(?:zerei|errei tudo|fiz 0|fiz zero|tirei 0|tirei zero)\b/,
+  // Resumo/estatística geral dos pontos.
+  /\bestatistica.*pont/,
+  /\bresumo\b.*\bpont/,
+  /\bquebra\b.*\bpont/,
+  /\bdetalhamento\b.*\bpont/,
+  /\bcomo (?:eu )?(?:cheguei|fiz|formei|montei|somei) .*\btotal\b/,
+  /\bde onde (?:vem|sai|saem|saiu|vieram|sairam) .*pontos?\b/,
+  /\bmeu aproveitamento\b/,
+  /\bminha m[ée]dia de pontos?\b/,
 ];
 
 // v3.15.0 — STATUS_RODADA: quando atualiza ranking/pontos/resultado.
@@ -995,6 +1034,12 @@ const INTENT_RULES: IntentRules[] = [
   // errados" contém "meus pontos"). STATUS_RODADA antes de QUANDO_COMECA.
   { intencao: Intencao.RECLAMACAO_BUG, padroes: RECLAMACAO_BUG_PATTERNS },
   { intencao: Intencao.STATUS_RODADA, padroes: STATUS_RODADA_PATTERNS },
+  // v3.38.0 — ESTATISTICA_PONTOS ANTES de PONTOS_DETALHE e MEUS_PONTOS:
+  // "quantas cravadas fiz?" / "estatística dos meus pontos" pedem a quebra
+  // por faixa, não a lista 48h (PONTOS_DETALHE) nem o total (MEUS_PONTOS).
+  // Os patterns exigem faixa/estatística, então "quantos pontos fiz ontem"
+  // (→ PONTOS_DETALHE) e "meus pontos" (→ MEUS_PONTOS) seguem intactos.
+  { intencao: Intencao.ESTATISTICA_PONTOS, padroes: ESTATISTICA_PONTOS_PATTERNS },
   { intencao: Intencao.PONTOS_DETALHE, padroes: PONTOS_DETALHE_PATTERNS },
   { intencao: Intencao.DESABAFO_RANKING, padroes: DESABAFO_RANKING_PATTERNS },
   // Sprint 4 — PERGUNTA_GERAL_FUTEBOL antes de PROXIMOS_JOGOS/JOGOS_HOJE/
