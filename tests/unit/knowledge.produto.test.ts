@@ -146,8 +146,10 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO).toContain('🍀');
   });
 
-  it('tamanho cabe num system prompt sem inflar custo (estimativa <1500 tokens ~= <6000 chars)', () => {
-    expect(KNOWLEDGE_PRODUTO.length).toBeLessThan(6000);
+  it('tamanho cabe num system prompt sem inflar custo (estimativa <1750 tokens ~= <7000 chars)', () => {
+    // Teto subiu de 6000→7000 com a seção MATA-MATA (Copa 2026): regras de
+    // prorrogação/pênaltis, pontos por fase, bônus de classificado e chave.
+    expect(KNOWLEDGE_PRODUTO.length).toBeLessThan(7000);
     expect(KNOWLEDGE_PRODUTO.length).toBeGreaterThan(800); // não pode estar vazio/superficial
   });
 });

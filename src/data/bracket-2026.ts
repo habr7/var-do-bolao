@@ -154,6 +154,57 @@ export const BRACKET_2026: Record<string, AvancoJogo> = Object.fromEntries(
   Object.entries(AVANCO_POR_NUMERO).map(([numero, avanco]) => [apiIdMataMata(Number(numero)), avanco]),
 );
 
+// --- Placeholder de time ainda não definido --------------------------------
+//
+// As colunas Jogo.timeCasa/timeVisitante são NOT NULL no schema, então jogos de
+// oitavas+ (cujos times só saem com o resultado dos anteriores) entram com um
+// RÓTULO placeholder informativo ("Vencedor 73", "Perdedor 101"). O
+// advance-bracket.job sobrescreve pelo time real quando o jogo-fonte finaliza.
+
+/** Reverso de BRACKET_2026: `${apiJogoId}:${slot}` → rótulo do alimentador. */
+const ALIMENTADOR_POR_SLOT: Record<string, string> = (() => {
+  const m: Record<string, string> = {};
+  for (const [numeroStr, avanco] of Object.entries(AVANCO_POR_NUMERO)) {
+    const numero = Number(numeroStr);
+    if (avanco.vencedor) {
+      m[`${avanco.vencedor.proximoJogoApiId}:${avanco.vencedor.proximoSlot}`] = `Vencedor ${numero}`;
+    }
+    if (avanco.perdedor) {
+      m[`${avanco.perdedor.proximoJogoApiId}:${avanco.perdedor.proximoSlot}`] = `Perdedor ${numero}`;
+    }
+  }
+  return m;
+})();
+
+/**
+ * Rótulo placeholder pro slot (CASA/VISITANTE) de um jogo de oitavas+ —
+ * "Vencedor 73" / "Perdedor 101". Retorna null pra jogos do R32 (que já entram
+ * com times reais) ou slots sem alimentador conhecido.
+ */
+export function rotuloAlimentador(apiJogoId: string, slot: LadoJogo): string | null {
+  return ALIMENTADOR_POR_SLOT[`${apiJogoId}:${slot}`] ?? null;
+}
+
+/** True se o nome do time é um placeholder ("Vencedor 73"/"Perdedor 101"). */
+export function ehTimePlaceholder(nome: string): boolean {
+  return /^(Vencedor|Perdedor)\s+\d+$/i.test(nome.trim());
+}
+
+/** Label amigável de uma fase de mata-mata (pros handlers de chave/horário). */
+export const LABEL_POR_FASE: Record<Exclude<FaseTorneio, 'GRUPOS'>, string> = {
+  R32: '16-avos de final',
+  OITAVAS: 'Oitavas de final',
+  QUARTAS: 'Quartas de final',
+  SEMI: 'Semifinal',
+  TERCEIRO: 'Disputa de 3º lugar',
+  FINAL: 'Final',
+};
+
+/** Label da fase tolerante a GRUPOS (retorna 'Fase de grupos'). */
+export function faseLabel(fase: FaseTorneio): string {
+  return fase === 'GRUPOS' ? 'Fase de grupos' : LABEL_POR_FASE[fase];
+}
+
 // --- Sede → IANA timezone --------------------------------------------------
 //
 // A FIFA mostra horário LOCAL DA SEDE. Guardamos kickoff em UTC e exibimos em

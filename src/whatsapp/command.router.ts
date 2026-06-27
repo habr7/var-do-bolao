@@ -10,6 +10,19 @@ import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo, timeCorrespo
 import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarDataComDiaBR, formatarHoraBR } from '../utils/datetime.js';
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
 import { regrasTexto, regrasCompletas, regrasMataMata, boasVindasComRegras } from './regras.text.js';
+import {
+  infoProrrogacao,
+  infoPenalti,
+  infoEmpateMataMata,
+  infoPontosMataMata,
+  infoBonusClassificado,
+  infoCravaEmpate,
+  infoRankingContinua,
+  infoOQueMuda,
+} from './mata-mata.respostas.js';
+import * as bracketService from '../modules/bracket/bracket.service.js';
+import { faseLabel } from '../data/bracket-2026.js';
+import type { FaseTorneio } from '@prisma/client';
 import { paginarBlocos } from '../utils/paginar.js';
 import { extrairNomeBolaoInlineSair } from './sair.helper.js';
 import { montarStatusResultado } from './palpite-render.js';
@@ -658,6 +671,42 @@ async function dispatchIntencao(
       await iniciarSubmenuRegras(msg);
       return true;
     }
+
+    // ----- Mata-mata: dúvidas frequentes (resposta fixa, custo zero) -----
+    case Intencao.INFO_PRORROGACAO:
+      await sendText({ to: msg.waId, text: infoProrrogacao() });
+      return true;
+    case Intencao.INFO_PENALTI:
+      await sendText({ to: msg.waId, text: infoPenalti() });
+      return true;
+    case Intencao.INFO_EMPATE_MATAMATA:
+      await sendText({ to: msg.waId, text: infoEmpateMataMata() });
+      return true;
+    case Intencao.INFO_PONTOS_MATAMATA:
+      await sendText({ to: msg.waId, text: infoPontosMataMata() });
+      return true;
+    case Intencao.INFO_BONUS_CLASSIFICADO:
+      await sendText({ to: msg.waId, text: infoBonusClassificado() });
+      return true;
+    case Intencao.INFO_CRAVA_EMPATE:
+      await sendText({ to: msg.waId, text: infoCravaEmpate() });
+      return true;
+    case Intencao.INFO_RANKING_CONTINUA:
+      await sendText({ to: msg.waId, text: infoRankingContinua() });
+      return true;
+    case Intencao.INFO_O_QUE_MUDA:
+      await sendText({ to: msg.waId, text: infoOQueMuda() });
+      return true;
+    // ----- Mata-mata: leitura da chave -----
+    case Intencao.ADVERSARIO_TIME:
+      await handleAdversarioTime(msg, usuarioId);
+      return true;
+    case Intencao.HORARIO_JOGO:
+      await handleHorarioJogo(msg, usuarioId);
+      return true;
+    case Intencao.VER_CHAVE:
+      await handleVerChave(msg, usuarioId);
+      return true;
 
     case Intencao.PALPITES_AMBIGUO:
       await handlePalpitesAmbiguo(msg);
@@ -3310,6 +3359,146 @@ async function handleConfirmandoClassificadoMataMata(
   if (rodadaIdParaMais) {
     await talvezOferecerMaisJogos(msg, usuarioId, rodadaIdParaMais);
   }
+}
+
+/**
+ * Extrai o nome do time de perguntas tipo "quem o Brasil enfrenta" / "que horas
+ * joga o Brasil". Devolve o miolo (sem stopwords iniciais via normalizeTeamName,
+ * que o matcher já tolera). Retorna '' se não achar.
+ */
+function extrairTimeDaPergunta(texto: string): string {
+  const padroes: RegExp[] = [
+    /quem (?:o |a )?(.+?) (?:enfrenta|pega|joga contra|encara|vai pegar|vai enfrentar)\b/i,
+    /advers[áa]rio (?:d[oae] )?(.+)$/i,
+    /(.+?) (?:joga|enfrenta|pega) contra quem/i,
+    /contra quem (?:o |a )?(.+?) joga/i,
+    /que horas? (?:joga|joga[m]?) (?:o |a )?(.+)$/i,
+    /que horas? (?:o |a )?(.+?) joga/i,
+    /(?:quando|hor[áa]rio) (?:e |eh |é )?(?:o jogo )?(?:d[oae] )?(.+)$/i,
+  ];
+  for (const p of padroes) {
+    const m = texto.match(p);
+    if (m && m[1]) {
+      return m[1].replace(/[?!.]+$/, '').trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * ADVERSARIO_TIME — "quem o Brasil enfrenta?". Lê a chave semeada/avançada do(s)
+ * bolão(ões) do user. Se o adversário ainda não está definido, responde a
+ * dependência (sai depois do jogo X) — nunca inventa.
+ */
+async function handleAdversarioTime(msg: IncomingMessage, usuarioId: string) {
+  const time = extrairTimeDaPergunta(msg.text);
+  if (!time) {
+    await sendText({
+      to: msg.waId,
+      text: 'Qual time você quer saber o adversário? _(ex: "quem o Brasil enfrenta?")_',
+    });
+    return;
+  }
+  const confronto = await bracketService.acharConfrontoDoTime(usuarioId, time);
+  if (!confronto) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não achei *${time}* na chave de mata-mata dos seus bolões.\n` +
+        `Pode ser que ainda não esteja definido, ou o nome veio diferente. Tenta *ver a chave*.`,
+    });
+    return;
+  }
+  const { jogo, adversario, adversarioIndefinido } = confronto;
+  const fase = faseLabel(jogo.fase);
+  if (adversarioIndefinido) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `⏳ O adversário de *${time}* nas *${fase}* ainda não está definido — ` +
+        `sai depois do jogo *${adversario.replace(/^(Vencedor|Perdedor)\s+/i, '#')}*. 🔜`,
+    });
+    return;
+  }
+  await sendText({
+    to: msg.waId,
+    text:
+      `🆚 Nas *${fase}*, o adversário é *${adversario}*.\n` +
+      `📅 ${formatarDataHoraComDiaBR(jogo.dataHora)} _(horário de Brasília)_`,
+  });
+}
+
+/**
+ * HORARIO_JOGO — "que horas joga o Brasil?". Kickoff em Brasília + fase do
+ * próximo jogo do time na chave.
+ */
+async function handleHorarioJogo(msg: IncomingMessage, usuarioId: string) {
+  const time = extrairTimeDaPergunta(msg.text);
+  if (!time) {
+    await sendText({
+      to: msg.waId,
+      text: 'De qual time você quer o horário? _(ex: "que horas joga o Brasil?")_',
+    });
+    return;
+  }
+  const confronto = await bracketService.acharConfrontoDoTime(usuarioId, time);
+  if (!confronto) {
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não achei jogo de *${time}* na chave dos seus bolões. Tenta *ver a chave*.`,
+    });
+    return;
+  }
+  const { jogo, adversario, adversarioIndefinido } = confronto;
+  const fase = faseLabel(jogo.fase);
+  const advLabel = adversarioIndefinido ? 'adversário a definir' : adversario;
+  await sendText({
+    to: msg.waId,
+    text:
+      `🕐 *${time}* joga nas *${fase}*:\n` +
+      `${formatarDataHoraComDiaBR(jogo.dataHora)} _(horário de Brasília)_ — vs *${advLabel}*`,
+  });
+}
+
+/**
+ * VER_CHAVE — resumo dos confrontos de mata-mata do(s) bolão(ões) do user, com
+ * fase e horário em Brasília. Jogos com time a definir aparecem como tal.
+ */
+async function handleVerChave(msg: IncomingMessage, usuarioId: string) {
+  const jogos = await bracketService.buscarJogosMataMataDoUsuario(usuarioId);
+  if (jogos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🏆 A chave do mata-mata ainda não foi aberta nos seus bolões. Assim que sair, te aviso!',
+    });
+    return;
+  }
+  // Agrupa por fase, na ordem do torneio.
+  const ordemFase = ['R32', 'OITAVAS', 'QUARTAS', 'SEMI', 'TERCEIRO', 'FINAL'];
+  const porFase = new Map<string, typeof jogos>();
+  for (const j of jogos) {
+    if (!porFase.has(j.fase)) porFase.set(j.fase, []);
+    porFase.get(j.fase)!.push(j);
+  }
+  const blocos: string[] = [];
+  for (const fase of ordemFase) {
+    const lista = porFase.get(fase);
+    if (!lista || lista.length === 0) continue;
+    const linhas = lista
+      .map((j) => {
+        const placar =
+          j.status === 'FINALIZADO' && j.golsCasa !== null && j.golsVisitante !== null
+            ? ` — ${j.golsCasa}x${j.golsVisitante} ✅`
+            : ` _(${formatarDataHoraComDiaBR(j.dataHora)})_`;
+        return `• ${j.timeCasa} x ${j.timeVisitante}${placar}`;
+      })
+      .join('\n');
+    blocos.push(`*${faseLabel(fase as FaseTorneio)}*\n${linhas}`);
+  }
+  await sendText({
+    to: msg.waId,
+    text: `🏆 *CHAVE DO MATA-MATA*\n_(horários de Brasília)_\n\n${blocos.join('\n\n')}`,
+  });
 }
 
 /**

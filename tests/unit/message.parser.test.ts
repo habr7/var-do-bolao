@@ -1306,11 +1306,36 @@ describe('parseIntencao', () => {
         Intencao.PERGUNTA_GERAL_FUTEBOL,
       );
     });
-    it('"que horas joga o Brasil?" → PERGUNTA_GERAL_FUTEBOL', () => {
+    // Mata-mata (Copa 2026): "que horas joga o Brasil?" agora é HORARIO_JOGO —
+    // o bot lê a chave semeada do bolão do user (com fallback gracioso se o time
+    // não estiver na chave dele). Antes caía em PERGUNTA_GERAL_FUTEBOL (LLM).
+    it('"que horas joga o Brasil?" → HORARIO_JOGO (lê a chave do bolão)', () => {
       expect(parseIntencao('que horas joga o Brasil?').intencao).toBe(
-        Intencao.PERGUNTA_GERAL_FUTEBOL,
+        Intencao.HORARIO_JOGO,
       );
     });
+    it('mata-mata: dúvidas frequentes caem nos intents certos', () => {
+      const casos: Array<[string, Intencao]> = [
+        ['a prorrogação conta?', Intencao.INFO_PRORROGACAO],
+        ['e se for pra prorrogação?', Intencao.INFO_PRORROGACAO],
+        ['pênalti conta?', Intencao.INFO_PENALTI],
+        ['e os pênaltis?', Intencao.INFO_PENALTI],
+        ['e se empatar?', Intencao.INFO_EMPATE_MATAMATA],
+        ['quanto vale a final?', Intencao.INFO_PONTOS_MATAMATA],
+        ['o que é o bônus?', Intencao.INFO_BONUS_CLASSIFICADO],
+        ['se errar quem passa perco a crava?', Intencao.INFO_CRAVA_EMPATE],
+        ['o ranking zera?', Intencao.INFO_RANKING_CONTINUA],
+        ['o que muda agora?', Intencao.INFO_O_QUE_MUDA],
+        ['ver a chave', Intencao.VER_CHAVE],
+        ['mostra o bracket', Intencao.VER_CHAVE],
+        ['quem o Brasil enfrenta?', Intencao.ADVERSARIO_TIME],
+        ['que horas joga o Brasil?', Intencao.HORARIO_JOGO],
+      ];
+      for (const [texto, esperado] of casos) {
+        expect(parseIntencao(texto).intencao, texto).toBe(esperado);
+      }
+    });
+
     it('"quem joga hoje?" → PERGUNTA_GERAL_FUTEBOL', () => {
       expect(parseIntencao('quem joga hoje?').intencao).toBe(
         Intencao.PERGUNTA_GERAL_FUTEBOL,

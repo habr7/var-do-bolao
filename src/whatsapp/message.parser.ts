@@ -67,6 +67,19 @@ export enum Intencao {
   // Sprint 2 — pontuacao cruzada (ISSUE-023)
   RESUMO_BOLOES = 'RESUMO_BOLOES',   // "como to indo nos boloes", "meu desempenho geral"
 
+  // Mata-mata (Copa 2026) — dúvidas frequentes (regex-first, custo zero).
+  INFO_PRORROGACAO = 'INFO_PRORROGACAO',           // "prorrogação conta?", "vale a prorrogação?"
+  INFO_PENALTI = 'INFO_PENALTI',                   // "pênalti conta?", "vale pênalti?"
+  INFO_EMPATE_MATAMATA = 'INFO_EMPATE_MATAMATA',   // "e se empatar?", "como palpito empate?"
+  INFO_PONTOS_MATAMATA = 'INFO_PONTOS_MATAMATA',   // "os pontos aumentaram?", "quanto vale a final?"
+  INFO_BONUS_CLASSIFICADO = 'INFO_BONUS_CLASSIFICADO', // "o que é o bônus?", "ponto de quem passa?"
+  INFO_CRAVA_EMPATE = 'INFO_CRAVA_EMPATE',         // "se errar quem passa perco a crava?"
+  INFO_RANKING_CONTINUA = 'INFO_RANKING_CONTINUA', // "o ranking zera?", "meus pontos dos grupos contam?"
+  INFO_O_QUE_MUDA = 'INFO_O_QUE_MUDA',             // "o que muda agora?", "o que mudou no mata-mata?"
+  ADVERSARIO_TIME = 'ADVERSARIO_TIME',             // "quem o Brasil enfrenta?", "adversário do Brasil"
+  HORARIO_JOGO = 'HORARIO_JOGO',                   // "que horas joga o Brasil?", "horário do jogo de X"
+  VER_CHAVE = 'VER_CHAVE',                         // "ver a chave", "mostra o bracket", "como tá o chaveamento"
+
   AJUDA = 'AJUDA',
   CANCELAR = 'CANCELAR',
 
@@ -920,6 +933,82 @@ const QUANDO_COMECA_PATTERNS: RegExp[] = [
   /\b(?:qual|que) (?:dia|data|hora) (?:comeca|come[cç]a|inicia|termina|fecha|abre)\b/,
   /\bquando (?:eh|e) (?:a |o )?(?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
   /\bdata (?:da|do) (?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
+  // Mata-mata: "quando começa o mata-mata", "quando são os 16-avos/oitavas"
+  /\bquando (?:comeca|come[cç]a|sao|s[ãa]o|eh|e|inicia[m]?) (?:os |as |o |a )?(?:16[\s-]?avos|dezesseis avos|mata[\s-]?mata|matamata|oitavas|quartas|semi|final)/,
+];
+
+// ============================================================
+// Mata-mata (Copa 2026) — dúvidas frequentes. Regex-first, resposta fixa.
+// Vêm ANTES de REGRAS/PERGUNTA_GERAL_FUTEBOL nas INTENT_RULES.
+// ============================================================
+const INFO_PRORROGACAO_PATTERNS: RegExp[] = [
+  /\bprorroga[çc][ãa]o\b/,
+  /\btempo extra\b/,
+  /\bvai pr[ao] (?:tempo )?extra\b/,
+];
+const INFO_PENALTI_PATTERNS: RegExp[] = [
+  /\bp[êe]naltis?\b.*\b(conta|vale|entra|n[ãa]o)\b/,
+  /\b(conta|vale|entra|e os?|e as|tem)\b.*\bp[êe]naltis?\b/,
+  /\bdisputa de p[êe]naltis?\b/,
+  /\bnos p[êe]naltis?\b.*\b(conta|vale|placar)\b/,
+];
+const INFO_EMPATE_MATAMATA_PATTERNS: RegExp[] = [
+  /\b(e )?se (der )?empat(ar|e|ou)\b/,
+  /\bcomo (?:eu )?palpit(?:o|ar) (?:um |o )?empate\b/,
+  /\bempate no mata[\s-]?mata\b/,
+  /\bdeu empate\b.*\b(e agora|quem passa|o que)\b/,
+];
+const INFO_PONTOS_MATAMATA_PATTERNS: RegExp[] = [
+  /\bos? pontos? (?:aumentar|subir|mudar|cresce)/,
+  /\bquanto (?:vale|valem)\b.*\b(agora|mata[\s-]?mata|final|semi|quartas|oitavas|16[\s-]?avos)\b/,
+  /\bquanto (?:vale|valem) (?:a |o )?(?:final|semi|semifinal|quartas|oitavas)\b/,
+  /\bos pontos (?:do mata[\s-]?mata|aumentaram)\b/,
+];
+const INFO_BONUS_CLASSIFICADO_PATTERNS: RegExp[] = [
+  /\bo que (?:e|eh|é) o b[ôo]nus\b/,
+  /\bcomo (?:eu )?ganho o b[ôo]nus\b/,
+  /\bponto de quem passa\b/,
+  /\bb[ôo]nus (?:de |do )?(?:classificad|quem passa)/,
+];
+const INFO_CRAVA_EMPATE_PATTERNS: RegExp[] = [
+  /\bse (?:eu )?errar quem passa\b/,
+  /\b(perco|perde|perdi) a crava\b/,
+  /\berr(?:ei|ar|o) o classificad/,
+  /\berr(?:ei|ar|o) quem (?:passa|classifica)\b.*\b(placar|crava|ponto)\b/,
+];
+const INFO_RANKING_CONTINUA_PATTERNS: RegExp[] = [
+  /\b(?:o )?ranking (?:vai )?zera/,
+  /\bcome[çc]a do zero\b/,
+  /\b(?:meus )?pontos (?:dos |da )?grupos? (?:contam|valem|continuam)/,
+  /\bzera (?:tudo|os pontos|o ranking)\b/,
+  /\bperco (?:meus )?pontos (?:dos|da fase de) grupos\b/,
+];
+const INFO_O_QUE_MUDA_PATTERNS: RegExp[] = [
+  /\bo que (?:muda|mudou) (?:agora|no mata[\s-]?mata|na copa|pra frente)/,
+  /\bo que (?:muda|mudou) (?:com o|no) (?:mata[\s-]?mata|eliminat)/,
+  /\bmudou alguma coisa (?:no|com o) mata[\s-]?mata\b/,
+];
+const VER_CHAVE_PATTERNS: RegExp[] = [
+  /\bver (?:a )?chave\b/,
+  /\bcomo (?:t[áa]|esta|está) (?:o )?chaveamento\b/,
+  /\bmostr(?:a|ar) (?:o )?(?:bracket|chaveamento|chave)\b/,
+  /\bchave do mata[\s-]?mata\b/,
+  /\bcomo (?:ficou|t[áa]) a chave\b/,
+];
+// ADVERSARIO_TIME e HORARIO_JOGO precisam resolver um TIME. Os patterns
+// capturam o nome no grupo 1 (lido pelo handler via re-exec).
+const ADVERSARIO_TIME_PATTERNS: RegExp[] = [
+  /\bquem (?:o |a )?(.+?) (?:enfrenta|pega|joga contra|encara)\b/,
+  /\badvers[áa]rio (?:d[oae] )?(.+)$/,
+  /\b(.+?) (?:joga|enfrenta|pega) contra quem\b/,
+  /\bcontra quem (?:o |a )?(.+?) joga\b/,
+  /\bquem (?:o |a )?(.+?) (?:vai )?(?:pegar|enfrentar) (?:n[oa]s? )?(?:oitavas|quartas|semi|final|16[\s-]?avos)\b/,
+];
+const HORARIO_JOGO_PATTERNS: RegExp[] = [
+  /\bque horas? (?:joga|e o jogo d[oae]|joga[m]?) (?:o |a )?(.+)$/,
+  /\bquando (?:e|eh|é) o jogo d[oae] (.+)$/,
+  /\bhor[áa]rio do jogo (?:d[oae] )?(.+)$/,
+  /\bque horas? (?:o |a )?(.+?) joga\b/,
 ];
 
 // v3.8.0 — PROGRESSO_PALPITES: visibilidade pra qualquer participante do
@@ -1092,6 +1181,22 @@ const INTENT_RULES: IntentRules[] = [
   { intencao: Intencao.ESTATISTICA_PONTOS, padroes: ESTATISTICA_PONTOS_PATTERNS },
   { intencao: Intencao.PONTOS_DETALHE, padroes: PONTOS_DETALHE_PATTERNS },
   { intencao: Intencao.DESABAFO_RANKING, padroes: DESABAFO_RANKING_PATTERNS },
+  // Mata-mata (Copa 2026) — dúvidas frequentes ANTES de REGRAS e de
+  // PERGUNTA_GERAL_FUTEBOL (respostas fixas, custo zero). Mais específicas
+  // primeiro: CRAVA_EMPATE (errar classificado) antes de EMPATE_MATAMATA.
+  { intencao: Intencao.INFO_PRORROGACAO, padroes: INFO_PRORROGACAO_PATTERNS },
+  { intencao: Intencao.INFO_PENALTI, padroes: INFO_PENALTI_PATTERNS },
+  { intencao: Intencao.INFO_CRAVA_EMPATE, padroes: INFO_CRAVA_EMPATE_PATTERNS },
+  { intencao: Intencao.INFO_BONUS_CLASSIFICADO, padroes: INFO_BONUS_CLASSIFICADO_PATTERNS },
+  { intencao: Intencao.INFO_PONTOS_MATAMATA, padroes: INFO_PONTOS_MATAMATA_PATTERNS },
+  { intencao: Intencao.INFO_RANKING_CONTINUA, padroes: INFO_RANKING_CONTINUA_PATTERNS },
+  { intencao: Intencao.INFO_O_QUE_MUDA, padroes: INFO_O_QUE_MUDA_PATTERNS },
+  { intencao: Intencao.INFO_EMPATE_MATAMATA, padroes: INFO_EMPATE_MATAMATA_PATTERNS },
+  { intencao: Intencao.VER_CHAVE, padroes: VER_CHAVE_PATTERNS },
+  // ADVERSARIO_TIME / HORARIO_JOGO leem o bracket; vêm antes de
+  // PERGUNTA_GERAL_FUTEBOL pra "quem o Brasil enfrenta" ir pro handler da chave.
+  { intencao: Intencao.ADVERSARIO_TIME, padroes: ADVERSARIO_TIME_PATTERNS },
+  { intencao: Intencao.HORARIO_JOGO, padroes: HORARIO_JOGO_PATTERNS },
   // Sprint 4 — PERGUNTA_GERAL_FUTEBOL antes de PROXIMOS_JOGOS/JOGOS_HOJE/
   // RANKING porque perguntas sobre time/canal/jogo especifico tem
   // palavras-chave em comum mas devem cair em LLM conversacional, nao
