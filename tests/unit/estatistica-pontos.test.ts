@@ -36,17 +36,20 @@ describe('getEstatisticaPontos', () => {
   });
 
   it('conta cada faixa e soma o total', async () => {
+    // Fase de grupos (bonusObtido 0, fase GRUPOS) — faixas 10/7/5/3/0 do
+    // PONTUACAO_PADRAO. A bucketização agora é por FASE (ver getEstatisticaPontos).
+    const grupo = (pontosObtidos: number) => ({ pontosObtidos, bonusObtido: 0, jogo: { fase: 'GRUPOS' } });
     h.palpiteJogoFindMany.mockResolvedValue([
-      { pontosObtidos: 10 },
-      { pontosObtidos: 7 },
-      { pontosObtidos: 7 },
-      { pontosObtidos: 7 },
-      { pontosObtidos: 7 },
-      { pontosObtidos: 5 },
-      { pontosObtidos: 5 },
-      { pontosObtidos: 3 },
-      { pontosObtidos: 3 },
-      { pontosObtidos: 0 },
+      grupo(10),
+      grupo(7),
+      grupo(7),
+      grupo(7),
+      grupo(7),
+      grupo(5),
+      grupo(5),
+      grupo(3),
+      grupo(3),
+      grupo(0),
     ]);
 
     const stats = await getEstatisticaPontos('u1', 'b1');
@@ -74,6 +77,22 @@ describe('getEstatisticaPontos', () => {
     expect(arg.where.palpite.calculado).toBe(true);
     expect(arg.where.palpite.rodada.bolaoId).toBe('b1');
     expect(arg.where.jogo.status).toBe('FINALIZADO');
+  });
+
+  it('mata-mata: cravada de oitavas (12) conta como cravada e o bônus entra no total', async () => {
+    // 1 cravada de oitavas (placar 12 + bônus 3) + 1 resultado de quartas (7 + bônus 4).
+    h.palpiteJogoFindMany.mockResolvedValue([
+      { pontosObtidos: 12, bonusObtido: 3, jogo: { fase: 'OITAVAS' } },
+      { pontosObtidos: 7, bonusObtido: 4, jogo: { fase: 'QUARTAS' } },
+    ]);
+
+    const stats = await getEstatisticaPontos('u1', 'b1');
+
+    expect(stats.cravadas).toBe(1); // 12 = placarExato de OITAVAS (não cai no "zero")
+    expect(stats.cinco).toBe(1); // 7 = resultadoCerto de QUARTAS
+    expect(stats.zero).toBe(0);
+    expect(stats.totalPontos).toBe(12 + 3 + 7 + 4); // 26 (placar + bônus)
+    expect(stats.bonusTotal).toBe(3 + 4); // bônus de classificado somado
   });
 
   it('zera tudo quando o user não tem jogo pontuado', async () => {
@@ -109,8 +128,11 @@ describe('getJogosPorFaixa (v3.39.0 — drill-down)', () => {
         }
         return Promise.resolve([]); // outras faixas vazias neste fixture
       }
-      // agregado: 1×10 + 1×7
-      return Promise.resolve([{ pontosObtidos: 10 }, { pontosObtidos: 7 }]);
+      // agregado: 1×10 + 1×7 (grupos — bonus 0, fase GRUPOS)
+      return Promise.resolve([
+        { pontosObtidos: 10, bonusObtido: 0, jogo: { fase: 'GRUPOS' } },
+        { pontosObtidos: 7, bonusObtido: 0, jogo: { fase: 'GRUPOS' } },
+      ]);
     });
   });
 

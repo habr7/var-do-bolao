@@ -52,11 +52,37 @@ export async function atualizarResultados(rodadaId: string, campeonatoId: string
       continue;
     }
 
+    // Mata-mata: define quem avançou. Usa o classificado do provider se vier;
+    // senão, em jogo DECISIVO (placar diferente) infere o vencedor. Em empate
+    // (foi pra pênaltis) deixa null até o provider informar — o placar gravado
+    // é sempre 90'+prorrogação (pênalti não entra). Em GRUPOS, sempre null.
+    let extrasMataMata: { classificadoLado?: 'CASA' | 'VISITANTE' | null; decididoNosPenaltis?: boolean | null } | undefined;
+    if (jogo.fase !== 'GRUPOS' && resultado.status === 'FINALIZADO') {
+      let classificado = resultado.classificadoLado ?? null;
+      if (classificado == null && resultado.golsCasa !== resultado.golsVisitante) {
+        classificado = resultado.golsCasa > resultado.golsVisitante ? 'CASA' : 'VISITANTE';
+      }
+      extrasMataMata = {
+        classificadoLado: classificado,
+        decididoNosPenaltis: resultado.decididoNosPenaltis ?? null,
+      };
+      // Empate finalizado sem classificado (foi a pênaltis e o provider não
+      // informou o vencedor) → não avança sozinho. Loga pro dono resolver com
+      // o comando admin `#CLASSIFICADO <apiJogoId> <lado>`.
+      if (classificado == null) {
+        console.warn(
+          `[fetch-results] empate de mata-mata sem classificado: ${resultado.apiJogoId} ` +
+            `(${resultado.golsCasa}x${resultado.golsVisitante}) — defina com #CLASSIFICADO`,
+        );
+      }
+    }
+
     const r = await rodadaRepo.atualizarResultadoJogoComResetCalc(
       jogo.id,
       resultado.golsCasa,
       resultado.golsVisitante,
       resultado.status,
+      extrasMataMata,
     );
 
     atualizados++;

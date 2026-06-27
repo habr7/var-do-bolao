@@ -876,10 +876,11 @@ const CENARIOS: Cenario[] = [
     esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
   },
   {
+    // Mata-mata (Copa 2026): agora é HORARIO_JOGO (lê a chave do bolão).
     grupo: '⚽ Sprint 4 — PERGUNTA_GERAL_FUTEBOL',
-    desc: '"que horas joga o Brasil?" → PERGUNTA_GERAL_FUTEBOL',
+    desc: '"que horas joga o Brasil?" → HORARIO_JOGO (mata-mata: lê a chave)',
     msg: 'que horas joga o Brasil?',
-    esperado: { intencao: Intencao.PERGUNTA_GERAL_FUTEBOL },
+    esperado: { intencao: Intencao.HORARIO_JOGO },
   },
   {
     // v3.15.0: "quem ganhou" casa PLACAR_JOGO no parser; o HANDLER delega
@@ -920,6 +921,85 @@ const CENARIOS: Cenario[] = [
     desc: '"ranking" sozinho continua RANKING',
     msg: 'ranking',
     esperado: { intencao: Intencao.RANKING },
+  },
+
+  // ====================================================================
+  // GRUPO MATA-MATA (Copa 2026) — dúvidas frequentes + leitura da chave
+  // ====================================================================
+  {
+    grupo: '🏆 Mata-mata — prorrogação',
+    desc: '"a prorrogação conta?" → INFO_PRORROGACAO',
+    msg: 'a prorrogação conta?',
+    esperado: { intencao: Intencao.INFO_PRORROGACAO },
+  },
+  {
+    grupo: '🏆 Mata-mata — pênalti',
+    desc: '"e os pênaltis?" → INFO_PENALTI',
+    msg: 'e os pênaltis?',
+    esperado: { intencao: Intencao.INFO_PENALTI },
+  },
+  {
+    grupo: '🏆 Mata-mata — empate',
+    desc: '"e se empatar?" → INFO_EMPATE_MATAMATA',
+    msg: 'e se empatar?',
+    esperado: { intencao: Intencao.INFO_EMPATE_MATAMATA },
+  },
+  {
+    grupo: '🏆 Mata-mata — pontos por fase',
+    desc: '"quanto vale a final?" → INFO_PONTOS_MATAMATA',
+    msg: 'quanto vale a final?',
+    esperado: { intencao: Intencao.INFO_PONTOS_MATAMATA },
+  },
+  {
+    grupo: '🏆 Mata-mata — crava preservada',
+    desc: '"se errar quem passa perco a crava?" → INFO_CRAVA_EMPATE',
+    msg: 'se errar quem passa perco a crava?',
+    esperado: { intencao: Intencao.INFO_CRAVA_EMPATE },
+  },
+  {
+    grupo: '🏆 Mata-mata — ranking cumulativo',
+    desc: '"o ranking zera?" → INFO_RANKING_CONTINUA',
+    msg: 'o ranking zera?',
+    esperado: { intencao: Intencao.INFO_RANKING_CONTINUA },
+  },
+  {
+    grupo: '🏆 Mata-mata — adversário',
+    desc: '"quem o Brasil enfrenta?" → ADVERSARIO_TIME',
+    msg: 'quem o Brasil enfrenta?',
+    esperado: { intencao: Intencao.ADVERSARIO_TIME },
+  },
+  {
+    grupo: '🏆 Mata-mata — horário',
+    desc: '"que horas joga o Brasil?" → HORARIO_JOGO',
+    msg: 'que horas joga o Brasil?',
+    esperado: { intencao: Intencao.HORARIO_JOGO },
+  },
+  {
+    grupo: '🏆 Mata-mata — chave',
+    desc: '"mostra o bracket" → VER_CHAVE',
+    msg: 'mostra o bracket',
+    esperado: { intencao: Intencao.VER_CHAVE },
+  },
+  {
+    grupo: '🏆 Mata-mata — palpite empate (placar segue normal)',
+    desc: '"Brasil 1x1 Argentina" parseia como palpite inline (classificado é perguntado depois, na FSM)',
+    msg: 'Brasil 1x1 Argentina',
+    esperado: {
+      intencao: Intencao.PALPITE_INLINE,
+      palpite: { timeCasa: 'Brasil', golsCasa: 1, golsVisitante: 1, timeVisitante: 'Argentina' },
+    },
+  },
+  {
+    grupo: '🏆 Mata-mata — bônus de classificado',
+    desc: '"o que é o bônus?" → INFO_BONUS_CLASSIFICADO',
+    msg: 'o que é o bônus?',
+    esperado: { intencao: Intencao.INFO_BONUS_CLASSIFICADO },
+  },
+  {
+    grupo: '🏆 Mata-mata — o que muda',
+    desc: '"o que muda agora?" → INFO_O_QUE_MUDA',
+    msg: 'o que muda agora?',
+    esperado: { intencao: Intencao.INFO_O_QUE_MUDA },
   },
 ];
 

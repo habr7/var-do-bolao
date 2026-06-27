@@ -41,13 +41,15 @@ describe('calcularPontuacaoRodada — trava de FINALIZADO', () => {
             id: 'pj-final',
             golsCasa: 2,
             golsVisitante: 1,
-            jogo: { status: 'FINALIZADO', golsCasa: 2, golsVisitante: 1 },
+            classificadoPalpite: null,
+            jogo: { status: 'FINALIZADO', fase: 'GRUPOS', golsCasa: 2, golsVisitante: 1 },
           },
           {
             id: 'pj-aovivo',
             golsCasa: 1,
             golsVisitante: 0,
-            jogo: { status: 'AO_VIVO', golsCasa: 1, golsVisitante: 0 },
+            classificadoPalpite: null,
+            jogo: { status: 'AO_VIVO', fase: 'GRUPOS', golsCasa: 1, golsVisitante: 0 },
           },
         ],
       },
@@ -55,9 +57,9 @@ describe('calcularPontuacaoRodada — trava de FINALIZADO', () => {
 
     await calcularPontuacaoRodada('rodada-1');
 
-    // pj-final → 10 pts; pj-aovivo → 0 (não finalizado)
-    expect(atualizarPontuacaoPalpiteJogo).toHaveBeenCalledWith('pj-final', 10);
-    expect(atualizarPontuacaoPalpiteJogo).toHaveBeenCalledWith('pj-aovivo', 0);
+    // pj-final → 10 pts (placar) + 0 bônus; pj-aovivo → 0 (não finalizado)
+    expect(atualizarPontuacaoPalpiteJogo).toHaveBeenCalledWith('pj-final', 10, 0);
+    expect(atualizarPontuacaoPalpiteJogo).toHaveBeenCalledWith('pj-aovivo', 0, 0);
     // total do palpite = só o jogo finalizado
     expect(atualizarPontuacaoPalpite).toHaveBeenCalledWith('palpite-1', 10);
   });
@@ -71,7 +73,8 @@ describe('calcularPontuacaoRodada — trava de FINALIZADO', () => {
             id: 'pj-agendado',
             golsCasa: 3,
             golsVisitante: 0,
-            jogo: { status: 'AGENDADO', golsCasa: null, golsVisitante: null },
+            classificadoPalpite: null,
+            jogo: { status: 'AGENDADO', fase: 'GRUPOS', golsCasa: null, golsVisitante: null },
           },
         ],
       },
@@ -79,7 +82,7 @@ describe('calcularPontuacaoRodada — trava de FINALIZADO', () => {
 
     await calcularPontuacaoRodada('rodada-1');
 
-    expect(atualizarPontuacaoPalpiteJogo).toHaveBeenCalledWith('pj-agendado', 0);
+    expect(atualizarPontuacaoPalpiteJogo).toHaveBeenCalledWith('pj-agendado', 0, 0);
     expect(atualizarPontuacaoPalpite).toHaveBeenCalledWith('p2', 0);
   });
 });

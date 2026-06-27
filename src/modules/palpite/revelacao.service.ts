@@ -34,6 +34,7 @@ export interface JogoRevelacao {
   palpitesJogo: Array<{
     golsCasa: number | null;
     golsVisitante: number | null;
+    classificadoPalpite?: 'CASA' | 'VISITANTE' | null;
     palpite: { usuarioId: string };
   }>;
 }
@@ -54,6 +55,7 @@ export function blocoDoJogo(jogo: JogoRevelacao, usuarioIdVoce: string): BlocoRe
     usuarioId: pj.palpite.usuarioId,
     golsCasa: pj.golsCasa,
     golsVisitante: pj.golsVisitante,
+    classificadoPalpite: pj.classificadoPalpite ?? null,
   }));
   const houvePalpite = palpites.some((p) => p.golsCasa !== null && p.golsVisitante !== null);
   if (!houvePalpite) return null;

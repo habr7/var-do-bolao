@@ -1306,11 +1306,123 @@ describe('parseIntencao', () => {
         Intencao.PERGUNTA_GERAL_FUTEBOL,
       );
     });
-    it('"que horas joga o Brasil?" → PERGUNTA_GERAL_FUTEBOL', () => {
+    // Mata-mata (Copa 2026): "que horas joga o Brasil?" agora é HORARIO_JOGO —
+    // o bot lê a chave semeada do bolão do user (com fallback gracioso se o time
+    // não estiver na chave dele). Antes caía em PERGUNTA_GERAL_FUTEBOL (LLM).
+    it('"que horas joga o Brasil?" → HORARIO_JOGO (lê a chave do bolão)', () => {
       expect(parseIntencao('que horas joga o Brasil?').intencao).toBe(
+        Intencao.HORARIO_JOGO,
+      );
+    });
+    it('mata-mata: dúvidas frequentes caem nos intents certos', () => {
+      const casos: Array<[string, Intencao]> = [
+        ['a prorrogação conta?', Intencao.INFO_PRORROGACAO],
+        ['e se for pra prorrogação?', Intencao.INFO_PRORROGACAO],
+        ['pênalti conta?', Intencao.INFO_PENALTI],
+        ['e os pênaltis?', Intencao.INFO_PENALTI],
+        ['e se empatar?', Intencao.INFO_EMPATE_MATAMATA],
+        ['quanto vale a final?', Intencao.INFO_PONTOS_MATAMATA],
+        ['o que é o bônus?', Intencao.INFO_BONUS_CLASSIFICADO],
+        ['se errar quem passa perco a crava?', Intencao.INFO_CRAVA_EMPATE],
+        ['o ranking zera?', Intencao.INFO_RANKING_CONTINUA],
+        ['o que muda agora?', Intencao.INFO_O_QUE_MUDA],
+        ['ver a chave', Intencao.VER_CHAVE],
+        ['mostra o bracket', Intencao.VER_CHAVE],
+        ['quem o Brasil enfrenta?', Intencao.ADVERSARIO_TIME],
+        ['que horas joga o Brasil?', Intencao.HORARIO_JOGO],
+      ];
+      for (const [texto, esperado] of casos) {
+        expect(parseIntencao(texto).intencao, texto).toBe(esperado);
+      }
+    });
+
+    it('mata-mata: perguntas de pontuação caem no intent certo', () => {
+      const casos: Array<[string, Intencao]> = [
+        // "por que fiz >10 pontos?" → explicação do mata-mata
+        ['porque fiz mais de 10 pontos?', Intencao.INFO_PONTOS_MATAMATA],
+        ['como fiz 13 pontos?', Intencao.INFO_PONTOS_MATAMATA],
+        ['fiz 12 pontos como?', Intencao.INFO_PONTOS_MATAMATA],
+        ['os pontos mudam no mata-mata?', Intencao.INFO_PONTOS_MATAMATA],
+        ['como é a pontuação do mata-mata?', Intencao.INFO_PONTOS_MATAMATA],
+        // pontos de um jogo específico → detalhe (mostra bônus/pênaltis)
+        ['qual minha pontuação em brasil x japao?', Intencao.PONTOS_DETALHE],
+        ['quantos pontos fiz no brasil x japão?', Intencao.PONTOS_DETALHE],
+        ['quantos pontos no jogo do brasil?', Intencao.PONTOS_DETALHE],
+        // reclamação de pontos errados / faltando
+        ['minha pontuação ta errada no jogo do brasil', Intencao.RECLAMACAO_BUG],
+        ['meus pontos do brasil x japão estão errados', Intencao.RECLAMACAO_BUG],
+        ['ta faltando ponto no meu palpite do brasil', Intencao.RECLAMACAO_BUG],
+      ];
+      for (const [texto, esperado] of casos) {
+        expect(parseIntencao(texto).intencao, texto).toBe(esperado);
+      }
+    });
+
+    it('mata-mata: variantes coloquiais de adversário/horário/chave/bônus/ranking', () => {
+      const casos: Array<[string, Intencao]> = [
+        // Adversário (lê o bracket do bolão — LLM não tem isso, regex tem que pegar)
+        ['o brasil pega quem?', Intencao.ADVERSARIO_TIME],
+        ['próximo adversário do brasil', Intencao.ADVERSARIO_TIME],
+        ['próximo jogo do brasil', Intencao.ADVERSARIO_TIME],
+        ['contra quem joga o brasil', Intencao.ADVERSARIO_TIME],
+        ['brasil joga com quem?', Intencao.ADVERSARIO_TIME],
+        // Horário
+        ['que dia joga o brasil?', Intencao.HORARIO_JOGO],
+        ['quando o brasil joga de novo?', Intencao.HORARIO_JOGO],
+        ['brasil joga quando?', Intencao.HORARIO_JOGO],
+        // Chave / status de classificação
+        ['como tá a chave?', Intencao.VER_CHAVE],
+        ['quem já se classificou?', Intencao.VER_CHAVE],
+        ['o brasil tá classificado?', Intencao.VER_CHAVE],
+        // Bônus / ranking
+        ['tem bônus por acertar quem passa?', Intencao.INFO_BONUS_CLASSIFICADO],
+        ['tem ponto extra?', Intencao.INFO_BONUS_CLASSIFICADO],
+        ['o ranking continua ou zera?', Intencao.INFO_RANKING_CONTINUA],
+      ];
+      for (const [texto, esperado] of casos) {
+        expect(parseIntencao(texto).intencao, texto).toBe(esperado);
+      }
+    });
+
+    it('QA matrix: conjugações/typos/sinônimos do mata-mata roteados certo', () => {
+      const casos: Array<[string, Intencao]> = [
+        ['os penaltis contam no placar', Intencao.INFO_PENALTI],
+        ['como faco se eu achar que vai dar empate', Intencao.INFO_EMPATE_MATAMATA],
+        ['se eu cravar o empate e errar quem passa eu perco meus pontos?', Intencao.INFO_CRAVA_EMPATE],
+        ['errei quem passou mas acertei o placar, perco tudo?', Intencao.INFO_CRAVA_EMPATE],
+        ['meus pontos da fase de grupos contam ainda?', Intencao.INFO_RANKING_CONTINUA],
+        ['o ranking zerou?', Intencao.INFO_RANKING_CONTINUA],
+        ['como ta o bracket', Intencao.VER_CHAVE],
+        ['como funciona o mata mata', Intencao.INFO_O_QUE_MUDA],
+        ['mata mata', Intencao.INFO_O_QUE_MUDA],
+      ];
+      for (const [texto, esperado] of casos) {
+        expect(parseIntencao(texto).intencao, texto).toBe(esperado);
+      }
+    });
+
+    it('QA matrix: "jogos de hoje" é JOGOS_HOJE (não PERGUNTA_GERAL); "tabela" é RANKING', () => {
+      expect(parseIntencao('jogos de hoje').intencao).toBe(Intencao.JOGOS_HOJE);
+      expect(parseIntencao('horario dos jogos de hoje').intencao).toBe(Intencao.JOGOS_HOJE);
+      expect(parseIntencao('tabela').intencao).toBe(Intencao.RANKING);
+      // não-regressão: "jogos da Inglaterra" continua PERGUNTA_GERAL_FUTEBOL
+      expect(parseIntencao('quais jogos da Inglaterra').intencao).toBe(
         Intencao.PERGUNTA_GERAL_FUTEBOL,
       );
     });
+
+    it('não-regressão: "como vai?"/"tudo bem?" seguem CUMPRIMENTO_CASUAL (lookahead da chave não vaza)', () => {
+      expect(parseIntencao('como vai?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+      expect(parseIntencao('tudo bem?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+      expect(parseIntencao('como você tá?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
+    });
+
+    it('não-regressão: "meus pontos"/"ontem" seguem MEUS_PONTOS/PONTOS_DETALHE', () => {
+      expect(parseIntencao('meus pontos').intencao).toBe(Intencao.MEUS_PONTOS);
+      expect(parseIntencao('quantos pontos eu fiz ontem?').intencao).toBe(Intencao.PONTOS_DETALHE);
+      expect(parseIntencao('quantas cravadas eu fiz?').intencao).toBe(Intencao.ESTATISTICA_PONTOS);
+    });
+
     it('"quem joga hoje?" → PERGUNTA_GERAL_FUTEBOL', () => {
       expect(parseIntencao('quem joga hoje?').intencao).toBe(
         Intencao.PERGUNTA_GERAL_FUTEBOL,

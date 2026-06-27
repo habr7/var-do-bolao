@@ -4,6 +4,9 @@ import { calcularPontuacaoRodada, recalcularRanking } from '../modules/ranking/r
 import { enviarRankingParaParticipantes } from '../modules/notificacao/notificacao.service.js';
 import { prisma } from '../config/database.js';
 import { comLockJob } from '../utils/lock.js';
+import { advanceBracketInterno } from './advance-bracket.job.js';
+import { buscarFixturesMataMata } from '../modules/resultado/fifa.fetcher.js';
+import { sincronizarMataMata } from '../modules/resultado/mata-mata.sync.service.js';
 
 export async function fetchResultsJob() {
   // v3.28.0 — lock contra sobreposição (crons defasados / 2 instâncias):
@@ -62,5 +65,36 @@ async function fetchResultsJobInterno() {
     } catch (error) {
       console.error(`[fetch-results] erro na rodada ${rodada.numero}:`, error);
     }
+  }
+
+  // Mata-mata: SYNC com a FIFA (fonte da verdade dos confrontos). Puxa times,
+  // datas, placar (90'+prorrog) e classificado (do Winner, inclusive pênaltis)
+  // de TODAS as fases, preenche/abre as rodadas e recalcula o que mudou. O
+  // adapter FIFA de resultados (atualizarResultados) só casa jogos de GRUPOS
+  // por código de país; o mata-mata vem por aqui (casa por MatchNumber).
+  try {
+    const fixtures = await buscarFixturesMataMata();
+    const sync = await sincronizarMataMata(prisma, fixtures);
+    for (const rid of sync.rodadaIds) await calcularPontuacaoRodada(rid);
+    for (const bid of sync.bolaoIds) await recalcularRanking(bid);
+    if (sync.jogosAtualizados > 0 || sync.rodadasAbertas > 0 || sync.rodadaIds.length > 0) {
+      console.log(
+        `[fetch-results] mata-mata-sync: ${sync.jogosAtualizados} jogo(s), ` +
+          `${sync.rodadasAbertas} rodada(s) aberta(s), ${sync.rodadaIds.length} recalculada(s)`,
+      );
+    }
+  } catch (error) {
+    console.error('[fetch-results] erro no mata-mata-sync (provável FIFA fora):', (error as Error).message);
+  }
+
+  // Fallback/segurança: propaga a chave pelo NOSSO classificadoLado (caso o sync
+  // da FIFA esteja atrasado). Idempotente; só escreve em slot placeholder.
+  try {
+    const { slotsPreenchidos, rodadasAbertas } = await advanceBracketInterno();
+    if (slotsPreenchidos > 0 || rodadasAbertas > 0) {
+      console.log(`[fetch-results] advance-bracket: ${slotsPreenchidos} slot(s), ${rodadasAbertas} rodada(s) aberta(s)`);
+    }
+  } catch (error) {
+    console.error('[fetch-results] erro no advance-bracket:', error);
   }
 }

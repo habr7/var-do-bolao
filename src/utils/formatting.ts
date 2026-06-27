@@ -22,8 +22,17 @@ export interface PalpiteDisplay {
   pontosObtidos?: number;
 }
 
-export function formatRanking(nome: string, rodada: number, campeonato: string, entries: RankingEntry[]): string {
-  const header = `🏆 *RANKING — ${nome}*\nRodada ${rodada} | ${campeonato}\n${'─'.repeat(30)}`;
+export function formatRanking(
+  nome: string,
+  rodada: number,
+  campeonato: string,
+  entries: RankingEntry[],
+  // Mata-mata: rótulo da fase atual ("Oitavas de final"). Quando presente,
+  // substitui "Rodada N" no cabeçalho.
+  faseLabel?: string,
+): string {
+  const rodadaLabel = faseLabel ? faseLabel : `Rodada ${rodada}`;
+  const header = `🏆 *RANKING — ${nome}*\n${rodadaLabel} | ${campeonato}\n${'─'.repeat(30)}`;
 
   // v3.17.0 — quando ninguém pontuou ainda (rodada acabou de abrir, ou
   // nenhum jogo finalizou), as medalhas 🥇🥈🥉 confundem: usuários

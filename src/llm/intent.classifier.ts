@@ -83,6 +83,18 @@ export const INTENCOES_VALIDAS = [
   Intencao.CUTUCAR_PENDENTES,
   Intencao.DICAS_PALPITE,
   Intencao.ACOLHIMENTO_NOVATO,
+  // Mata-mata (Copa 2026) — dúvidas frequentes + leitura da chave
+  Intencao.INFO_PRORROGACAO,
+  Intencao.INFO_PENALTI,
+  Intencao.INFO_EMPATE_MATAMATA,
+  Intencao.INFO_PONTOS_MATAMATA,
+  Intencao.INFO_BONUS_CLASSIFICADO,
+  Intencao.INFO_CRAVA_EMPATE,
+  Intencao.INFO_RANKING_CONTINUA,
+  Intencao.INFO_O_QUE_MUDA,
+  Intencao.ADVERSARIO_TIME,
+  Intencao.HORARIO_JOGO,
+  Intencao.VER_CHAVE,
 ] as const;
 
 // Prompt antigo (inline) — comentado pra rollback rapido. O ativo agora

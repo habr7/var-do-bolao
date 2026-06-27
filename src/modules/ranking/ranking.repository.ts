@@ -34,7 +34,8 @@ export async function buscarPontuacaoDetalhada(usuarioId: string, bolaoId: strin
         include: { jogo: true },
       },
     },
-    orderBy: { rodada: { numero: 'desc' } },
+    // Ordem cronológica (grupos → R32 → ... → final) pro display "meus palpites".
+    orderBy: { rodada: { numero: 'asc' } },
   });
 }
 
@@ -51,7 +52,9 @@ export async function buscarPontosCalculadosDoUsuario(usuarioId: string, bolaoId
       palpite: { usuarioId, rodada: { bolaoId }, calculado: true },
       jogo: { status: 'FINALIZADO' },
     },
-    select: { pontosObtidos: true },
+    // bonusObtido + jogo.fase pra o service bucketizar por FASE (no mata-mata a
+    // cravada vale 12/15/18/22, não 10) e somar o bônus de classificado.
+    select: { pontosObtidos: true, bonusObtido: true, jogo: { select: { fase: true } } },
   });
 }
 

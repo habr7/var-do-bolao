@@ -5,9 +5,9 @@ import * as bolaoRepo from '../bolao/bolao.repository.js';
 
 // Re-export para manter compatibilidade
 export { calcularPontos } from './pontuacao.calc.js';
-import { calcularPontos } from './pontuacao.calc.js';
+import { calcularPontos, pontuarJogoMataMata } from './pontuacao.calc.js';
 import { ordenarParticipacoesRanking } from './ranking.sort.js';
-import { PONTUACAO_PADRAO } from './ranking.types.js';
+import { TABELA_PONTOS } from './ranking.types.js';
 
 export async function calcularPontuacaoRodada(rodadaId: string) {
   const palpites = await palpiteRepo.buscarPalpitesDaRodada(rodadaId);
@@ -16,22 +16,44 @@ export async function calcularPontuacaoRodada(rodadaId: string) {
     let totalPontos = 0;
 
     for (const pj of palpite.jogos) {
+      const jogo = pj.jogo;
+
       // v3.22.0 — pontua SÓ jogo FINALIZADO. Com o provider `hybrid`, a
       // FIFA grava placar PARCIAL ao vivo (status=AO_VIVO) pra exibição;
       // sem este gate, o cálculo incremental pontuaria contra o placar
       // parcial e os pontos OSCILARIAM durante o jogo. Jogo não-finalizado
       // (AGENDADO/AO_VIVO) conta 0 até o apito; quando finaliza, o reset
       // de `Palpite.calculado` força o recálculo com o placar oficial.
-      const pontos =
-        pj.jogo.status === 'FINALIZADO'
-          ? calcularPontos(
-              { golsCasa: pj.golsCasa, golsVisitante: pj.golsVisitante },
-              { golsCasa: pj.jogo.golsCasa, golsVisitante: pj.jogo.golsVisitante },
-            )
-          : 0;
+      let pontos = 0;
+      let bonus = 0;
 
-      await palpiteRepo.atualizarPontuacaoPalpiteJogo(pj.id, pontos);
-      totalPontos += pontos;
+      if (jogo.status === 'FINALIZADO') {
+        if (jogo.fase === 'GRUPOS') {
+          // Caminho da fase de grupos — IDÊNTICO ao de hoje (zero regressão).
+          pontos = calcularPontos(
+            { golsCasa: pj.golsCasa, golsVisitante: pj.golsVisitante },
+            { golsCasa: jogo.golsCasa, golsVisitante: jogo.golsVisitante },
+          );
+        } else {
+          // Mata-mata: placar (faixa por fase) + bônus de classificado, eixos
+          // separados. Placar = 90'+prorrogação (jogo.golsCasa/Visitante já é
+          // isso; pênalti não entra). bonus gravado à parte (bonusObtido).
+          const r = pontuarJogoMataMata({
+            fase: jogo.fase,
+            palpiteCasa: pj.golsCasa,
+            palpiteVisitante: pj.golsVisitante,
+            palpiteClassificado: pj.classificadoPalpite,
+            resultadoCasa: jogo.golsCasa,
+            resultadoVisitante: jogo.golsVisitante,
+            classificadoReal: jogo.classificadoLado,
+          });
+          pontos = r.placar;
+          bonus = r.bonus;
+        }
+      }
+
+      await palpiteRepo.atualizarPontuacaoPalpiteJogo(pj.id, pontos, bonus);
+      totalPontos += pontos + bonus;
     }
 
     await palpiteRepo.atualizarPontuacaoPalpite(palpite.id, totalPontos);
@@ -106,7 +128,15 @@ export async function getRankingPorBolao(bolaoId: string) {
   if (!bolao) throw new Error('Bolao nao encontrado.');
 
   const participacoes = await rankingRepo.buscarRankingBolao(bolao.id);
-  const rodadaAtual = bolao.rodadas?.[0]?.numero ?? 0;
+  // Rodada/fase "ativa" = a de maior número entre as ABERTA/FINALIZADA (a fase
+  // em curso), não a FINAL vazia. No mata-mata vira "Oitavas de final" etc.
+  const rodadaAtiva = await prisma.rodada.findFirst({
+    where: { bolaoId: bolao.id, status: { in: ['ABERTA', 'FINALIZADA'] } },
+    orderBy: { numero: 'desc' },
+    select: { numero: true, fase: true },
+  });
+  const rodadaAtual = rodadaAtiva?.numero ?? bolao.rodadas?.[0]?.numero ?? 0;
+  const faseAtual = rodadaAtiva?.fase ?? 'GRUPOS';
 
   // Ordena pela cascata canônica e deriva a posição do índice (i+1), pra o
   // número exibido SEMPRE bater com a ordem da lista — inclusive em empate
@@ -116,6 +146,7 @@ export async function getRankingPorBolao(bolaoId: string) {
   return {
     bolao,
     rodadaAtual,
+    faseAtual,
     ranking: ordenadas.map((p, i) => ({
       // ISSUE-023 (Sprint 2): inclui usuarioId pra caller poder achar
       // a propria posicao em iteracoes (handleResumoBoloes).
@@ -136,7 +167,8 @@ export interface EstatisticaPontos {
   tres: number; // só os gols de um time — 3 pts
   zero: number; // errou tudo — 0 pts
   totalJogos: number; // jogos JÁ pontuados (calculados)
-  totalPontos: number; // soma das faixas
+  totalPontos: number; // soma das faixas + bônus de classificado
+  bonusTotal: number; // soma do bônus de classificado (mata-mata; 0 em grupos)
   posicao: number; // posição atual no ranking (0 = desconhecida)
 }
 
@@ -161,12 +193,19 @@ export async function getEstatisticaPontos(
   let tres = 0;
   let zero = 0;
   let totalPontos = 0;
-  for (const { pontosObtidos } of pontuados) {
-    totalPontos += pontosObtidos;
-    if (pontosObtidos === PONTUACAO_PADRAO.placarExato) cravadas++;
-    else if (pontosObtidos === PONTUACAO_PADRAO.resultadoMaisGols) sete++;
-    else if (pontosObtidos === PONTUACAO_PADRAO.resultadoCerto) cinco++;
-    else if (pontosObtidos === PONTUACAO_PADRAO.golsDeUmTime) tres++;
+  let bonusTotal = 0;
+  for (const { pontosObtidos, bonusObtido, jogo } of pontuados) {
+    // total inclui o bônus de classificado (mata-mata); as faixas são
+    // classificadas SEMANTICAMENTE (exato / r+gols / resultado / gols / erro)
+    // contra a config DA FASE — assim uma cravada de oitavas (12) não cai no
+    // balde "zero". Em grupos a config é PONTUACAO_PADRAO (10/7/5/3/0).
+    totalPontos += pontosObtidos + bonusObtido;
+    bonusTotal += bonusObtido;
+    const cfg = TABELA_PONTOS[jogo.fase];
+    if (pontosObtidos === cfg.placarExato) cravadas++;
+    else if (pontosObtidos === cfg.resultadoMaisGols) sete++;
+    else if (pontosObtidos === cfg.resultadoCerto) cinco++;
+    else if (pontosObtidos === cfg.golsDeUmTime) tres++;
     else zero++;
   }
 
@@ -180,6 +219,7 @@ export async function getEstatisticaPontos(
     zero,
     totalJogos: pontuados.length,
     totalPontos,
+    bonusTotal,
     posicao: participacao?.posicaoAtual ?? 0,
   };
 }

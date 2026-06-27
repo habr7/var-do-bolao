@@ -81,7 +81,13 @@ export type ConversaState =
   // v3.12.0 (Bruna 10/06) — lote de palpites + opção TODOS em N bolões.
   // Caso real: user em 2 bolões teve que mandar 10 palpites 2x (36 msgs).
   // Agora oferece "TODOS" na escolha; este state confirma o lote × N bolões.
-  | 'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO';
+  | 'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO'
+  // Mata-mata — quando o user crava EMPATE num jogo de mata-mata (≥16-avos),
+  // o bot pergunta quem se classifica (vencedor dos pênaltis) pro bônus.
+  // Fila de pendências em ctx.classificadosPendentes (um por empate).
+  | 'CONFIRMANDO_CLASSIFICADO_MATAMATA'
+  // Submenu de regras: "completas" ou "só do mata-mata?" (padrão PALPITES_AMBIGUO).
+  | 'ESCOLHENDO_TIPO_REGRAS';
 
 export interface BolaoParaEscolher {
   id: string;
@@ -124,13 +130,16 @@ export interface ConversaContext {
   palpiteTextoCru?: string;
   palpiteRodadaIdEscolhida?: string;
   palpiteBolaoNomeEscolhido?: string;
-  // Lista de palpites prontos pra registrar (apos extracao + LLM)
+  // Lista de palpites prontos pra registrar (apos extracao + LLM).
+  // rodadaId: mata-mata pode ter várias rodadas ABERTA — cada palpite carrega
+  // a rodada do jogo que casou, pra registrar na rodada certa.
   palpitesParaConfirmar?: Array<{
     timeCasa: string;
     timeVisitante: string;
     golsCasa: number;
     golsVisitante: number;
     jogoId: string;
+    rodadaId?: string;
   }>;
   palpitesNaoEntendidos?: string[];
   // v3.7.0: placar inline guardado quando user mandou "corrigir Brasil 3x1"
@@ -180,6 +189,15 @@ export interface ConversaContext {
     }>;
     bolaoNomes: string[]; // pra exibir no preview
   };
+  // Mata-mata — fila de jogos empatados aguardando o palpite de classificado
+  // (quem passa nos pênaltis). Processada um a um em
+  // CONFIRMANDO_CLASSIFICADO_MATAMATA; aplicada nos PalpiteJogo das rodadas
+  // em classificadoRodadaIds (1 no fluxo single-bolão, N no multi-bolão).
+  classificadosPendentes?: Array<{ timeCasa: string; timeVisitante: string }>;
+  classificadoRodadaIds?: string[];
+  classificadoBolaoLabel?: string;
+  // Só no fluxo single-bolão: rodada pra oferecer "mais jogos" ao fim da fila.
+  classificadoRodadaIdParaMais?: string;
 }
 
 export interface Session {

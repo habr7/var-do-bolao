@@ -154,6 +154,9 @@ model Rodada {
   bolaoId        String
   numero         Int
   status         StatusRodada @default(ABERTA)
+  // Fase do torneio. GRUPOS = comportamento atual (default p/ não regredir as
+  // rodadas de grupos já existentes). Mata-mata usa as demais fases.
+  fase           FaseTorneio  @default(GRUPOS)
   dataAbertura   DateTime
   dataFechamento DateTime
   criadoEm       DateTime     @default(now())
@@ -175,6 +178,31 @@ enum StatusRodada {
 }
 
 // ============================================
+// FASE_TORNEIO — Fase da Copa (grupos + mata-mata)
+// ============================================
+// GRUPOS é o default em Rodada/Jogo, garantindo que toda a fase de grupos já
+// apurada (produção) continue com o comportamento atual. As fases de mata-mata
+// (R32=16-avos … FINAL) sobem os valores de placar e ligam o bônus de
+// classificado. TERCEIRO = disputa de 3º lugar.
+enum FaseTorneio {
+  GRUPOS
+  R32
+  OITAVAS
+  QUARTAS
+  SEMI
+  TERCEIRO
+  FINAL
+}
+
+// Lado de um confronto de mata-mata. Serve a DOIS usos: (1) qual lado o usuário
+// crava como classificado (bônus); (2) qual slot o vencedor ocupa no próximo
+// jogo da chave (auto-advance).
+enum LadoJogo {
+  CASA
+  VISITANTE
+}
+
+// ============================================
 // JOGO — Um jogo dentro de uma rodada
 // ============================================
 model Jogo {
@@ -193,6 +221,20 @@ model Jogo {
   dataHora      DateTime
   criadoEm      DateTime   @default(now())
   atualizadoEm  DateTime   @updatedAt
+
+  // ----- Campos de mata-mata (todos nullable/com default — migration aditiva) -----
+  // Fase do jogo. GRUPOS = default (jogos de grupos existentes ficam intactos).
+  fase                FaseTorneio @default(GRUPOS)
+  // Quem avançou (resultado real). Alimenta o bônus de classificado E a chave.
+  // Placar GRAVADO é sempre 90'+prorrogação; pênalti só define este campo.
+  classificadoLado    LadoJogo?
+  // Verdade só em jogo decidido na disputa de pênaltis (placar empatou no fim
+  // da prorrogação). Apenas informativo/UX — não entra no placar do bolão.
+  decididoNosPenaltis Boolean?
+  // apiJogoId do jogo seguinte na chave (de bracket-2026.ts). Null em grupos/final.
+  proximoJogoApiId    String?
+  // Em qual lado (CASA/VISITANTE) o vencedor deste jogo entra no próximo.
+  proximoSlot         LadoJogo?
 
   rodada       Rodada        @relation(fields: [rodadaId], references: [id])
   palpitesJogo PalpiteJogo[]
@@ -241,7 +283,15 @@ model PalpiteJogo {
   jogoId        String
   golsCasa      Int
   golsVisitante Int
+  // pontosObtidos = SÓ os pontos de placar (faixa por fase). O bônus de
+  // classificado fica em bonusObtido (coluna separada) pra não poluir a
+  // bucketização por faixa de getEstatisticaPontos/getJogosPorFaixa.
   pontosObtidos Int    @default(0)
+  // Lado que o usuário cravou como classificado. Exigido SÓ quando o palpite é
+  // empate num jogo de mata-mata (decisivo → classificado é inferido do vencedor).
+  classificadoPalpite LadoJogo?
+  // Bônus de classificado ganho neste jogo (aditivo ao placar). 0 em grupos.
+  bonusObtido         Int       @default(0)
 
   palpite Palpite @relation(fields: [palpiteId], references: [id])
   jogo    Jogo    @relation(fields: [jogoId], references: [id])

@@ -106,4 +106,11 @@ PRIVACIDADE (Jeni 11/06) — é TEMPORAL:
 - QUANDO o jogo começa: palpite trava e vira público pro bolão — o bot manda os palpites de todos daquele jogo. "quem acertou X?"/"palpites de todos?" → depois do kickoff sim, antes não.
 - Ranking total é sempre público; placar individual é privado até o jogo começar.
 - "sair do bolão" pra sair; admin pode excluir.
+
+MATA-MATA (Copa 2026 — dos 16-avos em diante):
+- Placar do bolão = resultado ao FIM DA PRORROGAÇÃO (90+30min). PÊNALTI NÃO entra no placar, só decide quem avança (1x1 a pênaltis vale 1x1; 1x1 que vira 2x1 na prorrogação vale 2x1).
+- Pontos sobem por fase. Placar exato: 16-avos 10, oitavas 12, quartas 15, semi 18, final 22 (demais faixas na mesma proporção).
+- BÔNUS de classificado (somado ao placar): +3 (16-avos/oitavas), +4 (quartas), +5 (semi), +6 (final). Cravou vencedor → classificado é ele; cravou empate → bot pergunta quem passa. Errar quem passa NUNCA tira o placar — a crava fica garantida, só não leva o bônus.
+- Ranking CUMULATIVO: pontos dos grupos seguem valendo, NÃO zera.
+- "ver a chave"/"quem o Brasil enfrenta"/"que horas joga o Brasil" leem a chave do bolão (adversário ainda indefinido → depende do jogo anterior, não inventa).
 [FIM DAS REGRAS DO BOT]`;

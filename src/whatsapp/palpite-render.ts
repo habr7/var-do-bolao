@@ -29,6 +29,8 @@ export interface JogoStatusResultado {
   golsCasa: number | null;
   golsVisitante: number | null;
   dataHora: Date;
+  // Mata-mata: jogo decidido nos pênaltis (placar segue 90'+prorrogação).
+  decididoNosPenaltis?: boolean | null;
 }
 
 export function montarStatusResultado(
@@ -36,14 +38,19 @@ export function montarStatusResultado(
   pontosObtidos: number,
   rodadaCalculada: boolean,
   agora: Date = new Date(),
+  // Mata-mata: bônus de classificado (aditivo ao placar). 0 em grupos.
+  bonusObtido = 0,
 ): string {
   const temPlacar = jogo.golsCasa !== null && jogo.golsVisitante !== null;
   const placar = temPlacar ? `${jogo.golsCasa}x${jogo.golsVisitante}` : null;
 
   if (jogo.status === 'FINALIZADO' && placar) {
+    const pen = jogo.decididoNosPenaltis ? ' _(nos pênaltis)_' : '';
+    const totalPts = pontosObtidos + bonusObtido;
+    const detalhe = bonusObtido > 0 ? `${pontosObtidos}+${bonusObtido} bônus = ${totalPts}` : `${pontosObtidos}`;
     return rodadaCalculada
-      ? `oficial: *${placar}* ${resultadoEmoji(pontosObtidos)} (${pontosObtidos} pts)`
-      : `oficial: *${placar}* — ⏳ _calculando pontos…_`;
+      ? `oficial: *${placar}*${pen} ${resultadoEmoji(totalPts)} (${detalhe} pts)`
+      : `oficial: *${placar}*${pen} — ⏳ _calculando pontos…_`;
   }
 
   if (jogo.status === 'ADIADO') return `_jogo adiado_`;

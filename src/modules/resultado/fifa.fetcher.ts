@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import type { FaseTorneio } from '@prisma/client';
 import type { FootballApiAdapter, ResultadoJogo, JogoApi } from './resultado.types.js';
 import { normalizeTeamName } from '../../utils/validators.js';
+import { apiIdMataMata } from '../../data/bracket-2026.js';
 
 /**
  * Adapter de placares AO VIVO da Copa do Mundo FIFA 2026 via o endpoint
@@ -54,6 +56,8 @@ interface FifaTeam {
   IdTeam?: string | null;
 }
 
+type FifaLocalized = Array<{ Locale?: string; Description?: string }> | string | null;
+
 interface FifaMatch {
   IdMatch?: string;
   MatchStatus?: number;
@@ -61,6 +65,14 @@ interface FifaMatch {
   Away?: FifaTeam | null;
   HomeTeamScore?: number | null;
   AwayTeamScore?: number | null;
+  HomeTeamPenaltyScore?: number | null;
+  AwayTeamPenaltyScore?: number | null;
+  // Mata-mata (sync de fixtures): número oficial (73–104), fase, kickoff UTC e o
+  // IdTeam do vencedor (resolve o classificado, inclusive pênaltis).
+  MatchNumber?: number | null;
+  StageName?: FifaLocalized;
+  Date?: string | null;
+  Winner?: string | null;
 }
 
 interface FifaCalendarResponse {
@@ -100,6 +112,39 @@ function loadFifaCodeToNome(): Map<string, string> {
     if (t.fifaCode) map.set(t.fifaCode.toUpperCase(), normalizeTeamName(t.nome));
   }
   cacheFifaCodeToNome = map;
+  return map;
+}
+
+/** Extrai a string de um campo localizado da FIFA (array `[{Locale,Description}]` ou string). */
+function descFifa(x: FifaLocalized | undefined): string | null {
+  if (typeof x === 'string') return x;
+  if (Array.isArray(x)) {
+    for (const e of x) if (e?.Description) return e.Description;
+  }
+  return null;
+}
+
+/** StageName da FIFA → FaseTorneio. Retorna null pra "First Stage" (grupos) e desconhecidos. */
+const STAGE_TO_FASE: Record<string, Exclude<FaseTorneio, 'GRUPOS'>> = {
+  'Round of 32': 'R32',
+  'Round of 16': 'OITAVAS',
+  'Quarter-final': 'QUARTAS',
+  'Quarter-finals': 'QUARTAS',
+  'Semi-final': 'SEMI',
+  'Semi-finals': 'SEMI',
+  'Play-off for third place': 'TERCEIRO',
+  Final: 'FINAL',
+};
+
+let cacheFifaCodeToNomeDisplay: Map<string, string> | null = null;
+/** Mapa `fifaCode (RSA) → nome de EXIBIÇÃO PT ("África do Sul")` (sem normalizar). */
+function loadFifaCodeToNomeDisplay(): Map<string, string> {
+  if (cacheFifaCodeToNomeDisplay) return cacheFifaCodeToNomeDisplay;
+  const path = join(__dirname, '..', '..', 'data', 'copa-2026', 'teams.json');
+  const parsed = JSON.parse(readFileSync(path, 'utf-8')) as { times: Array<{ fifaCode: string; nome: string }> };
+  const map = new Map<string, string>();
+  for (const t of parsed.times) if (t.fifaCode) map.set(t.fifaCode.toUpperCase(), t.nome);
+  cacheFifaCodeToNomeDisplay = map;
   return map;
 }
 
@@ -177,6 +222,104 @@ async function fetchCalendar(): Promise<FifaCalendarResponse> {
   return data;
 }
 
+// ── Sync de fixtures do MATA-MATA (a partir do mesmo calendar) ────────────
+
+/** Status de fixture (inclui AGENDADO, diferente do mapFifaStatus de resultado). */
+function mapFifaStatusFixture(status: number | undefined): 'AGENDADO' | 'AO_VIVO' | 'FINALIZADO' | 'ADIADO' | 'CANCELADO' {
+  switch (status) {
+    case 0:
+      return 'FINALIZADO';
+    case 3:
+      return 'AO_VIVO';
+    case 4:
+      return 'ADIADO';
+    case 5:
+      return 'CANCELADO';
+    default:
+      return 'AGENDADO';
+  }
+}
+
+export interface FixtureMataMata {
+  numero: number; // MatchNumber FIFA (73–104)
+  apiJogoId: string; // WC2026_R32_73 etc
+  fase: Exclude<FaseTorneio, 'GRUPOS'>;
+  dataHoraUtc: Date;
+  timeCasa: string | null; // nome PT (null = ainda não definido)
+  timeVisitante: string | null;
+  status: 'AGENDADO' | 'AO_VIVO' | 'FINALIZADO' | 'ADIADO' | 'CANCELADO';
+  golsCasa: number | null; // 90'+prorrogação (sem pênaltis)
+  golsVisitante: number | null;
+  classificadoLado: 'CASA' | 'VISITANTE' | null; // do Winner (IdTeam)
+  decididoNosPenaltis: boolean | null;
+}
+
+/**
+ * Parseia o payload do calendar e retorna SÓ os jogos de mata-mata (StageName
+ * mapeável), prontos pro sync: número/fase/kickoff-UTC/times (ou null)/placar/
+ * classificado (do Winner = IdTeam do vencedor, resolve inclusive pênaltis).
+ * Função PURA — testável com um payload de exemplo.
+ */
+export function parseFixturesMataMata(matches: FifaMatch[]): FixtureMataMata[] {
+  const codeToNome = loadFifaCodeToNomeDisplay();
+  const out: FixtureMataMata[] = [];
+
+  for (const m of matches) {
+    const stage = descFifa(m.StageName);
+    const fase = stage ? STAGE_TO_FASE[stage] : undefined;
+    if (!fase) continue; // grupos / desconhecido
+    const numero = typeof m.MatchNumber === 'number' ? m.MatchNumber : null;
+    if (numero === null || !m.Date) continue;
+
+    const status = mapFifaStatusFixture(m.MatchStatus);
+    const nome = (t: FifaTeam | null | undefined): string | null =>
+      t?.IdCountry ? codeToNome.get(t.IdCountry.toUpperCase()) ?? null : null;
+    const timeCasa = nome(m.Home);
+    const timeVisitante = nome(m.Away);
+
+    const golsCasa = status === 'FINALIZADO' || status === 'AO_VIVO' ? lerPlacar(m.Home, m.HomeTeamScore) : null;
+    const golsVisitante = status === 'FINALIZADO' || status === 'AO_VIVO' ? lerPlacar(m.Away, m.AwayTeamScore) : null;
+
+    // Classificado pelo Winner (IdTeam do vencedor). Resolve decisivo E pênaltis.
+    let classificadoLado: 'CASA' | 'VISITANTE' | null = null;
+    if (m.Winner && status === 'FINALIZADO') {
+      if (m.Home?.IdTeam && m.Winner === m.Home.IdTeam) classificadoLado = 'CASA';
+      else if (m.Away?.IdTeam && m.Winner === m.Away.IdTeam) classificadoLado = 'VISITANTE';
+    }
+    // Pênaltis: placar (90'+prorrog) empatado mas há vencedor, OU placar de pênaltis informado.
+    let decididoNosPenaltis: boolean | null = null;
+    if (status === 'FINALIZADO') {
+      const penInfo = m.HomeTeamPenaltyScore != null && m.AwayTeamPenaltyScore != null;
+      if (golsCasa != null && golsVisitante != null && golsCasa === golsVisitante && (classificadoLado || penInfo)) {
+        decididoNosPenaltis = true;
+      } else if (golsCasa != null && golsVisitante != null && golsCasa !== golsVisitante) {
+        decididoNosPenaltis = false;
+      }
+    }
+
+    out.push({
+      numero,
+      apiJogoId: apiIdMataMata(numero),
+      fase,
+      dataHoraUtc: new Date(m.Date),
+      timeCasa,
+      timeVisitante,
+      status,
+      golsCasa,
+      golsVisitante,
+      classificadoLado,
+      decididoNosPenaltis,
+    });
+  }
+  return out.sort((a, b) => a.numero - b.numero);
+}
+
+/** Busca os fixtures de mata-mata da FIFA (reusa o cache do calendar). LANÇA em falha de rede. */
+export async function buscarFixturesMataMata(): Promise<FixtureMataMata[]> {
+  const data = await fetchCalendar();
+  return parseFixturesMataMata(data.Results ?? []);
+}
+
 export class FifaWorldCup2026Adapter implements FootballApiAdapter {
   /**
    * Lista de jogos da fase de grupos — lê do JSON local (mesmo padrão do
@@ -224,7 +367,31 @@ export class FifaWorldCup2026Adapter implements FootballApiAdapter {
         continue;
       }
 
-      results.push({ apiJogoId, golsCasa, golsVisitante, status });
+      // Mata-mata decidido nos pênaltis: se o placar empata e o payload trouxe
+      // o placar de pênaltis, infere quem avançou (o placar gravado segue sendo
+      // 90'+prorrogação — pênalti não entra). Grupos nunca têm isto. Só anexa os
+      // campos quando detecta — jogos normais mantêm o shape mínimo.
+      const penCasa = m.HomeTeamPenaltyScore;
+      const penVis = m.AwayTeamPenaltyScore;
+      const ehPenaltis =
+        status === 'FINALIZADO' &&
+        golsCasa === golsVisitante &&
+        penCasa != null &&
+        penVis != null &&
+        penCasa !== penVis;
+
+      if (ehPenaltis) {
+        results.push({
+          apiJogoId,
+          golsCasa,
+          golsVisitante,
+          status,
+          classificadoLado: (penCasa as number) > (penVis as number) ? 'CASA' : 'VISITANTE',
+          decididoNosPenaltis: true,
+        });
+      } else {
+        results.push({ apiJogoId, golsCasa, golsVisitante, status });
+      }
     }
 
     console.log(

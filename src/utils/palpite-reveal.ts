@@ -21,6 +21,8 @@ export interface LinhaRevelacao {
   palpitou: boolean;
   golsCasa: number | null;
   golsVisitante: number | null;
+  // Mata-mata: lado que a pessoa cravou como classificado num empate.
+  classificadoPalpite?: 'CASA' | 'VISITANTE' | null;
 }
 
 export interface BlocoRevelacao {
@@ -41,7 +43,12 @@ export function montarBloco(params: {
   timeCasa: string;
   timeVisitante: string;
   participantes: Array<{ id: string; nome: string }>;
-  palpites: Array<{ usuarioId: string; golsCasa: number | null; golsVisitante: number | null }>;
+  palpites: Array<{
+    usuarioId: string;
+    golsCasa: number | null;
+    golsVisitante: number | null;
+    classificadoPalpite?: 'CASA' | 'VISITANTE' | null;
+  }>;
   usuarioIdVoce: string;
 }): BlocoRevelacao {
   const palpiteMap = new Map(params.palpites.map((p) => [p.usuarioId, p]));
@@ -55,6 +62,7 @@ export function montarBloco(params: {
       palpitou,
       golsCasa: palpitou ? pj!.golsCasa : null,
       golsVisitante: palpitou ? pj!.golsVisitante : null,
+      classificadoPalpite: pj?.classificadoPalpite ?? null,
     };
   });
 
@@ -78,7 +86,13 @@ export function montarMensagemRevelacao(blocos: BlocoRevelacao[]): string {
     const linhas = b.linhas.map((l) => {
       const quem = l.ehVoce ? 'Você' : l.nome;
       if (!l.palpitou) return `• ${quem}: _não palpitou_`;
-      return `• ${quem}: *${l.golsCasa}×${l.golsVisitante}*`;
+      // Mata-mata: num empate, mostra quem a pessoa acha que passa.
+      let classif = '';
+      if (l.classificadoPalpite && l.golsCasa === l.golsVisitante) {
+        const time = l.classificadoPalpite === 'CASA' ? b.timeCasa : b.timeVisitante;
+        classif = ` _(acha que ${time} passa)_`;
+      }
+      return `• ${quem}: *${l.golsCasa}×${l.golsVisitante}*${classif}`;
     });
     return `🏆 *${b.nomeBolao}* — ${b.timeCasa} x ${b.timeVisitante}\n${linhas.join('\n')}`;
   });

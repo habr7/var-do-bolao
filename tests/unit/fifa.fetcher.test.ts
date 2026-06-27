@@ -87,6 +87,37 @@ describe('FifaWorldCup2026Adapter', () => {
     });
   });
 
+  describe('mata-mata — disputa de pênaltis', () => {
+    it('empate FINALIZADO com placar de pênaltis → infere classificado (placar segue o de 90)', async () => {
+      mockCalendar([
+        {
+          MatchStatus: 0,
+          Home: { Score: 1, IdCountry: 'MEX' },
+          Away: { Score: 1, IdCountry: 'RSA' },
+          HomeTeamScore: 1,
+          AwayTeamScore: 1,
+          HomeTeamPenaltyScore: 4,
+          AwayTeamPenaltyScore: 2,
+        },
+      ]);
+      const r = await new FifaWorldCup2026Adapter().buscarResultados('c', 1);
+      expect(r[0]).toEqual({
+        apiJogoId: 'WC2026_A_1',
+        golsCasa: 1,
+        golsVisitante: 1,
+        status: 'FINALIZADO',
+        classificadoLado: 'CASA',
+        decididoNosPenaltis: true,
+      });
+    });
+
+    it('empate sem placar de pênaltis → shape mínimo (classificado fica null)', async () => {
+      mockCalendar([fifaMatch({ homeCode: 'MEX', awayCode: 'RSA', homeScore: 1, awayScore: 1, matchStatus: 0 })]);
+      const r = await new FifaWorldCup2026Adapter().buscarResultados('c', 1);
+      expect(r[0]).toEqual({ apiJogoId: 'WC2026_A_1', golsCasa: 1, golsVisitante: 1, status: 'FINALIZADO' });
+    });
+  });
+
   describe('B2 — lê o campo de placar certo', () => {
     it('usa Home.Score / Away.Score', async () => {
       mockCalendar([fifaMatch({ homeCode: 'MEX', awayCode: 'RSA', homeScore: 3, awayScore: 1, matchStatus: 0 })]);

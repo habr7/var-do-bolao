@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
 import { comLockJob } from '../utils/lock.js';
 import { formatarHoraBR } from '../utils/datetime.js';
+import { ehTimePlaceholder } from '../data/bracket-2026.js';
 
 /**
  * v3.31.0 — Lembrete de ÚLTIMA HORA, por JOGO.
@@ -40,7 +41,7 @@ async function sendLembrete30minInterno(): Promise<void> {
   const agora = new Date();
   const limite = new Date(agora.getTime() + env.LEMBRETE_30MIN_ANTECEDENCIA_MIN * 60_000);
 
-  const jogos = await prisma.jogo.findMany({
+  const jogosBrutos = await prisma.jogo.findMany({
     where: {
       status: 'AGENDADO',
       dataHora: { gt: agora, lte: limite },
@@ -54,6 +55,10 @@ async function sendLembrete30minInterno(): Promise<void> {
       palpitesJogo: { include: { palpite: { select: { usuarioId: true } } } },
     },
   });
+  // Mata-mata: não cutuca por jogo com time placeholder ("Vencedor 73").
+  const jogos = jogosBrutos.filter(
+    (j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante),
+  );
   if (jogos.length === 0) return;
 
   // Acumula, por usuário, os jogos da janela que ele AINDA NÃO palpitou.

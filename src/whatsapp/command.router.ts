@@ -6,10 +6,23 @@ import {
   parseMultiplePalpitesDetalhado,
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA, ehEscolhaTodos } from './lista.helper.js';
-import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo } from '../utils/validators.js';
+import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo, timeCorresponde } from '../utils/validators.js';
 import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarDataComDiaBR, formatarHoraBR } from '../utils/datetime.js';
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
-import { regrasTexto, boasVindasComRegras } from './regras.text.js';
+import { regrasTexto, regrasCompletas, regrasMataMata, boasVindasComRegras } from './regras.text.js';
+import {
+  infoProrrogacao,
+  infoPenalti,
+  infoEmpateMataMata,
+  infoPontosMataMata,
+  infoBonusClassificado,
+  infoCravaEmpate,
+  infoRankingContinua,
+  infoOQueMuda,
+} from './mata-mata.respostas.js';
+import * as bracketService from '../modules/bracket/bracket.service.js';
+import { faseLabel, ehTimePlaceholder } from '../data/bracket-2026.js';
+import type { FaseTorneio } from '@prisma/client';
 import { paginarBlocos } from '../utils/paginar.js';
 import { extrairNomeBolaoInlineSair } from './sair.helper.js';
 import { montarStatusResultado } from './palpite-render.js';
@@ -39,7 +52,6 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import { revelacoesParaUsuario } from '../modules/palpite/revelacao.service.js';
 import { montarMensagemRevelacao } from '../utils/palpite-reveal.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
-import { PONTUACAO_PADRAO } from '../modules/ranking/ranking.types.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
 import { construirFatosVivos } from '../llm/fatos-vivos.js';
@@ -68,6 +80,7 @@ import { incContador, registrarMsgNaoEntendida } from '../utils/metrics.js';
 import { parecAutoReply } from './auto-reply.detector.js';
 import { verificarAntiLoop, registrarResposta } from '../utils/resposta-cap.js';
 import { tentarBroadcastAdmin } from './broadcast.js';
+import { tentarClassificadoAdmin } from './admin-classificado.js';
 
 export interface IncomingMessage {
   // Em produção vem como JID completo (ex: "5511999999999@s.whatsapp.net"
@@ -99,6 +112,13 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     // mensagem (inclusive do dono sem o marcador) segue o fluxo normal.
     if (await tentarBroadcastAdmin(msg)) {
       void incContador('broadcast.admin');
+      return;
+    }
+
+    // Mata-mata — comando admin pra definir o classificado de um jogo (fallback
+    // pros decididos nos pênaltis). Só dono + marcador `#CLASSIFICADO`.
+    if (await tentarClassificadoAdmin(msg)) {
+      void incContador('classificado.admin');
       return;
     }
 
@@ -182,6 +202,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       'CONFIRMANDO_PALPITE_MULTI_BOLAO',
       // v3.12.0 (Bruna 10/06) — lote em N bolões
       'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO',
+      // Mata-mata — resposta é nome de time/lado; não confundir com código.
+      'CONFIRMANDO_CLASSIFICADO_MATAMATA',
     ]);
     const podeAceitarCodigoAqui = !ESTADOS_PROIBIDOS_CODIGO.has(session.state);
     if (codigoNaMsg && podeAceitarCodigoAqui) {
@@ -307,6 +329,12 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       // Sprint 3 (bug Jeni 17/05) — confirma auto-apply multi-bolao
       case 'CONFIRMANDO_PALPITE_MULTI_BOLAO':
         return await handleConfirmandoPalpiteMultiBolao(msg, usuario.id, session);
+      // Mata-mata — responde quem se classifica num jogo empatado
+      case 'CONFIRMANDO_CLASSIFICADO_MATAMATA':
+        return await handleConfirmandoClassificadoMataMata(msg, usuario.id, session);
+      // Submenu de regras (completas vs mata-mata)
+      case 'ESCOLHENDO_TIPO_REGRAS':
+        return await handleEscolhendoTipoRegras(msg, usuario.id);
     }
 
     // IDLE — verifica primeiro se admin tem pendentes e a mensagem
@@ -640,8 +668,51 @@ async function dispatchIntencao(
       await handleCutucarPendentes(msg, usuarioId);
       return true;
 
-    case Intencao.REGRAS:
-      await sendText({ to: msg.waId, text: regrasTexto() });
+    case Intencao.REGRAS: {
+      // Acesso direto às regras do mata-mata ("regras do mata-mata").
+      if (/mata[\s-]?mata|matamata|eliminat[óo]ri|16[\s-]?avos/i.test(msg.text)) {
+        await sendText({ to: msg.waId, text: regrasMataMata() });
+        return true;
+      }
+      // Senão, pergunta: completas ou só mata-mata?
+      await iniciarSubmenuRegras(msg);
+      return true;
+    }
+
+    // ----- Mata-mata: dúvidas frequentes (resposta fixa, custo zero) -----
+    case Intencao.INFO_PRORROGACAO:
+      await sendText({ to: msg.waId, text: infoProrrogacao() });
+      return true;
+    case Intencao.INFO_PENALTI:
+      await sendText({ to: msg.waId, text: infoPenalti() });
+      return true;
+    case Intencao.INFO_EMPATE_MATAMATA:
+      await sendText({ to: msg.waId, text: infoEmpateMataMata() });
+      return true;
+    case Intencao.INFO_PONTOS_MATAMATA:
+      await sendText({ to: msg.waId, text: infoPontosMataMata() });
+      return true;
+    case Intencao.INFO_BONUS_CLASSIFICADO:
+      await sendText({ to: msg.waId, text: infoBonusClassificado() });
+      return true;
+    case Intencao.INFO_CRAVA_EMPATE:
+      await sendText({ to: msg.waId, text: infoCravaEmpate() });
+      return true;
+    case Intencao.INFO_RANKING_CONTINUA:
+      await sendText({ to: msg.waId, text: infoRankingContinua() });
+      return true;
+    case Intencao.INFO_O_QUE_MUDA:
+      await sendText({ to: msg.waId, text: infoOQueMuda() });
+      return true;
+    // ----- Mata-mata: leitura da chave -----
+    case Intencao.ADVERSARIO_TIME:
+      await handleAdversarioTime(msg, usuarioId);
+      return true;
+    case Intencao.HORARIO_JOGO:
+      await handleHorarioJogo(msg, usuarioId);
+      return true;
+    case Intencao.VER_CHAVE:
+      await handleVerChave(msg, usuarioId);
       return true;
 
     case Intencao.PALPITES_AMBIGUO:
@@ -1368,7 +1439,15 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     //   ⏳ encerrado aguardando placar oficial (passou 2.5h, sem placar)
     //   ✅ finalizado com placar
     if (j.status === 'FINALIZADO') {
-      return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
+      // Mata-mata decidido nos pênaltis: o placar é o de 90'+prorrogação; sinaliza
+      // que foi nos pênaltis e quem avançou.
+      let extra = '';
+      if (j.decididoNosPenaltis) {
+        const quemPassou =
+          j.classificadoLado === 'CASA' ? j.timeCasa : j.classificadoLado === 'VISITANTE' ? j.timeVisitante : null;
+        extra = quemPassou ? ` _(nos pênaltis — ${quemPassou} avançou)_` : ' _(nos pênaltis)_';
+      }
+      return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}${extra} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
     }
     // v3.22.0 — provider `hybrid` (FIFA) grava status=AO_VIVO com placar
     // parcial. Tratamos AO_VIVO como rolando independente da janela de
@@ -1435,21 +1514,50 @@ async function handlePontosDetalhe(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
-  const linhas = palpiteJogos.map((pj) => {
+  // Se a pergunta cita um time ("pontuação em Brasil x Japão"), filtra pra ele.
+  let times: string[] = [];
+  try {
+    times = construirFatosCopa2026(msg.text)?.detectado?.times ?? [];
+  } catch {
+    times = [];
+  }
+  let lista = palpiteJogos;
+  if (times.length > 0) {
+    const filtrado = palpiteJogos.filter((pj) =>
+      times.some((t) => timeCorresponde(t, pj.jogo.timeCasa) || timeCorresponde(t, pj.jogo.timeVisitante)),
+    );
+    if (filtrado.length > 0) {
+      lista = filtrado;
+    } else {
+      await sendText({
+        to: msg.waId,
+        text:
+          `📭 Não achei jogo de *${times.join(' / ')}* que você palpitou e que terminou nas últimas 48h.\n\n` +
+          `Manda *meus pontos* pra ver o total ou *meus palpites* pro histórico completo.`,
+      });
+      return;
+    }
+  }
+
+  const linhas = lista.map((pj) => {
     const j = pj.jogo;
     const calculado = pj.palpite.calculado;
-    const emoji = pj.pontosObtidos >= 10 ? '🎯' : pj.pontosObtidos >= 5 ? '🥈' : pj.pontosObtidos > 0 ? '👍' : '❌';
-    const pontosLabel = calculado ? `${emoji} *${pj.pontosObtidos} pts*` : '⏳ _calculando..._';
+    const total = pj.pontosObtidos + pj.bonusObtido;
+    const emoji = total >= 10 ? '🎯' : total >= 5 ? '🥈' : total > 0 ? '👍' : '❌';
+    // Mata-mata: mostra placar + bônus de classificado e se foi nos pênaltis.
+    const detalhe = pj.bonusObtido > 0 ? `${pj.pontosObtidos}+${pj.bonusObtido} bônus = ${total}` : `${total}`;
+    const pontosLabel = calculado ? `${emoji} *${detalhe} pts*` : '⏳ _calculando..._';
+    const pen = j.decididoNosPenaltis ? ' _(nos pênaltis)_' : '';
     return (
-      `• ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}\n` +
+      `• ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}${pen}\n` +
       `  Seu palpite: ${pj.golsCasa} × ${pj.golsVisitante} → ${pontosLabel} _(${pj.palpite.rodada.bolao.nome})_`
     );
   });
 
-  const totalPeriodo = palpiteJogos
+  const totalPeriodo = lista
     .filter((pj) => pj.palpite.calculado)
-    .reduce((acc, pj) => acc + pj.pontosObtidos, 0);
-  const temPendentes = palpiteJogos.some((pj) => !pj.palpite.calculado);
+    .reduce((acc, pj) => acc + pj.pontosObtidos + pj.bonusObtido, 0);
+  const temPendentes = lista.some((pj) => !pj.palpite.calculado);
 
   let texto = `📊 *Seus pontos — últimas 48h:*\n\n${linhas.join('\n\n')}\n\n*Total no período: ${totalPeriodo} pts*`;
   if (temPendentes) {
@@ -1555,6 +1663,7 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
       `Enquanto isso, vale saber como a pontuação funciona:\n` +
       `• Pontos calculam *automaticamente em poucos minutos* depois que o jogo termina (o placar aparece ao vivo durante a partida)\n` +
       `• Critérios: 10 pts placar exato; 7 vencedor + gols de um time; 5 só o vencedor; 3 só gols de um time; 0 errou — *vale o melhor acerto, não soma*\n` +
+      `• 🏆 *No mata-mata é normal passar de 10 num jogo*: os pontos sobem por fase (oitavas 12, quartas 15…) e ainda tem *bônus* por acertar quem se classifica. O placar vale até a prorrogação (pênalti não conta).\n` +
       `• Se o placar oficial mudar (VAR), os pontos *recalculam sozinhos*\n\n` +
       `Confere os detalhes:\n` +
       `• *meus pontos* — sua pontuação por rodada\n` +
@@ -2638,11 +2747,20 @@ async function iniciarConfirmacaoPalpites(
   bolaoNome: string,
   rodadaId: string,
 ) {
-  const rodada = await prisma.rodada.findUnique({
-    where: { id: rodadaId },
+  // Mata-mata: o bolão pode ter VÁRIAS rodadas ABERTA ao mesmo tempo (R32 +
+  // oitavas na transição). Extrai contra os jogos abertos de TODAS elas (só
+  // confrontos reais — descarta placeholders "Vencedor 73") e registra cada
+  // palpite na rodada do jogo que casou. `rodadaId` (a rodada escolhida) ainda
+  // é o fallback/rótulo do bolão.
+  void rodadaId;
+  const rodadasAbertas = await prisma.rodada.findMany({
+    where: { bolaoId, status: 'ABERTA' },
     include: { jogos: { where: { status: { in: ['AGENDADO', 'AO_VIVO'] } } } },
   });
-  if (!rodada || rodada.jogos.length === 0) {
+  const jogos = rodadasAbertas
+    .flatMap((r) => r.jogos)
+    .filter((j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante));
+  if (jogos.length === 0) {
     await resetSession(msg.waId);
     await sendText({
       to: msg.waId,
@@ -2650,13 +2768,12 @@ async function iniciarConfirmacaoPalpites(
     });
     return;
   }
-  const jogos = rodada.jogos;
 
   // 1) Regex (rapido, cobre formato canonico)
   const regexResult = parseMultiplePalpitesDetalhado(textoCru);
 
   // 2) LLM (sempre — robusto a frases naturais como "Brasil perde do
-  //    Marrocos de 1 a 0"). Usa os jogos da rodada como ground truth.
+  //    Marrocos de 1 a 0"). Usa os jogos das rodadas abertas como ground truth.
   const llmPalpites = await extrairPalpites(
     textoCru,
     jogos.map((j) => ({ timeCasa: j.timeCasa, timeVisitante: j.timeVisitante })),
@@ -2666,7 +2783,7 @@ async function iniciarConfirmacaoPalpites(
   //    porque tende a normalizar nomes pros oficiais da rodada.
   const acumulado = new Map<
     string,
-    { jogoId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
+    { jogoId: string; rodadaId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
   >();
 
   // v3.25.0 — casa por times tolerando ordem INVERTIDA (mandante trocado);
@@ -2676,6 +2793,7 @@ async function iniciarConfirmacaoPalpites(
     if (!r) return;
     acumulado.set(r.jogo.id, {
       jogoId: r.jogo.id,
+      rodadaId: (r.jogo as { rodadaId: string }).rodadaId,
       timeCasa: r.timeCasa,
       timeVisitante: r.timeVisitante,
       golsCasa: r.golsCasa,
@@ -2758,6 +2876,19 @@ async function iniciarConfirmacaoPalpites(
     )
     .join('\n');
   let texto = `📝 Vou registrar ${palpitesParaConfirmar.length} palpite(s) no *${bolaoNome}*:\n\n${linhasPalpite}`;
+  // Mata-mata: reforça as regras no preview (placar até a prorrogação; empate
+  // → pergunto quem passa). Reduz o "por que vale X / cadê o bônus".
+  const jogosPorId = new Map(jogos.map((j) => [j.id, j]));
+  const ehMataMata = (jogoId: string) => {
+    const j = jogosPorId.get(jogoId);
+    return !!j && j.fase !== 'GRUPOS';
+  };
+  if (palpitesParaConfirmar.some((p) => ehMataMata(p.jogoId))) {
+    texto += `\n\n🏆 _Mata-mata: o placar vale até o fim da prorrogação (pênalti não entra)._`;
+    if (palpitesParaConfirmar.some((p) => p.golsCasa === p.golsVisitante && ehMataMata(p.jogoId))) {
+      texto += `\n_Tem empate aí — depois de confirmar eu te pergunto quem passa nos pênaltis (vale bônus)._`;
+    }
+  }
   // v3.20.0 — avisa NO PREVIEW os palpites de jogos já iniciados
   // (antes só falhava depois do "sim" — UX ruim)
   if (palpitesJaIniciados.length > 0) {
@@ -2968,6 +3099,29 @@ async function handleConfirmandoPalpitesInlineMultiBolao(
     resumo += `\n\n⚠️ Alguns palpites falharam:\n${detalhes}\n\n_Manda a mensagem de novo pra tentar — registros já feitos não duplicam._`;
   }
   await sendText({ to: msg.waId, text: resumo });
+
+  // Mata-mata — se o lote tem empate(s) e algum bolão envolvido está em fase
+  // de mata-mata, pergunta quem se classifica (aplica em todas as rodadas
+  // mata-mata envolvidas de uma vez).
+  const empates = pendente.palpites.filter((p) => p.golsCasa === p.golsVisitante);
+  if (totalRegistrados > 0 && empates.length > 0) {
+    const rodadasMataMata = await prisma.rodada.findMany({
+      where: {
+        bolaoId: { in: porBolao.map((r) => r.bolaoId) },
+        status: 'ABERTA',
+        fase: { not: 'GRUPOS' },
+      },
+      select: { id: true },
+    });
+    if (rodadasMataMata.length > 0) {
+      await iniciarPerguntasClassificado(
+        msg,
+        empates.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
+        rodadasMataMata.map((r) => r.id),
+        'seus bolões',
+      );
+    }
+  }
 }
 
 /**
@@ -3102,21 +3256,28 @@ async function registrarPalpitesConfirmados(
   usuarioId: string,
   rodadaId: string,
   bolaoNome: string,
-  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }>,
+  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; rodadaId?: string }>,
 ) {
   let registrados = 0;
   const erros: string[] = [];
+  // Empates registrados, com a rodada de cada um — mata-mata pode ter várias
+  // rodadas ABERTA, então cada palpite vai na rodada do seu jogo.
+  const empatesRegistrados: Array<{ timeCasa: string; timeVisitante: string; rodadaId: string }> = [];
   for (const p of palpites) {
+    const alvoRodada = p.rodadaId ?? rodadaId;
     try {
       await palpiteService.registrarPalpiteEmRodada({
         usuarioId,
-        rodadaId,
+        rodadaId: alvoRodada,
         timeCasa: p.timeCasa,
         timeVisitante: p.timeVisitante,
         golsCasa: p.golsCasa,
         golsVisitante: p.golsVisitante,
       });
       registrados++;
+      if (p.golsCasa === p.golsVisitante) {
+        empatesRegistrados.push({ timeCasa: p.timeCasa, timeVisitante: p.timeVisitante, rodadaId: alvoRodada });
+      }
     } catch (err) {
       erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
     }
@@ -3126,10 +3287,349 @@ async function registrarPalpitesConfirmados(
   if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
   await sendText({ to: msg.waId, text: resposta });
 
+  // Mata-mata: pra cada EMPATE cravado em rodada != GRUPOS, pergunta quem se
+  // classifica (bônus). O placar JÁ está salvo — a crava fica garantida mesmo
+  // se o user não responder.
+  if (registrados > 0 && empatesRegistrados.length > 0) {
+    const rodadaIdsEmpate = [...new Set(empatesRegistrados.map((e) => e.rodadaId))];
+    const rodadasMM = await prisma.rodada.findMany({
+      where: { id: { in: rodadaIdsEmpate }, fase: { not: 'GRUPOS' } },
+      select: { id: true },
+    });
+    const idsMM = new Set(rodadasMM.map((r) => r.id));
+    const empatesMM = empatesRegistrados.filter((e) => idsMM.has(e.rodadaId));
+    if (empatesMM.length > 0) {
+      await iniciarPerguntasClassificado(
+        msg,
+        empatesMM.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
+        [...idsMM],
+        bolaoNome,
+        rodadaId,
+      );
+      return; // a oferta de "mais jogos" acontece no fim da fila de classificado
+    }
+  }
+
   // v3.5.0: se o user fechou todos os jogos do lote visível, oferece mais
   if (registrados > 0) {
     await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
   }
+}
+
+/**
+ * Mata-mata — inicia a fila de perguntas "quem se classifica?" pros empates
+ * cravados. Guarda a fila no estado e pergunta o primeiro. As respostas são
+ * gravadas nas rodadas de `rodadaIds` (1 single-bolão, N multi-bolão).
+ */
+async function iniciarPerguntasClassificado(
+  msg: IncomingMessage,
+  empates: Array<{ timeCasa: string; timeVisitante: string }>,
+  rodadaIds: string[],
+  bolaoLabel: string,
+  rodadaIdParaMais?: string,
+) {
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_CLASSIFICADO_MATAMATA',
+    ctx: {
+      classificadosPendentes: empates,
+      classificadoRodadaIds: rodadaIds,
+      classificadoBolaoLabel: bolaoLabel,
+      classificadoRodadaIdParaMais: rodadaIdParaMais,
+    },
+  });
+  await perguntarClassificado(msg, empates[0]);
+}
+
+/** Envia a pergunta de classificado pro próximo empate da fila. */
+async function perguntarClassificado(
+  msg: IncomingMessage,
+  jogo: { timeCasa: string; timeVisitante: string },
+) {
+  await sendText({
+    to: msg.waId,
+    text:
+      `Deu empate 🤝 em *${jogo.timeCasa} x ${jogo.timeVisitante}* — ` +
+      `quem se classifica nos pênaltis: *${jogo.timeCasa}* ou *${jogo.timeVisitante}*?\n\n` +
+      `_(responde o nome do time, ou *1* pra ${jogo.timeCasa} / *2* pra ${jogo.timeVisitante})_`,
+  });
+}
+
+/**
+ * Interpreta a resposta de classificado (nome do time, 1/2, casa/visitante,
+ * primeiro/segundo). Retorna 'CASA'/'VISITANTE' ou null se ambíguo.
+ */
+function interpretarClassificado(
+  texto: string,
+  jogo: { timeCasa: string; timeVisitante: string },
+): 'CASA' | 'VISITANTE' | null {
+  const t = texto.trim().toLowerCase();
+  if (/^(1|um|primeiro|casa|mandante|o primeiro|(?:o )?de cima|cima)\b/.test(t)) return 'CASA';
+  if (/^(2|dois|segundo|visitante|fora|o segundo|(?:o )?de baixo|baixo)\b/.test(t)) return 'VISITANTE';
+  const casa = timeCorresponde(texto, jogo.timeCasa);
+  const visitante = timeCorresponde(texto, jogo.timeVisitante);
+  // Match exclusivo num dos lados.
+  if (casa && !visitante) return 'CASA';
+  if (visitante && !casa) return 'VISITANTE';
+  return null;
+}
+
+/**
+ * Processa a resposta de "quem se classifica?" pro empate no topo da fila,
+ * grava o classificado e avança pra o próximo empate (ou encerra a fila).
+ */
+async function handleConfirmandoClassificadoMataMata(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const fila = session.ctx?.classificadosPendentes ?? [];
+  const rodadaIds = session.ctx?.classificadoRodadaIds ?? [];
+  if (fila.length === 0 || rodadaIds.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const atual = fila[0];
+  const lado = interpretarClassificado(msg.text, atual);
+  if (!lado) {
+    // ESCAPE GRACIOSO: se em vez de responder quem passa o user mandou um
+    // comando de navegação forte ("ranking", "menu", "meus pontos"…), não
+    // fica preso na pergunta — sai do fluxo, AVISA que o placar já está
+    // salvo (só o bônus de classificado ficou pendente) e processa o
+    // comando. Resposta de time/lado nunca cai aqui (interpretarClassificado
+    // já casou), então isto só dispara em troca de assunto real.
+    const { intencao: intCarona } = parseIntencao(msg.text);
+    if (ehIntentForteNavegacao(intCarona)) {
+      await resetSession(msg.waId);
+      await sendText({
+        to: msg.waId,
+        text:
+          `👍 Deixei pra depois quem passa em *${atual.timeCasa} x ${atual.timeVisitante}* ` +
+          `— seu *placar já tá salvo*, só não marquei o bônus de classificado.`,
+      });
+      await handleIdle(msg, usuarioId, intCarona, msg.text);
+      return;
+    }
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não entendi. Em *${atual.timeCasa} x ${atual.timeVisitante}*, quem passa nos pênaltis?\n` +
+        `Responde *${atual.timeCasa}* ou *${atual.timeVisitante}* _(ou 1 / 2)_.`,
+    });
+    return;
+  }
+
+  await palpiteService.registrarClassificadoPalpite({
+    usuarioId,
+    rodadaIds,
+    timeCasa: atual.timeCasa,
+    timeVisitante: atual.timeVisitante,
+    lado,
+  });
+
+  const restante = fila.slice(1);
+  const escolhido = lado === 'CASA' ? atual.timeCasa : atual.timeVisitante;
+
+  if (restante.length > 0) {
+    await updateSession(msg.waId, {
+      ctxPatch: { classificadosPendentes: restante },
+    });
+    await sendText({ to: msg.waId, text: `🎯 Anotado: *${escolhido}* passa. Próximo:` });
+    await perguntarClassificado(msg, restante[0]);
+    return;
+  }
+
+  // Fim da fila.
+  const rodadaIdParaMais = session.ctx?.classificadoRodadaIdParaMais;
+  await resetSession(msg.waId);
+  await sendText({
+    to: msg.waId,
+    text: `🎯 Anotado: *${escolhido}* passa. Pronto, registrei quem você acha que se classifica! 🏆`,
+  });
+  if (rodadaIdParaMais) {
+    await talvezOferecerMaisJogos(msg, usuarioId, rodadaIdParaMais);
+  }
+}
+
+/**
+ * Extrai o nome do time de perguntas tipo "quem o Brasil enfrenta" / "que horas
+ * joga o Brasil". Devolve o miolo (sem stopwords iniciais via normalizeTeamName,
+ * que o matcher já tolera). Retorna '' se não achar.
+ */
+function extrairTimeDaPergunta(texto: string): string {
+  const padroes: RegExp[] = [
+    /quem (?:o |a )?(.+?) (?:enfrenta|pega|joga contra|encara|vai pegar|vai enfrentar)\b/i,
+    /advers[áa]rio (?:d[oae] )?(.+)$/i,
+    /pr[óo]xim[oa] (?:advers[áa]rio|jogo) (?:d[oae] )?(.+)$/i,
+    /(.+?) (?:joga|enfrenta|pega) (?:contra |com )?quem/i,
+    /contra quem (?:o |a )?(.+?) joga/i,
+    /contra quem (?:joga|enfrenta|pega) (?:o |a )?(.+)$/i,
+    /(?:o |a )?(.+?) pega quem/i,
+    /quem (?:o |a )?(.+?) (?:vai )?(?:pegar|enfrentar|joga|pega) (?:depois|agora|de novo|na pr[óo]xima|nas?)/i,
+    /que (?:horas?|dia) (?:joga|joga[m]?) (?:o |a )?(.+)$/i,
+    /que (?:horas?|dia) (?:o |a )?(.+?) joga/i,
+    /quando (?:o |a )?(.+?) joga\b/i,
+    /(?:o |a )?(.+?) joga quando/i,
+    /(?:quando|hor[áa]rio) (?:e |eh |é )?(?:o jogo )?(?:d[oae] )?(.+)$/i,
+  ];
+  for (const p of padroes) {
+    const m = texto.match(p);
+    if (m && m[1]) {
+      return m[1].replace(/[?!.]+$/, '').trim();
+    }
+  }
+  return '';
+}
+
+/**
+ * ADVERSARIO_TIME — "quem o Brasil enfrenta?". Lê a chave semeada/avançada do(s)
+ * bolão(ões) do user. Se o adversário ainda não está definido, responde a
+ * dependência (sai depois do jogo X) — nunca inventa.
+ */
+async function handleAdversarioTime(msg: IncomingMessage, usuarioId: string) {
+  const time = extrairTimeDaPergunta(msg.text);
+  if (!time) {
+    await sendText({
+      to: msg.waId,
+      text: 'Qual time você quer saber o adversário? _(ex: "quem o Brasil enfrenta?")_',
+    });
+    return;
+  }
+  const confronto = await bracketService.acharConfrontoDoTime(usuarioId, time);
+  if (!confronto) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não achei *${time}* na chave de mata-mata dos seus bolões.\n` +
+        `Pode ser que ainda não esteja definido, ou o nome veio diferente. Tenta *ver a chave*.`,
+    });
+    return;
+  }
+  const { jogo, adversario, adversarioIndefinido } = confronto;
+  const fase = faseLabel(jogo.fase);
+  if (adversarioIndefinido) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `⏳ O adversário de *${time}* nas *${fase}* ainda não está definido — ` +
+        `sai depois do jogo *${adversario.replace(/^(Vencedor|Perdedor)\s+/i, '#')}*. 🔜`,
+    });
+    return;
+  }
+  await sendText({
+    to: msg.waId,
+    text:
+      `🆚 Nas *${fase}*, o adversário é *${adversario}*.\n` +
+      `📅 ${formatarDataHoraComDiaBR(jogo.dataHora)} _(horário de Brasília)_`,
+  });
+}
+
+/**
+ * HORARIO_JOGO — "que horas joga o Brasil?". Kickoff em Brasília + fase do
+ * próximo jogo do time na chave.
+ */
+async function handleHorarioJogo(msg: IncomingMessage, usuarioId: string) {
+  const time = extrairTimeDaPergunta(msg.text);
+  if (!time) {
+    await sendText({
+      to: msg.waId,
+      text: 'De qual time você quer o horário? _(ex: "que horas joga o Brasil?")_',
+    });
+    return;
+  }
+  const confronto = await bracketService.acharConfrontoDoTime(usuarioId, time);
+  if (!confronto) {
+    await sendText({
+      to: msg.waId,
+      text: `🤔 Não achei jogo de *${time}* na chave dos seus bolões. Tenta *ver a chave*.`,
+    });
+    return;
+  }
+  const { jogo, adversario, adversarioIndefinido } = confronto;
+  const fase = faseLabel(jogo.fase);
+  const advLabel = adversarioIndefinido ? 'adversário a definir' : adversario;
+  await sendText({
+    to: msg.waId,
+    text:
+      `🕐 *${time}* joga nas *${fase}*:\n` +
+      `${formatarDataHoraComDiaBR(jogo.dataHora)} _(horário de Brasília)_ — vs *${advLabel}*`,
+  });
+}
+
+/**
+ * VER_CHAVE — resumo dos confrontos de mata-mata do(s) bolão(ões) do user, com
+ * fase e horário em Brasília. Jogos com time a definir aparecem como tal.
+ */
+async function handleVerChave(msg: IncomingMessage, usuarioId: string) {
+  const jogos = await bracketService.buscarJogosMataMataDoUsuario(usuarioId);
+  if (jogos.length === 0) {
+    await sendText({
+      to: msg.waId,
+      text: '🏆 A chave do mata-mata ainda não foi aberta nos seus bolões. Assim que sair, te aviso!',
+    });
+    return;
+  }
+  // Agrupa por fase, na ordem do torneio.
+  const ordemFase = ['R32', 'OITAVAS', 'QUARTAS', 'SEMI', 'TERCEIRO', 'FINAL'];
+  const porFase = new Map<string, typeof jogos>();
+  for (const j of jogos) {
+    if (!porFase.has(j.fase)) porFase.set(j.fase, []);
+    porFase.get(j.fase)!.push(j);
+  }
+  const blocos: string[] = [];
+  for (const fase of ordemFase) {
+    const lista = porFase.get(fase);
+    if (!lista || lista.length === 0) continue;
+    const linhas = lista
+      .map((j) => {
+        const placar =
+          j.status === 'FINALIZADO' && j.golsCasa !== null && j.golsVisitante !== null
+            ? ` — ${j.golsCasa}x${j.golsVisitante} ✅`
+            : ` _(${formatarDataHoraComDiaBR(j.dataHora)})_`;
+        return `• ${j.timeCasa} x ${j.timeVisitante}${placar}`;
+      })
+      .join('\n');
+    blocos.push(`*${faseLabel(fase as FaseTorneio)}*\n${linhas}`);
+  }
+  await sendText({
+    to: msg.waId,
+    text: `🏆 *CHAVE DO MATA-MATA*\n_(horários de Brasília)_\n\n${blocos.join('\n\n')}`,
+  });
+}
+
+/**
+ * Submenu de regras — pergunta se o user quer as regras completas (grupos) ou
+ * só as do mata-mata. Estado ESCOLHENDO_TIPO_REGRAS (leitura → escapável).
+ */
+async function iniciarSubmenuRegras(msg: IncomingMessage) {
+  await setSession(msg.waId, { state: 'ESCOLHENDO_TIPO_REGRAS', ctx: {} });
+  await sendText({
+    to: msg.waId,
+    text:
+      'Quer as regras *completas* ou só do *mata-mata*? 🏆\n\n' +
+      '1️⃣ *Completas* — como pontuar, prazos, ranking\n' +
+      '2️⃣ *Mata-mata* — prorrogação, pênaltis, bônus de quem passa\n\n' +
+      '_(responde *completas* ou *mata-mata*, ou 1 / 2)_',
+  });
+}
+
+/** Interpreta a escolha do submenu de regras e manda o texto certo. */
+async function handleEscolhendoTipoRegras(msg: IncomingMessage, _usuarioId: string) {
+  const t = msg.text.trim().toLowerCase();
+  if (/^(2|mata[\s-]?mata|matamata|eliminat|do mata)/i.test(t)) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: regrasMataMata() });
+    return;
+  }
+  if (/^(1|completa|tudo|geral|grupos?|todas|as duas|ambas)/i.test(t)) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: regrasCompletas() });
+    return;
+  }
+  await sendText({
+    to: msg.waId,
+    text: 'Responde *completas* (regras gerais) ou *mata-mata* (prorrogação, pênaltis, bônus) — ou 1 / 2. 🏆',
+  });
 }
 
 /**
@@ -3650,13 +4150,18 @@ async function handleProgressoPalpites(msg: IncomingMessage, usuarioId: string) 
       },
     });
 
-    if (!rodada || rodada.jogos.length === 0) continue;
+    if (!rodada) continue;
+    // Mata-mata: ignora jogos ainda com time placeholder ("Vencedor 73").
+    const jogosReais = rodada.jogos.filter(
+      (j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante),
+    );
+    if (jogosReais.length === 0) continue;
 
-    const totalJogosAbertos = rodada.jogos.length;
+    const totalJogosAbertos = jogosReais.length;
     const adminId = rodada.bolao.adminId;
 
     // Mapa usuarioId → quantos jogos da rodada ele palpitou (só jogos abertos)
-    const jogosAbertosIds = new Set(rodada.jogos.map((j) => j.id));
+    const jogosAbertosIds = new Set(jogosReais.map((j) => j.id));
     const palpitesPorUsuario = new Map<string, number>();
     for (const p of rodada.palpites) {
       const cnt = p.jogos.filter((pj) => jogosAbertosIds.has(pj.jogoId)).length;
@@ -3689,8 +4194,9 @@ async function handleProgressoPalpites(msg: IncomingMessage, usuarioId: string) 
       .map((p) => `• ${p.nome}${p.ehAdmin ? ' 👑' : ''}`)
       .join('\n');
 
+    const faseHeader = rodada.fase !== 'GRUPOS' ? faseLabel(rodada.fase) : 'Fase de Grupos';
     const blocos: string[] = [
-      `🏆 *${b.nome}* — Fase de Grupos`,
+      `🏆 *${b.nome}* — ${faseHeader}`,
       `📊 ${participantes.length} participantes / ${totalJogosAbertos} jogos abertos`,
     ];
     if (comPalpite.length > 0) {
@@ -4179,7 +4685,9 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
 
 async function enviarRankingDoBolao(waId: string, bolaoId: string) {
   const dados = await rankingService.getRankingPorBolao(bolaoId);
-  const texto = formatRanking(dados.bolao.nome, dados.rodadaAtual, dados.bolao.campeonatoNome, dados.ranking);
+  // Mata-mata: cabeçalho mostra a fase ("Oitavas de final") em vez de "Rodada N".
+  const faseHeader = dados.faseAtual !== 'GRUPOS' ? faseLabel(dados.faseAtual) : undefined;
+  const texto = formatRanking(dados.bolao.nome, dados.rodadaAtual, dados.bolao.campeonatoNome, dados.ranking, faseHeader);
   // HOTFIX 17/05: deixa claro que e historico, nao status atual.
   const sufixo =
     dados.bolao.status === 'FINALIZADO'
@@ -4486,13 +4994,18 @@ async function enviarEstatisticaDoBolao(
   const destaque = faixaDestaque !== null ? montarDestaqueFaixa(faixaDestaque, stats) : null;
 
   const posicao = stats.posicao > 0 ? ` • Posição: ${stats.posicao}º` : '';
+  // Rótulos sem valor fixo de pts — no mata-mata os pontos por faixa variam por
+  // fase (oitavas 12, quartas 15…). "Grupos: 10/7/5/3" fica como referência.
+  const linhaBonus = stats.bonusTotal > 0 ? `🏆 Bônus de classificado: *+${stats.bonusTotal} pts*\n` : '';
   const corpo =
     `📊 *Estatística dos seus pontos — ${stats.nomeBolao}*\n\n` +
-    `🎯 Cravadas (placar exato, ${PONTUACAO_PADRAO.placarExato} pts): ${stats.cravadas}\n` +
-    `🔥 Vencedor + gols de um time (${PONTUACAO_PADRAO.resultadoMaisGols} pts): ${stats.sete}\n` +
-    `👍 Só o resultado (${PONTUACAO_PADRAO.resultadoCerto} pts): ${stats.cinco}\n` +
-    `😐 Só os gols de um time (${PONTUACAO_PADRAO.golsDeUmTime} pts): ${stats.tres}\n` +
-    `❌ Errou (${PONTUACAO_PADRAO.errouTudo} pts): ${stats.zero}\n\n` +
+    `🎯 Placar exato (cravadas): ${stats.cravadas}\n` +
+    `🔥 Vencedor + gols de um time: ${stats.sete}\n` +
+    `👍 Só o resultado: ${stats.cinco}\n` +
+    `😐 Só os gols de um time: ${stats.tres}\n` +
+    `❌ Errou: ${stats.zero}\n` +
+    linhaBonus +
+    `_(grupos valem 10/7/5/3; no mata-mata sobem por fase)_\n\n` +
     `⚽ ${stats.totalJogos} ${stats.totalJogos === 1 ? 'jogo pontuado' : 'jogos pontuados'} • *Total: ${stats.totalPontos} pts*${posicao}\n` +
     `_Quer ver os jogos de uma faixa? Manda *quais cravei*, *quais fiz 7 pontos*… Ou *ranking* pra a classificação._`;
 
@@ -4701,42 +5214,47 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     'APAGANDO_PALPITE_ESCOLHA_JOGO',
   ]);
   if (!ESTADOS_INTERROMPIVEIS.has(session.state)) return false;
+  return ehIntentForteNavegacao(intencao);
+}
 
-  // Intents fortes — a UX considera elas como "comando explicito"
-  const INTENTS_FORTES = new Set<Intencao>([
-    Intencao.PROXIMOS_JOGOS,
-    Intencao.JOGOS_HOJE,
-    Intencao.MEU_PALPITE,
-    Intencao.RANKING,
-    Intencao.MEUS_PONTOS,
-    Intencao.ESTATISTICA_PONTOS,
-    Intencao.MEUS_BOLOES,
-    Intencao.CRIAR_BOLAO,
-    Intencao.ENTRAR_BOLAO,
-    Intencao.COMO_CONVIDAR,
-    Intencao.QUEM_PARTICIPA,
-    Intencao.SAIR_BOLAO,
-    Intencao.ABRIR_RODADA,
-    Intencao.PENDENTES,
-    Intencao.AJUDA,
-    Intencao.MENU,
-    Intencao.REGRAS,
-    Intencao.INFO_SENHA,
-    Intencao.EXCLUIR_BOLAO,
-    // Sprint 2
-    Intencao.INFO_PRODUTO,
-    Intencao.INFO_PRECO,
-    Intencao.COMO_PALPITAR,
-    Intencao.QUANDO_COMECA,
-    Intencao.EDITAR_PALPITE,
-    Intencao.APAGAR_PALPITE,
-    Intencao.DEFINIR_BOLAO_PADRAO,
-    Intencao.RENOMEAR_BOLAO,
-    Intencao.REMOVER_PARTICIPANTE,
-    Intencao.RESUMO_BOLOES,
-    Intencao.CANCELAR,
-  ]);
-  return INTENTS_FORTES.has(intencao);
+// Intents "fortes" — a UX considera elas como comando explícito que vence um
+// estado de leitura/escolha stale (e também o escape gracioso da pergunta de
+// classificado do mata-mata). Fonte única pros dois usos.
+const INTENTS_FORTES_NAVEGACAO = new Set<Intencao>([
+  Intencao.PROXIMOS_JOGOS,
+  Intencao.JOGOS_HOJE,
+  Intencao.MEU_PALPITE,
+  Intencao.RANKING,
+  Intencao.MEUS_PONTOS,
+  Intencao.ESTATISTICA_PONTOS,
+  Intencao.MEUS_BOLOES,
+  Intencao.CRIAR_BOLAO,
+  Intencao.ENTRAR_BOLAO,
+  Intencao.COMO_CONVIDAR,
+  Intencao.QUEM_PARTICIPA,
+  Intencao.SAIR_BOLAO,
+  Intencao.ABRIR_RODADA,
+  Intencao.PENDENTES,
+  Intencao.AJUDA,
+  Intencao.MENU,
+  Intencao.REGRAS,
+  Intencao.INFO_SENHA,
+  Intencao.EXCLUIR_BOLAO,
+  Intencao.INFO_PRODUTO,
+  Intencao.INFO_PRECO,
+  Intencao.COMO_PALPITAR,
+  Intencao.QUANDO_COMECA,
+  Intencao.EDITAR_PALPITE,
+  Intencao.APAGAR_PALPITE,
+  Intencao.DEFINIR_BOLAO_PADRAO,
+  Intencao.RENOMEAR_BOLAO,
+  Intencao.REMOVER_PARTICIPANTE,
+  Intencao.RESUMO_BOLOES,
+  Intencao.CANCELAR,
+]);
+
+function ehIntentForteNavegacao(intencao: Intencao): boolean {
+  return INTENTS_FORTES_NAVEGACAO.has(intencao);
 }
 
 async function tentarAcaoAdminEmIdle(
@@ -5184,7 +5702,11 @@ async function mostrarProximosJogos(
   let algumLoteVoltouAoTopo = false;
 
   for (const b of boloes) {
-    const rodada = await prisma.rodada.findFirst({
+    // Mata-mata: um bolão pode ter VÁRIAS rodadas ABERTA ao mesmo tempo
+    // (R32 terminando enquanto as oitavas abrem). Junta os jogos de TODAS
+    // as rodadas abertas e descarta os de mata-mata ainda com time
+    // placeholder ("Vencedor 73") — só entram confrontos reais.
+    const rodadasAbertas = await prisma.rodada.findMany({
       where: { bolaoId: b.id, status: 'ABERTA' },
       include: {
         jogos: {
@@ -5200,27 +5722,33 @@ async function mostrarProximosJogos(
         },
       },
     });
+    if (rodadasAbertas.length === 0) continue;
 
-    if (!rodada || rodada.jogos.length === 0) continue;
+    let jogosFuturos = rodadasAbertas
+      .flatMap((r) => r.jogos)
+      .filter((j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante))
+      .sort((j1, j2) => j1.dataHora.getTime() - j2.dataHora.getTime());
+    if (jogosFuturos.length === 0) continue;
 
     // Separa rolando (kickoff passou) dos palpitáveis (kickoff futuro)
-    const jogosRolando = rodada.jogos.filter((j) => j.dataHora.getTime() <= agora.getTime());
-    rodada.jogos = rodada.jogos.filter((j) => j.dataHora.getTime() > agora.getTime());
-    if (rodada.jogos.length === 0 && jogosRolando.length === 0) continue;
+    const jogosRolando = jogosFuturos.filter((j) => j.dataHora.getTime() <= agora.getTime());
+    jogosFuturos = jogosFuturos.filter((j) => j.dataHora.getTime() > agora.getTime());
+    if (jogosFuturos.length === 0 && jogosRolando.length === 0) continue;
 
-    const palpite = await prisma.palpite.findUnique({
-      where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
-      include: { jogos: true },
+    const rodadaIds = rodadasAbertas.map((r) => r.id);
+    const palpitesUser = await prisma.palpiteJogo.findMany({
+      where: { palpite: { usuarioId, rodadaId: { in: rodadaIds } } },
+      select: { jogoId: true },
     });
-    const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
+    const palpitadosIds = new Set(palpitesUser.map((p) => p.jogoId));
 
-    // Totais da rodada ANTES do filtro de pendentes (pro contador honesto)
-    const totalAbertosRodada = rodada.jogos.length;
+    // Totais ANTES do filtro de pendentes (pro contador honesto)
+    const totalAbertosRodada = jogosFuturos.length;
 
     // v3.27.0 — modo "só os que faltam": esconde os já palpitados
     if (apenasPendentes) {
-      rodada.jogos = rodada.jogos.filter((j) => !palpitadosIds.has(j.id));
-      if (rodada.jogos.length === 0 && totalAbertosRodada > 0) {
+      jogosFuturos = jogosFuturos.filter((j) => !palpitadosIds.has(j.id));
+      if (jogosFuturos.length === 0 && totalAbertosRodada > 0) {
         partes.push(
           `🏆 *${b.nome}*\n🎉 Você já palpitou em *todos* os ${totalAbertosRodada} jogos abertos. Bolão fechado pelo seu lado!\n\n_Manda *próximos jogos* e escolhe *2* pra rever a lista completa._`,
         );
@@ -5228,8 +5756,8 @@ async function mostrarProximosJogos(
       }
     }
 
-    const totalRodada = rodada.jogos.length;
-    const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
+    const totalRodada = jogosFuturos.length;
+    const palpitadosTotal = jogosFuturos.filter((j) => palpitadosIds.has(j.id)).length;
 
     // Resolver offset deste bolão
     let offset: number;
@@ -5249,7 +5777,7 @@ async function mostrarProximosJogos(
       if (offset >= totalRodada) offset = 0;
     }
 
-    const lote = rodada.jogos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
+    const lote = jogosFuturos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
     // v3.20.0 — edge: nenhum jogo futuro mas há jogo(s) ROLANDO agora.
     // Mostra só o bloco rolando em vez de pular o bolão silenciosamente.
     if (lote.length === 0 && jogosRolando.length > 0) {
@@ -5269,7 +5797,9 @@ async function mostrarProximosJogos(
       // v3.11.0 — força Brasília (caso Jeni 11/06: VPS UTC mostrava 22:00 em vez de 19:00)
       const data = formatarDataHoraCurtaBR(j.dataHora);
       const marcado = palpitadosIds.has(j.id) ? '✅' : '⚪';
-      return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}`;
+      // Mata-mata: mostra a fase do jogo (16-avos/oitavas/...).
+      const faseTag = j.fase !== 'GRUPOS' ? ` _(${faseLabel(j.fase)})_` : '';
+      return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}${faseTag}`;
     });
 
     // Rodapé honesto: contador + indicação se há mais jogos
@@ -5554,7 +6084,9 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
   const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`];
   for (const rodada of detalhes.rodadas) {
     if (rodada.jogos.length === 0) continue;
-    partes.push(`*Rodada ${rodada.rodada.numero}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
+    // Mata-mata: mostra a fase no cabeçalho da rodada.
+    const faseTag = rodada.rodada.fase !== 'GRUPOS' ? ` — ${faseLabel(rodada.rodada.fase)}` : '';
+    partes.push(`*Rodada ${rodada.rodada.numero}${faseTag}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
     const jogosOrdenados = [...rodada.jogos].sort(
       (a, b) => a.jogo.dataHora.getTime() - b.jogo.dataHora.getTime(),
     );
@@ -5572,8 +6104,14 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
       // "oficial: 0x1 ❌ (0 pts)" — final + zerado — enganando o usuário
       // (caso Humberto 12/06 00:22). Agora mostra "🔴 ao vivo: parcial…".
       if (j.status !== 'FINALIZADO') temJogoEmAberto = true;
-      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites);
-      partes.push(`• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`);
+      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites, pj.bonusObtido);
+      let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`;
+      // Mata-mata: mostra o classificado que o user cravou no empate.
+      if (pj.classificadoPalpite) {
+        const timeClass = pj.classificadoPalpite === 'CASA' ? j.timeCasa : j.timeVisitante;
+        linha += `\n   ↳ 🎯 _você acha que ${timeClass} passa_`;
+      }
+      partes.push(linha);
     }
     partes.push('');
   }
