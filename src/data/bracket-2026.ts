@@ -14,10 +14,10 @@
  *   103    → Disputa de 3º lugar  apiJogoId: WC2026_TER_103
  *   104    → Final                apiJogoId: WC2026_FIN_104
  *
- * R32→oitavas e oitavas (89–96) estão CONFIRMADOS (chave oficial). Quartas→final
- * (97–104) seguem o padrão esperado, marcado com `CONFERIR FIFA` — conferir
- * contra a chave oficial antes do fim das oitavas:
- *   https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026
+ * TODA a chave (R32→final, inclusive 3º lugar) foi CONFIRMADA contra o payload
+ * da api.fifa.com (calendar/matches) em 2026-06-27: os PlaceHolders batem
+ * (oitava 90 = W73×W75, quartas 97 = W89×W90, semis, 103 = RU101×RU102, final
+ * 104 = W101×W102). Fonte da verdade dos jogos = o `mata-mata.sync.service`.
  */
 import type { FaseTorneio, LadoJogo } from '@prisma/client';
 
@@ -101,9 +101,10 @@ function liga(numeroDestino: number, slot: LadoJogo): LigacaoChave {
  * R32→oitavas (73–88) e oitavas→quartas (89–96): CONFIRMADOS.
  *   Oitavas: 89=V74×V77 90=V73×V75 91=V76×V78 92=V79×V80
  *            93=V83×V84 94=V81×V82 95=V86×V88 96=V85×V87
- * Quartas→final (97–104): padrão esperado — CONFERIR FIFA.
+ * Quartas→final (97–104): CONFIRMADO contra a api.fifa.com (2026-06-27).
  *   97=V89×V90 98=V93×V94 99=V91×V92 100=V95×V96
  *   101=V97×V98 102=V99×V100  103=Perdedor101×Perdedor102  104=V101×V102
+ *   (CONFIRMADO contra o payload da api.fifa.com em 2026-06-27)
  */
 const AVANCO_POR_NUMERO: Record<number, AvancoJogo> = {
   // ----- R32 → Oitavas (CONFIRMADO) -----
@@ -124,7 +125,7 @@ const AVANCO_POR_NUMERO: Record<number, AvancoJogo> = {
   87: { vencedor: liga(96, 'VISITANTE') },
   88: { vencedor: liga(95, 'VISITANTE') },
 
-  // ----- Oitavas → Quartas (CONFERIR FIFA: 97=V89×V90, 98=V93×V94, 99=V91×V92, 100=V95×V96) -----
+  // ----- Oitavas → Quartas (97=V89×V90, 98=V93×V94, 99=V91×V92, 100=V95×V96) -----
   89: { vencedor: liga(97, 'CASA') },
   90: { vencedor: liga(97, 'VISITANTE') },
   91: { vencedor: liga(99, 'CASA') },
@@ -134,13 +135,13 @@ const AVANCO_POR_NUMERO: Record<number, AvancoJogo> = {
   95: { vencedor: liga(100, 'CASA') },
   96: { vencedor: liga(100, 'VISITANTE') },
 
-  // ----- Quartas → Semis (CONFERIR FIFA: 101=V97×V98, 102=V99×V100) -----
+  // ----- Quartas → Semis (101=V97×V98, 102=V99×V100) -----
   97: { vencedor: liga(101, 'CASA') },
   98: { vencedor: liga(101, 'VISITANTE') },
   99: { vencedor: liga(102, 'CASA') },
   100: { vencedor: liga(102, 'VISITANTE') },
 
-  // ----- Semis → Final (vencedor) + 3º lugar (perdedor) (CONFERIR FIFA) -----
+  // ----- Semis → Final (vencedor) + 3º lugar (perdedor) -----
   101: { vencedor: liga(104, 'CASA'), perdedor: liga(103, 'CASA') },
   102: { vencedor: liga(104, 'VISITANTE'), perdedor: liga(103, 'VISITANTE') },
 
