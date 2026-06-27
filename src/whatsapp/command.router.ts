@@ -43,7 +43,12 @@ import { PONTUACAO_PADRAO } from '../modules/ranking/ranking.types.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
 import { construirFatosVivos } from '../llm/fatos-vivos.js';
-import { parecePalpiteMasNaoEntendi, parecePalpiteIncompleto } from './palpite.heuristics.js';
+import {
+  parecePalpiteMasNaoEntendi,
+  parecePalpiteIncompleto,
+  parecePalpiteSoPlacar,
+  pareceListaDeConfrontosSemPlacar,
+} from './palpite.heuristics.js';
 import {
   construirFatosCopa2026,
   descreverGround,
@@ -439,6 +444,42 @@ async function handleIdle(
         `Manda assim: \`${incompleto.time} ${incompleto.placar} Adversário\`\n` +
         `_(ex: ${incompleto.time} ${incompleto.placar} Japão)_\n\n` +
         `Ou manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais.`,
+    });
+    return;
+  }
+
+  // v3.40.0 — PLACAR PURO sem time (caso real "3x0"): não dá pra saber o
+  // jogo. Pede o jogo em vez de cair em "não entendi"/LLM.
+  const soPlacar = parecePalpiteSoPlacar(msg.text);
+  if (soPlacar) {
+    void incContador('msg.palpite_so_placar');
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Vi um placar (*${soPlacar.placar}*), mas faltou dizer de *qual jogo*!\n\n` +
+        `Manda assim: \`Time ${soPlacar.placar} Time\`\n` +
+        `_(ex: Brasil ${soPlacar.placar} Coreia)_\n\n` +
+        `Ou manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais.`,
+    });
+    return;
+  }
+
+  // v3.40.0 — LISTA de confrontos SEM placar (caso real: "Noruega x França\n
+  // Senegal x Iraque\n…"). Forte intenção de palpitar sem os números; guia o
+  // usuário em vez de cair em "não entendi".
+  const listaConfrontos = pareceListaDeConfrontosSemPlacar(msg.text);
+  if (listaConfrontos) {
+    void incContador('msg.lista_confrontos_sem_placar');
+    const exemplo = listaConfrontos.confrontos[0].replace(
+      /\s+(?:[xX×]|vs\.?|contra|-)\s+/i,
+      ' 2x1 ',
+    );
+    await sendText({
+      to: msg.waId,
+      text:
+        `⚽ Vi que você listou *jogos*, mas faltou o *placar* de cada um!\n\n` +
+        `Manda um por linha COM o placar, assim:\n\`${exemplo}\`\n\n` +
+        `Ou manda *próximos jogos* pra ver os jogos abertos e palpitar.`,
     });
     return;
   }

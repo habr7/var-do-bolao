@@ -220,6 +220,34 @@ const CENARIOS: Cenario[] = [
   },
 
   // ====================================================================
+  // v3.40.0 — gaps da revisão diária (mensagens não-entendidas)
+  // ====================================================================
+  {
+    grupo: '🧹 Revisão diária',
+    desc: 'Caso real: "como posso fazer um bolão da minha família?" → CRIAR_BOLAO',
+    msg: 'como posso fazer um bolão da minha família?',
+    esperado: { intencao: Intencao.CRIAR_BOLAO },
+  },
+  {
+    grupo: '🧹 Revisão diária',
+    desc: 'Caso real: "refazer" sozinho → EDITAR_PALPITE',
+    msg: 'refazer',
+    esperado: { intencao: Intencao.EDITAR_PALPITE },
+  },
+  {
+    grupo: '🧹 Revisão diária',
+    desc: 'Caso real: "Meus olhares" (autocorretor) → MEU_PALPITE',
+    msg: 'Meus olhares',
+    esperado: { intencao: Intencao.MEU_PALPITE },
+  },
+  {
+    grupo: '🧹 Revisão diária — não-regressão',
+    desc: '"como funciona o bolão" continua AJUDA (não CRIAR_BOLAO)',
+    msg: 'como funciona o bolão',
+    esperado: { intencao: Intencao.AJUDA },
+  },
+
+  // ====================================================================
   // GRUPO 4: Novos handlers (Fase 2)
   // ====================================================================
   {

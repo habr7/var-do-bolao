@@ -40,7 +40,7 @@ INTENCOES:
 - SAUDACAO: cumprimentar, abrir conversa. Ex: "oi", "salve", "fala bot", "e ai cara".
 - MENU: pedir pra ver opcoes. Ex: "menu", "comeca de novo", "voltar pro inicio".
 - AJUDA: nao sabe o que pode fazer. Ex: "ajuda", "como funciona?", "o que voce faz?".
-- CRIAR_BOLAO: quer criar/abrir um bolao NOVO. **Requer verbo de acao explicito** (criar/abrir/montar/fazer/novo). Ex: "quero abrir um bolao", "monta um bolao pra mim", "bora criar". **NAO classifique como CRIAR_BOLAO se o texto for so o nome de um bolao** (ex: "Bolao da Firma", "Bolao teste oficial") — nesse caso retorne DESCONHECIDO. O bot tem caminho separado pra detectar nome de bolao existente.
+- CRIAR_BOLAO: quer criar/abrir um bolao NOVO. **Requer verbo de acao explicito** (criar/abrir/montar/fazer/novo). Ex: "quero abrir um bolao", "monta um bolao pra mim", "bora criar". **Perguntas com verbo de criacao TAMBEM sao CRIAR_BOLAO** — ex: "como crio um bolao?", "como faco um bolao da minha familia?", "como abro um bolao?", "da pra fazer um bolao?". **NAO classifique como CRIAR_BOLAO se o texto for so o nome de um bolao** (ex: "Bolao da Firma", "Bolao teste oficial") — nesse caso retorne DESCONHECIDO. O bot tem caminho separado pra detectar nome de bolao existente.
 - ENTRAR_BOLAO: quer entrar em bolao existente. Ex: "me coloca num bolao", "como entro?", "quero participar".
 - MEUS_BOLOES: ver os boloes em que participa. Ex: "meus boloes", "onde eu jogo", "em qual bolao to?".
 - RANKING: ver classificacao. Ex: "ranking", "tabela", "quem ta na frente", "quem ta ganhando".

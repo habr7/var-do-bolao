@@ -211,6 +211,10 @@ const MEU_PALPITE_PATTERNS: RegExp[] = [
   /\bmeus chutes?\b/,
   /\bpalpites? que (?:eu )?(?:dei|fiz|registrei)\b/,
   /\bver meus palpites?\b/,
+  // v3.40.0 — alias de autocorretor de celular (caso real 2× "Meus olhares"
+  // → "meus palpites"). Baixo risco: "olhares" não aparece em nenhum outro
+  // intent, então roteia uma frase rara pra "meus palpites".
+  /\bmeus? olhares?\b/,
 ];
 
 // "Proximos jogos / quais jogos faltam / o que ainda nao palpitei"
@@ -593,6 +597,14 @@ const CRIAR_BOLAO_PATTERNS: RegExp[] = [
   /\b(?:quero|bora|vamos|gostaria de) (?:criar|abrir|montar|fazer)(?: um)? bol(?:a|o)o\b/,
   /\b(?:abrir|montar|fazer)(?: um)? bol(?:a|o)o (?:novo|new)\b/,
   /\bnovo bol(?:a|o)o\b/,
+  // v3.40.0 — pergunta com verbo de CRIAÇÃO (caso real "como posso fazer um
+  // bolao da minha familia?"). Os patterns acima exigiam imperativo no início
+  // (quero/bora/...), então perguntas caíam no LLM→DESCONHECIDO. Seguro:
+  // REGRAS/COMO_PALPITAR/INFO_PRODUTO vêm ANTES nas INTENT_RULES, então
+  // "como funciona o bolão" (sem verbo de criação) continua INFO/AJUDA.
+  /\bcomo (?:eu )?(?:posso |faco pra |se )?(?:criar|crio|fazer|faco|abrir|abro|montar|monto|come[cç]ar)\b.*\bbol(?:a|o)o/,
+  // Imperativo 3ª pessoa: "cria um bolão", "faz um bolão pra família".
+  /\b(?:cria|faz|monta|abre)(?: um| o)? bol(?:a|o)o\b/,
 ];
 
 // "Entrar em bolao / participar"
@@ -953,6 +965,11 @@ const CUTUCAR_PENDENTES_PATTERNS: RegExp[] = [
 // Brasil 2x1 Marrocos", "atualizar Brasil 3 a 1". Quando vem placar junto,
 // o handler `handleEditarPalpite` extrai e aplica direto (atalho de 1 passo).
 const EDITAR_PALPITE_PATTERNS: RegExp[] = [
+  // v3.40.0 — "refazer"/"refaz" SOZINHO (caso real). Dentro dos estados
+  // CONFIRMANDO_* o FSM já intercepta "refazer"; este pattern cobre o IDLE,
+  // onde antes caía em "não entendi". O handler de editar (sem placar) já
+  // pergunta qual bolão/jogo, igual a "corrigir palpite".
+  /^(?:refazer|refaz)\b\s*[.!]?\s*$/,
   // Forma clássica: "corrigir palpite", "mudar palpite", etc
   /^(?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu )?palpite/,
   /\b(?:quero|preciso|vou) (?:corrigir|mudar|alterar|trocar|atualizar|editar|refazer) (?:meu |o |um )?palpite/,
