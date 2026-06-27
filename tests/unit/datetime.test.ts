@@ -4,6 +4,7 @@ import {
   formatarDataHoraComDiaBR,
   formatarDataBR,
   formatarHoraBR,
+  horaLocalSedeParaUtc,
 } from '../../src/utils/datetime.js';
 
 /**
@@ -62,6 +63,31 @@ describe('datetime helpers (sempre Brasília)', () => {
 
     it('15:00 BRT = 15:00 no display', () => {
       expect(formatarHoraBR(meioDiaBR)).toBe('15:00');
+    });
+  });
+
+  describe('horaLocalSedeParaUtc (sede local → UTC, tz-aware/DST)', () => {
+    it('16:00 em Los Angeles (PDT, verão) → 23:00 UTC', () => {
+      const d = horaLocalSedeParaUtc('2026-06-28', '16:00', 'America/Los_Angeles');
+      expect(d.toISOString()).toBe('2026-06-28T23:00:00.000Z');
+      // e exibido em Brasília (UTC-3) = 20:00
+      expect(formatarHoraBR(d)).toBe('20:00');
+    });
+
+    it('16:00 em New York (EDT, verão) → 20:00 UTC', () => {
+      const d = horaLocalSedeParaUtc('2026-06-28', '16:00', 'America/New_York');
+      expect(d.toISOString()).toBe('2026-06-28T20:00:00.000Z');
+    });
+
+    it('21:00 em Mexico City (CST, sem DST em 2026) → 03:00 UTC do dia seguinte', () => {
+      const d = horaLocalSedeParaUtc('2026-06-28', '21:00', 'America/Mexico_City');
+      // Cidade do México = UTC-6 (não observa mais DST desde 2022)
+      expect(d.toISOString()).toBe('2026-06-29T03:00:00.000Z');
+    });
+
+    it('rejeita data/hora malformada', () => {
+      expect(() => horaLocalSedeParaUtc('28/06/2026', '16:00', 'America/New_York')).toThrow();
+      expect(() => horaLocalSedeParaUtc('2026-06-28', '16h', 'America/New_York')).toThrow();
     });
   });
 });

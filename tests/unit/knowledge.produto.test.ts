@@ -146,10 +146,12 @@ describe('KNOWLEDGE_PRODUTO — fatos canônicos do produto', () => {
     expect(KNOWLEDGE_PRODUTO).toContain('🍀');
   });
 
-  it('tamanho cabe num system prompt sem inflar custo (estimativa <1750 tokens ~= <7000 chars)', () => {
-    // Teto subiu de 6000→7000 com a seção MATA-MATA (Copa 2026): regras de
+  it('tamanho cabe num system prompt sem inflar custo (estimativa <1875 tokens ~= <7500 chars)', () => {
+    // Teto subiu de 6000→7500 com a seção MATA-MATA (Copa 2026): regras de
     // prorrogação/pênaltis, pontos por fase, bônus de classificado e chave.
-    expect(KNOWLEDGE_PRODUTO.length).toBeLessThan(7000);
+    // Custo: ~150 tokens a mais por chamada do responder — folga p/ a knowledge
+    // crescer sem re-trim. É um guard de custo, não de correção.
+    expect(KNOWLEDGE_PRODUTO.length).toBeLessThan(7500);
     expect(KNOWLEDGE_PRODUTO.length).toBeGreaterThan(800); // não pode estar vazio/superficial
   });
 });

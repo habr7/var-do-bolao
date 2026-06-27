@@ -65,3 +65,54 @@ export function formatarHoraBR(d: Date): string {
     timeZone: TZ_BR,
   });
 }
+
+/** Offset (ms) de uma IANA timezone num dado instante (tz - UTC). */
+function offsetTimeZoneMs(timeZone: string, instante: Date): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const p = Object.fromEntries(
+    dtf.formatToParts(instante).filter((x) => x.type !== 'literal').map((x) => [x.type, x.value]),
+  ) as Record<string, string>;
+  const comoUtc = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    Number(p.hour),
+    Number(p.minute),
+    Number(p.second),
+  );
+  return comoUtc - instante.getTime();
+}
+
+/**
+ * Converte um horário LOCAL de uma sede (data "YYYY-MM-DD" + hora "HH:MM" + IANA
+ * timezone) pro Date em UTC. Tz-aware com DST (usa Intl, nunca offset fixo) —
+ * a FIFA mostra horário local da sede e nós guardamos kickoff em UTC.
+ *
+ * Ex: 16:00 em America/Los_Angeles (PDT, verão) → 23:00 UTC.
+ */
+export function horaLocalSedeParaUtc(dataISO: string, hora: string, timeZone: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dataISO.trim());
+  const h = /^(\d{1,2}):(\d{2})$/.exec(hora.trim());
+  if (!m || !h) {
+    throw new Error(`Data/hora inválida: "${dataISO}" "${hora}" (esperado YYYY-MM-DD e HH:MM)`);
+  }
+  const [, y, mo, d] = m;
+  const [, hh, mi] = h;
+  // Wall-clock interpretado como UTC, depois ajustado pelo offset da tz naquele
+  // instante (1 passo de correção cobre fronteiras de DST — irrelevante em jun/jul).
+  let palpite = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mi));
+  const off1 = offsetTimeZoneMs(timeZone, new Date(palpite));
+  palpite -= off1;
+  const off2 = offsetTimeZoneMs(timeZone, new Date(palpite));
+  if (off2 !== off1) palpite += off1 - off2;
+  return new Date(palpite);
+}
