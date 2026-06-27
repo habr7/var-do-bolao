@@ -4,6 +4,7 @@ import { calcularPontuacaoRodada, recalcularRanking } from '../modules/ranking/r
 import { enviarRankingParaParticipantes } from '../modules/notificacao/notificacao.service.js';
 import { prisma } from '../config/database.js';
 import { comLockJob } from '../utils/lock.js';
+import { advanceBracketInterno } from './advance-bracket.job.js';
 
 export async function fetchResultsJob() {
   // v3.28.0 — lock contra sobreposição (crons defasados / 2 instâncias):
@@ -62,5 +63,17 @@ async function fetchResultsJobInterno() {
     } catch (error) {
       console.error(`[fetch-results] erro na rodada ${rodada.numero}:`, error);
     }
+  }
+
+  // Mata-mata: propaga a chave (vencedor → próximo jogo; perdedor das semis →
+  // 3º lugar) e abre as rodadas que ficaram com os dois times reais. Idempotente;
+  // roda DENTRO do lock 'fetch-results' que já seguramos (por isso o interno).
+  try {
+    const { slotsPreenchidos, rodadasAbertas } = await advanceBracketInterno();
+    if (slotsPreenchidos > 0 || rodadasAbertas > 0) {
+      console.log(`[fetch-results] advance-bracket: ${slotsPreenchidos} slot(s), ${rodadasAbertas} rodada(s) aberta(s)`);
+    }
+  } catch (error) {
+    console.error('[fetch-results] erro no advance-bracket:', error);
   }
 }

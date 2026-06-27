@@ -90,6 +90,8 @@ export async function atualizarResultadoJogoComResetCalc(
   golsCasa: number,
   golsVisitante: number,
   status: 'AO_VIVO' | 'FINALIZADO' | 'ADIADO' | 'CANCELADO',
+  // Mata-mata: quem avançou + se foi nos pênaltis (placar segue 90'+prorrog).
+  extrasMataMata?: { classificadoLado?: 'CASA' | 'VISITANTE' | null; decididoNosPenaltis?: boolean | null },
 ): Promise<{
   placarMudou: boolean;
   placarAntes: { golsCasa: number | null; golsVisitante: number | null };
@@ -108,7 +110,15 @@ export async function atualizarResultadoJogoComResetCalc(
 
   await prisma.jogo.update({
     where: { id: jogoId },
-    data: { golsCasa, golsVisitante, status },
+    data: {
+      golsCasa,
+      golsVisitante,
+      status,
+      // Só grava os campos de mata-mata quando informados (não sobrescreve com
+      // null um classificado já definido por uma atualização anterior).
+      ...(extrasMataMata?.classificadoLado != null ? { classificadoLado: extrasMataMata.classificadoLado } : {}),
+      ...(extrasMataMata?.decididoNosPenaltis != null ? { decididoNosPenaltis: extrasMataMata.decididoNosPenaltis } : {}),
+    },
   });
 
   let palpitesResetados = 0;
