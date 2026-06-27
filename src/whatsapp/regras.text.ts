@@ -62,6 +62,65 @@ export function regrasTexto(): string {
   );
 }
 
+import type { FaseTorneio } from '@prisma/client';
+import { TABELA_PONTOS, BONUS_CLASSIFICADO } from '../modules/ranking/ranking.types.js';
+
+/**
+ * Regras COMPLETAS (grupos) — alias semântico de regrasTexto(), usado pelo
+ * submenu de regras ("completas" vs "só do mata-mata").
+ */
+export function regrasCompletas(): string {
+  return regrasTexto();
+}
+
+/**
+ * Regras do MATA-MATA. Os números por fase saem de TABELA_PONTOS/
+ * BONUS_CLASSIFICADO (fonte única) — não há valores soltos a desatualizar.
+ * Destaca a regra universal: placar vale 90'+prorrogação, pênalti fora.
+ */
+export function regrasMataMata(): string {
+  const linha = (label: string, fase: FaseTorneio) =>
+    `• *${label}*: ${TABELA_PONTOS[fase].placarExato} pts no placar exato + ${BONUS_CLASSIFICADO[fase]} de bônus`;
+
+  return (
+    '🏆 *REGRAS DO MATA-MATA* 🏆\n\n' +
+    '━━━━━━━━━━━━━━━━━━━\n' +
+    '⚽ *PLACAR VALE ATÉ A PRORROGAÇÃO*\n' +
+    '━━━━━━━━━━━━━━━━━━━\n\n' +
+    'O placar do bolão é o resultado ao *fim da prorrogação* (90min + 30 da prorrogação).\n' +
+    '*Pênaltis NÃO entram no placar* — só decidem quem avança.\n' +
+    '_Ex: 1x1 que vai pra pênaltis vale 1x1. 1x1 que vira 2x1 na prorrogação vale 2x1._\n\n' +
+    '━━━━━━━━━━━━━━━━━━━\n' +
+    '🎯 *BÔNUS DE QUEM PASSA*\n' +
+    '━━━━━━━━━━━━━━━━━━━\n\n' +
+    'Acertar quem se classifica dá um bônus EXTRA (somado ao placar):\n' +
+    '• Se você crava um *vencedor*, já conta que ele passa — não pergunto nada.\n' +
+    '• Se você crava *empate*, eu pergunto quem você acha que passa nos pênaltis.\n' +
+    '*Errar quem passa NUNCA tira o ponto do placar* — a crava fica garantida. 🔒\n\n' +
+    '━━━━━━━━━━━━━━━━━━━\n' +
+    '📈 *PONTOS SOBEM POR FASE*\n' +
+    '━━━━━━━━━━━━━━━━━━━\n\n' +
+    linha('16-avos', 'R32') + '\n' +
+    linha('Oitavas', 'OITAVAS') + '\n' +
+    linha('Quartas', 'QUARTAS') + '\n' +
+    linha('Semifinal', 'SEMI') + '\n' +
+    linha('3º lugar', 'TERCEIRO') + '\n' +
+    linha('Final', 'FINAL') + '\n\n' +
+    '_As outras faixas (resultado, gols de um time) sobem na mesma proporção._\n\n' +
+    '━━━━━━━━━━━━━━━━━━━\n' +
+    '🧮 *EXEMPLOS (16-avos)*\n' +
+    '━━━━━━━━━━━━━━━━━━━\n\n' +
+    '_Você 2x0, deu 2x0 e a casa passou_ → 10 + 3 = *13* 🎯\n' +
+    '_Você 1x1 (passa a casa), deu 1x1 nos pênaltis e a casa passou_ → 10 + 3 = *13*\n' +
+    '_Você 1x1 (passa o visitante), deu 1x1 e a casa passou_ → 10 + 0 = *10* _(crava garantida!)_\n' +
+    '_Você 3x1, deu 2x0 e a casa passou_ → 5 + 3 = *8*\n\n' +
+    '━━━━━━━━━━━━━━━━━━━\n' +
+    '🏅 *RANKING SEGUE CUMULATIVO*\n' +
+    '━━━━━━━━━━━━━━━━━━━\n\n' +
+    'Seus pontos da fase de grupos *continuam valendo*. O ranking não zera — é grupos + mata-mata somados. 📊'
+  );
+}
+
 /**
  * Mensagem completa de boas-vindas quando o admin aprova o participante.
  */

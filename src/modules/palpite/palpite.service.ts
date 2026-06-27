@@ -1,3 +1,4 @@
+import type { LadoJogo } from '@prisma/client';
 import { prisma } from '../../config/database.js';
 import * as palpiteRepo from './palpite.repository.js';
 import { timeCorresponde } from '../../utils/validators.js';
@@ -97,6 +98,30 @@ export async function registrarPalpiteEmRodada(
       ? { golsCasa: palpiteJogoAnterior.golsCasa, golsVisitante: palpiteJogoAnterior.golsVisitante }
       : null,
   };
+}
+
+/**
+ * Mata-mata — grava o lado CLASSIFICADO que o user cravou pro jogo empatado
+ * (quem ele acha que passa nos pênaltis). Aplica em TODAS as rodadas de
+ * `rodadaIds` que tenham o jogo `timeCasa x timeVisitante` (1 no single-bolão,
+ * N no multi-bolão). `updateMany` não falha se o palpite não existir nalgum
+ * bolão (naoAplicável). Retorna quantos PalpiteJogo foram atualizados.
+ */
+export async function registrarClassificadoPalpite(input: {
+  usuarioId: string;
+  rodadaIds: string[];
+  timeCasa: string;
+  timeVisitante: string;
+  lado: LadoJogo;
+}): Promise<number> {
+  const r = await prisma.palpiteJogo.updateMany({
+    where: {
+      palpite: { usuarioId: input.usuarioId, rodadaId: { in: input.rodadaIds } },
+      jogo: { timeCasa: input.timeCasa, timeVisitante: input.timeVisitante },
+    },
+    data: { classificadoPalpite: input.lado },
+  });
+  return r.count;
 }
 
 export async function statusPalpitesRodada(usuarioId: string, rodadaId: string) {

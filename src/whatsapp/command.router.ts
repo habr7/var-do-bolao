@@ -6,10 +6,10 @@ import {
   parseMultiplePalpitesDetalhado,
 } from './message.parser.js';
 import { formatarBoloesNumerados, DICA_RESPOSTA_NUMERICA, ehEscolhaTodos } from './lista.helper.js';
-import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo } from '../utils/validators.js';
+import { normalizeTeamName, validarPlacar, resolverPalpiteParaJogo, timeCorresponde } from '../utils/validators.js';
 import { formatarDataHoraCurtaBR, formatarDataHoraComDiaBR, formatarDataComDiaBR, formatarHoraBR } from '../utils/datetime.js';
 import { jogoEstaRolandoPorHorario, JANELA_JOGO_ROLANDO_MS } from '../utils/jogo-status.js';
-import { regrasTexto, boasVindasComRegras } from './regras.text.js';
+import { regrasTexto, regrasCompletas, regrasMataMata, boasVindasComRegras } from './regras.text.js';
 import { paginarBlocos } from '../utils/paginar.js';
 import { extrairNomeBolaoInlineSair } from './sair.helper.js';
 import { montarStatusResultado } from './palpite-render.js';
@@ -182,6 +182,8 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       'CONFIRMANDO_PALPITE_MULTI_BOLAO',
       // v3.12.0 (Bruna 10/06) — lote em N bolões
       'CONFIRMANDO_PALPITES_INLINE_MULTI_BOLAO',
+      // Mata-mata — resposta é nome de time/lado; não confundir com código.
+      'CONFIRMANDO_CLASSIFICADO_MATAMATA',
     ]);
     const podeAceitarCodigoAqui = !ESTADOS_PROIBIDOS_CODIGO.has(session.state);
     if (codigoNaMsg && podeAceitarCodigoAqui) {
@@ -307,6 +309,12 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       // Sprint 3 (bug Jeni 17/05) — confirma auto-apply multi-bolao
       case 'CONFIRMANDO_PALPITE_MULTI_BOLAO':
         return await handleConfirmandoPalpiteMultiBolao(msg, usuario.id, session);
+      // Mata-mata — responde quem se classifica num jogo empatado
+      case 'CONFIRMANDO_CLASSIFICADO_MATAMATA':
+        return await handleConfirmandoClassificadoMataMata(msg, usuario.id, session);
+      // Submenu de regras (completas vs mata-mata)
+      case 'ESCOLHENDO_TIPO_REGRAS':
+        return await handleEscolhendoTipoRegras(msg, usuario.id);
     }
 
     // IDLE — verifica primeiro se admin tem pendentes e a mensagem
@@ -640,9 +648,16 @@ async function dispatchIntencao(
       await handleCutucarPendentes(msg, usuarioId);
       return true;
 
-    case Intencao.REGRAS:
-      await sendText({ to: msg.waId, text: regrasTexto() });
+    case Intencao.REGRAS: {
+      // Acesso direto às regras do mata-mata ("regras do mata-mata").
+      if (/mata[\s-]?mata|matamata|eliminat[óo]ri|16[\s-]?avos/i.test(msg.text)) {
+        await sendText({ to: msg.waId, text: regrasMataMata() });
+        return true;
+      }
+      // Senão, pergunta: completas ou só mata-mata?
+      await iniciarSubmenuRegras(msg);
       return true;
+    }
 
     case Intencao.PALPITES_AMBIGUO:
       await handlePalpitesAmbiguo(msg);
@@ -2968,6 +2983,29 @@ async function handleConfirmandoPalpitesInlineMultiBolao(
     resumo += `\n\n⚠️ Alguns palpites falharam:\n${detalhes}\n\n_Manda a mensagem de novo pra tentar — registros já feitos não duplicam._`;
   }
   await sendText({ to: msg.waId, text: resumo });
+
+  // Mata-mata — se o lote tem empate(s) e algum bolão envolvido está em fase
+  // de mata-mata, pergunta quem se classifica (aplica em todas as rodadas
+  // mata-mata envolvidas de uma vez).
+  const empates = pendente.palpites.filter((p) => p.golsCasa === p.golsVisitante);
+  if (totalRegistrados > 0 && empates.length > 0) {
+    const rodadasMataMata = await prisma.rodada.findMany({
+      where: {
+        bolaoId: { in: porBolao.map((r) => r.bolaoId) },
+        status: 'ABERTA',
+        fase: { not: 'GRUPOS' },
+      },
+      select: { id: true },
+    });
+    if (rodadasMataMata.length > 0) {
+      await iniciarPerguntasClassificado(
+        msg,
+        empates.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
+        rodadasMataMata.map((r) => r.id),
+        'seus bolões',
+      );
+    }
+  }
 }
 
 /**
@@ -3106,6 +3144,8 @@ async function registrarPalpitesConfirmados(
 ) {
   let registrados = 0;
   const erros: string[] = [];
+  // Empates de mata-mata efetivamente registrados → precisam de classificado.
+  const empatesRegistrados: Array<{ timeCasa: string; timeVisitante: string }> = [];
   for (const p of palpites) {
     try {
       await palpiteService.registrarPalpiteEmRodada({
@@ -3117,6 +3157,9 @@ async function registrarPalpitesConfirmados(
         golsVisitante: p.golsVisitante,
       });
       registrados++;
+      if (p.golsCasa === p.golsVisitante) {
+        empatesRegistrados.push({ timeCasa: p.timeCasa, timeVisitante: p.timeVisitante });
+      }
     } catch (err) {
       erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
     }
@@ -3126,10 +3169,182 @@ async function registrarPalpitesConfirmados(
   if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
   await sendText({ to: msg.waId, text: resposta });
 
+  // Mata-mata: pra cada EMPATE cravado, pergunta quem se classifica (bônus).
+  // Só a partir dos 16-avos (rodada.fase != GRUPOS). O placar JÁ está salvo —
+  // a crava fica garantida mesmo se o user não responder.
+  if (registrados > 0 && empatesRegistrados.length > 0) {
+    const rodada = await prisma.rodada.findUnique({
+      where: { id: rodadaId },
+      select: { fase: true },
+    });
+    if (rodada && rodada.fase !== 'GRUPOS') {
+      await iniciarPerguntasClassificado(
+        msg,
+        empatesRegistrados,
+        [rodadaId],
+        bolaoNome,
+        rodadaId,
+      );
+      return; // a oferta de "mais jogos" acontece no fim da fila de classificado
+    }
+  }
+
   // v3.5.0: se o user fechou todos os jogos do lote visível, oferece mais
   if (registrados > 0) {
     await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
   }
+}
+
+/**
+ * Mata-mata — inicia a fila de perguntas "quem se classifica?" pros empates
+ * cravados. Guarda a fila no estado e pergunta o primeiro. As respostas são
+ * gravadas nas rodadas de `rodadaIds` (1 single-bolão, N multi-bolão).
+ */
+async function iniciarPerguntasClassificado(
+  msg: IncomingMessage,
+  empates: Array<{ timeCasa: string; timeVisitante: string }>,
+  rodadaIds: string[],
+  bolaoLabel: string,
+  rodadaIdParaMais?: string,
+) {
+  await setSession(msg.waId, {
+    state: 'CONFIRMANDO_CLASSIFICADO_MATAMATA',
+    ctx: {
+      classificadosPendentes: empates,
+      classificadoRodadaIds: rodadaIds,
+      classificadoBolaoLabel: bolaoLabel,
+      classificadoRodadaIdParaMais: rodadaIdParaMais,
+    },
+  });
+  await perguntarClassificado(msg, empates[0]);
+}
+
+/** Envia a pergunta de classificado pro próximo empate da fila. */
+async function perguntarClassificado(
+  msg: IncomingMessage,
+  jogo: { timeCasa: string; timeVisitante: string },
+) {
+  await sendText({
+    to: msg.waId,
+    text:
+      `Deu empate 🤝 em *${jogo.timeCasa} x ${jogo.timeVisitante}* — ` +
+      `quem se classifica nos pênaltis: *${jogo.timeCasa}* ou *${jogo.timeVisitante}*?\n\n` +
+      `_(responde o nome do time, ou *1* pra ${jogo.timeCasa} / *2* pra ${jogo.timeVisitante})_`,
+  });
+}
+
+/**
+ * Interpreta a resposta de classificado (nome do time, 1/2, casa/visitante,
+ * primeiro/segundo). Retorna 'CASA'/'VISITANTE' ou null se ambíguo.
+ */
+function interpretarClassificado(
+  texto: string,
+  jogo: { timeCasa: string; timeVisitante: string },
+): 'CASA' | 'VISITANTE' | null {
+  const t = texto.trim().toLowerCase();
+  if (/^(1|um|primeiro|casa|mandante|o primeiro)\b/.test(t)) return 'CASA';
+  if (/^(2|dois|segundo|visitante|fora|o segundo)\b/.test(t)) return 'VISITANTE';
+  const casa = timeCorresponde(texto, jogo.timeCasa);
+  const visitante = timeCorresponde(texto, jogo.timeVisitante);
+  // Match exclusivo num dos lados.
+  if (casa && !visitante) return 'CASA';
+  if (visitante && !casa) return 'VISITANTE';
+  return null;
+}
+
+/**
+ * Processa a resposta de "quem se classifica?" pro empate no topo da fila,
+ * grava o classificado e avança pra o próximo empate (ou encerra a fila).
+ */
+async function handleConfirmandoClassificadoMataMata(
+  msg: IncomingMessage,
+  usuarioId: string,
+  session: Session,
+) {
+  const fila = session.ctx?.classificadosPendentes ?? [];
+  const rodadaIds = session.ctx?.classificadoRodadaIds ?? [];
+  if (fila.length === 0 || rodadaIds.length === 0) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: 'Sessão expirou. Manda o palpite de novo.' });
+    return;
+  }
+  const atual = fila[0];
+  const lado = interpretarClassificado(msg.text, atual);
+  if (!lado) {
+    await sendText({
+      to: msg.waId,
+      text:
+        `🤔 Não entendi. Em *${atual.timeCasa} x ${atual.timeVisitante}*, quem passa nos pênaltis?\n` +
+        `Responde *${atual.timeCasa}* ou *${atual.timeVisitante}* _(ou 1 / 2)_.`,
+    });
+    return;
+  }
+
+  await palpiteService.registrarClassificadoPalpite({
+    usuarioId,
+    rodadaIds,
+    timeCasa: atual.timeCasa,
+    timeVisitante: atual.timeVisitante,
+    lado,
+  });
+
+  const restante = fila.slice(1);
+  const escolhido = lado === 'CASA' ? atual.timeCasa : atual.timeVisitante;
+
+  if (restante.length > 0) {
+    await updateSession(msg.waId, {
+      ctxPatch: { classificadosPendentes: restante },
+    });
+    await sendText({ to: msg.waId, text: `🎯 Anotado: *${escolhido}* passa. Próximo:` });
+    await perguntarClassificado(msg, restante[0]);
+    return;
+  }
+
+  // Fim da fila.
+  const rodadaIdParaMais = session.ctx?.classificadoRodadaIdParaMais;
+  await resetSession(msg.waId);
+  await sendText({
+    to: msg.waId,
+    text: `🎯 Anotado: *${escolhido}* passa. Pronto, registrei quem você acha que se classifica! 🏆`,
+  });
+  if (rodadaIdParaMais) {
+    await talvezOferecerMaisJogos(msg, usuarioId, rodadaIdParaMais);
+  }
+}
+
+/**
+ * Submenu de regras — pergunta se o user quer as regras completas (grupos) ou
+ * só as do mata-mata. Estado ESCOLHENDO_TIPO_REGRAS (leitura → escapável).
+ */
+async function iniciarSubmenuRegras(msg: IncomingMessage) {
+  await setSession(msg.waId, { state: 'ESCOLHENDO_TIPO_REGRAS', ctx: {} });
+  await sendText({
+    to: msg.waId,
+    text:
+      'Quer as regras *completas* ou só do *mata-mata*? 🏆\n\n' +
+      '1️⃣ *Completas* — como pontuar, prazos, ranking\n' +
+      '2️⃣ *Mata-mata* — prorrogação, pênaltis, bônus de quem passa\n\n' +
+      '_(responde *completas* ou *mata-mata*, ou 1 / 2)_',
+  });
+}
+
+/** Interpreta a escolha do submenu de regras e manda o texto certo. */
+async function handleEscolhendoTipoRegras(msg: IncomingMessage, _usuarioId: string) {
+  const t = msg.text.trim().toLowerCase();
+  if (/^(2|mata[\s-]?mata|matamata|eliminat|do mata)/i.test(t)) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: regrasMataMata() });
+    return;
+  }
+  if (/^(1|completa|tudo|geral|grupos?|todas|as duas|ambas)/i.test(t)) {
+    await resetSession(msg.waId);
+    await sendText({ to: msg.waId, text: regrasCompletas() });
+    return;
+  }
+  await sendText({
+    to: msg.waId,
+    text: 'Responde *completas* (regras gerais) ou *mata-mata* (prorrogação, pênaltis, bônus) — ou 1 / 2. 🏆',
+  });
 }
 
 /**
