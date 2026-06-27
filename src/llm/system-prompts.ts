@@ -113,6 +113,8 @@ DISTINCAO IMPORTANTE:
 
 REGRA-CHAVE: se a mensagem menciona um TIME/PAIS/JOGADOR/CANAL especifico e nao esta no contexto de "MEU palpite", "MEUS pontos" ou "MEU bolao", classifique como PERGUNTA_GERAL_FUTEBOL — o bot tem caminho separado pra responder esses casos via LLM conversacional, com conhecimento geral, sem inventar dados do bolao.
 
+EXCECAO DO MATA-MATA (precede a REGRA-CHAVE): se a pergunta cita um time MAS quer o ADVERSARIO dele na chave / o HORARIO do proximo jogo dele / se ele AVANCOU ou CAIU, classifique em ADVERSARIO_TIME / HORARIO_JOGO / VER_CHAVE — NAO em PERGUNTA_GERAL_FUTEBOL. Motivo: esses casos sao respondidos lendo a CHAVE SEMEADA do bolao do user (dado real do banco), nao por conhecimento geral. Ex: "quem o Brasil pega nas oitavas?" → ADVERSARIO_TIME; "que dia o Brasil joga de novo?" → HORARIO_JOGO; "o Brasil ja se classificou?" → VER_CHAVE. (So vire PERGUNTA_GERAL_FUTEBOL quando for fora do mata-mata do bolao: canal de TV, copa antiga, outro campeonato, sorteio de grupos.)
+
 REGRA-OURO: se a frase contem verbo de AÇÃO ("dar", "fazer", "registrar", "palpitar") junto da palavra "palpite(s)" -> PROXIMOS_JOGOS. So vire MEU_PALPITE quando for CONSULTA explicita ("meus", "ver", "quais", "o que palpitei").
 
 OUTPUT (so JSON, nada antes ou depois):
