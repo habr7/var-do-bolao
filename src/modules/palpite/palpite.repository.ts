@@ -49,10 +49,14 @@ export async function buscarPalpitesDaRodada(rodadaId: string) {
   });
 }
 
-export async function atualizarPontuacaoPalpiteJogo(palpiteJogoId: string, pontosObtidos: number) {
+export async function atualizarPontuacaoPalpiteJogo(
+  palpiteJogoId: string,
+  pontosObtidos: number,
+  bonusObtido = 0,
+) {
   return prisma.palpiteJogo.update({
     where: { id: palpiteJogoId },
-    data: { pontosObtidos },
+    data: { pontosObtidos, bonusObtido },
   });
 }
 

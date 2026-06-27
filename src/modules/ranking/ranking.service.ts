@@ -5,9 +5,9 @@ import * as bolaoRepo from '../bolao/bolao.repository.js';
 
 // Re-export para manter compatibilidade
 export { calcularPontos } from './pontuacao.calc.js';
-import { calcularPontos } from './pontuacao.calc.js';
+import { calcularPontos, pontuarJogoMataMata } from './pontuacao.calc.js';
 import { ordenarParticipacoesRanking } from './ranking.sort.js';
-import { PONTUACAO_PADRAO } from './ranking.types.js';
+import { TABELA_PONTOS } from './ranking.types.js';
 
 export async function calcularPontuacaoRodada(rodadaId: string) {
   const palpites = await palpiteRepo.buscarPalpitesDaRodada(rodadaId);
@@ -16,22 +16,44 @@ export async function calcularPontuacaoRodada(rodadaId: string) {
     let totalPontos = 0;
 
     for (const pj of palpite.jogos) {
+      const jogo = pj.jogo;
+
       // v3.22.0 — pontua SÓ jogo FINALIZADO. Com o provider `hybrid`, a
       // FIFA grava placar PARCIAL ao vivo (status=AO_VIVO) pra exibição;
       // sem este gate, o cálculo incremental pontuaria contra o placar
       // parcial e os pontos OSCILARIAM durante o jogo. Jogo não-finalizado
       // (AGENDADO/AO_VIVO) conta 0 até o apito; quando finaliza, o reset
       // de `Palpite.calculado` força o recálculo com o placar oficial.
-      const pontos =
-        pj.jogo.status === 'FINALIZADO'
-          ? calcularPontos(
-              { golsCasa: pj.golsCasa, golsVisitante: pj.golsVisitante },
-              { golsCasa: pj.jogo.golsCasa, golsVisitante: pj.jogo.golsVisitante },
-            )
-          : 0;
+      let pontos = 0;
+      let bonus = 0;
 
-      await palpiteRepo.atualizarPontuacaoPalpiteJogo(pj.id, pontos);
-      totalPontos += pontos;
+      if (jogo.status === 'FINALIZADO') {
+        if (jogo.fase === 'GRUPOS') {
+          // Caminho da fase de grupos — IDÊNTICO ao de hoje (zero regressão).
+          pontos = calcularPontos(
+            { golsCasa: pj.golsCasa, golsVisitante: pj.golsVisitante },
+            { golsCasa: jogo.golsCasa, golsVisitante: jogo.golsVisitante },
+          );
+        } else {
+          // Mata-mata: placar (faixa por fase) + bônus de classificado, eixos
+          // separados. Placar = 90'+prorrogação (jogo.golsCasa/Visitante já é
+          // isso; pênalti não entra). bonus gravado à parte (bonusObtido).
+          const r = pontuarJogoMataMata({
+            fase: jogo.fase,
+            palpiteCasa: pj.golsCasa,
+            palpiteVisitante: pj.golsVisitante,
+            palpiteClassificado: pj.classificadoPalpite,
+            resultadoCasa: jogo.golsCasa,
+            resultadoVisitante: jogo.golsVisitante,
+            classificadoReal: jogo.classificadoLado,
+          });
+          pontos = r.placar;
+          bonus = r.bonus;
+        }
+      }
+
+      await palpiteRepo.atualizarPontuacaoPalpiteJogo(pj.id, pontos, bonus);
+      totalPontos += pontos + bonus;
     }
 
     await palpiteRepo.atualizarPontuacaoPalpite(palpite.id, totalPontos);
@@ -161,12 +183,17 @@ export async function getEstatisticaPontos(
   let tres = 0;
   let zero = 0;
   let totalPontos = 0;
-  for (const { pontosObtidos } of pontuados) {
-    totalPontos += pontosObtidos;
-    if (pontosObtidos === PONTUACAO_PADRAO.placarExato) cravadas++;
-    else if (pontosObtidos === PONTUACAO_PADRAO.resultadoMaisGols) sete++;
-    else if (pontosObtidos === PONTUACAO_PADRAO.resultadoCerto) cinco++;
-    else if (pontosObtidos === PONTUACAO_PADRAO.golsDeUmTime) tres++;
+  for (const { pontosObtidos, bonusObtido, jogo } of pontuados) {
+    // total inclui o bônus de classificado (mata-mata); as faixas são
+    // classificadas SEMANTICAMENTE (exato / r+gols / resultado / gols / erro)
+    // contra a config DA FASE — assim uma cravada de oitavas (12) não cai no
+    // balde "zero". Em grupos a config é PONTUACAO_PADRAO (10/7/5/3/0).
+    totalPontos += pontosObtidos + bonusObtido;
+    const cfg = TABELA_PONTOS[jogo.fase];
+    if (pontosObtidos === cfg.placarExato) cravadas++;
+    else if (pontosObtidos === cfg.resultadoMaisGols) sete++;
+    else if (pontosObtidos === cfg.resultadoCerto) cinco++;
+    else if (pontosObtidos === cfg.golsDeUmTime) tres++;
     else zero++;
   }
 
