@@ -64,8 +64,12 @@ npm test
 | `regras.text.test.ts` (+) | **(v3.41.0)** `regrasMataMata`/`regrasCompletas`: destaca prorrogação/pênalti, bônus, crava garantida, grade por fase (de `TABELA_PONTOS`), ranking cumulativo. |
 | `datetime.test.ts` (+) | **(v3.41.0)** `horaLocalSedeParaUtc`: local da sede → UTC tz-aware/DST (LA/NY/México), rejeita malformado. |
 | `message.parser.test.ts` (+) | **(v3.41.0)** 14 frases dos intents de mata-mata (INFO_* + ADVERSARIO_TIME/HORARIO_JOGO/VER_CHAVE). |
+| `mata-mata-hardening.test.ts` | **(v3.42.0)** `timeCorresponde` rejeita placeholder; `montarStatusResultado` mostra pênaltis + bônus; revelação mostra o classificado cravado no empate. 6 testes. |
+| `admin-classificado.test.ts` | **(v3.42.0)** `parseClassificadoCmd`/`resolverLadoClassificado`: parse do comando admin `#CLASSIFICADO` (apiJogoId/lado/flag PENALTIS, nome com espaço, faltando args) + resolução de lado por CASA/VISITANTE/1/2/nome. 8 testes. |
+| `fifa.fetcher.test.ts` (+) | **(v3.42.0)** disputa de pênaltis: empate FINALIZADO com placar de pênaltis infere classificado (placar segue o de 90'); sem pênaltis mantém o shape mínimo. |
+| `advance-bracket.test.ts` (+) | **(v3.42.0)** `escreverSlot` via `updateMany` atômico (guarda no WHERE). |
 
-Tempo: ~7s. Não toca rede nem DB. **1071 tests.**
+Tempo: ~7s. Não toca rede nem DB. **1087 tests.**
 
 ### Watch mode
 ```cmd

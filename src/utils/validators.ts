@@ -1,4 +1,5 @@
 import { normalizarNomeTime } from '../modules/copa-2026/index.js';
+import { ehTimePlaceholder } from '../data/bracket-2026.js';
 
 export function isValidScore(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= 99;
@@ -79,6 +80,10 @@ export function normalizeTeamName(name: string): string {
  * "sim" obrigat\u00f3rio em todo registro de palpite.
  */
 export function timeCorresponde(input: string, oficial: string): boolean {
+  // Mata-mata: nome oficial placeholder ("Vencedor 73") nunca casa — o usuário
+  // não vai digitar isso, e queremos evitar matches espúrios em jogos a definir.
+  if (ehTimePlaceholder(oficial)) return false;
+
   const ni = normalizeTeamName(input);
   const no = normalizeTeamName(oficial);
   if (!ni || !no) return false;

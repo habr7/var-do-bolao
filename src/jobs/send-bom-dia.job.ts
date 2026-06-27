@@ -4,6 +4,7 @@ import { redis } from '../config/redis.js';
 import { env } from '../config/env.js';
 import { formatarDataHoraCurtaBR } from '../utils/datetime.js';
 import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
+import { ehTimePlaceholder } from '../data/bracket-2026.js';
 
 /**
  * Job "bom dia boleiros" — v3.36.0 reescrito (caso real 12/06: jogo cedo
@@ -98,12 +99,15 @@ export async function sendBomDiaJob() {
         const waId = part.usuario.whatsappId;
         if (!waId) continue;
         const jaPalpitouEm = palpitouPorUser.get(part.usuarioId) ?? new Set<string>();
-        const jogosDoUser: JogoComStatus[] = rodada.jogos.map((j) => ({
-          timeCasa: j.timeCasa,
-          timeVisitante: j.timeVisitante,
-          dataHora: j.dataHora,
-          palpitou: jaPalpitouEm.has(j.id),
-        }));
+        const jogosDoUser: JogoComStatus[] = rodada.jogos
+          // Mata-mata: ignora jogos ainda com time placeholder ("Vencedor 73").
+          .filter((j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante))
+          .map((j) => ({
+            timeCasa: j.timeCasa,
+            timeVisitante: j.timeVisitante,
+            dataHora: j.dataHora,
+            palpitou: jaPalpitouEm.has(j.id),
+          }));
         const existente = alvos.get(waId);
         if (existente) {
           existente.jogos.push(...jogosDoUser);

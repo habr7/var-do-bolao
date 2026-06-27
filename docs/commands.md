@@ -848,3 +848,13 @@ ver a chave   /   mostra o bracket
 ```
 → Adversário + fase + horário (Brasília). Se o adversário ainda não saiu, o bot diz
 de qual jogo ele depende — **nunca inventa**.
+
+### Definir classificado (dono) — jogos de pênaltis
+Quando um jogo de mata-mata termina empatado e vai para os pênaltis, e o provedor
+não informa o vencedor, o dono define quem passou (destrava o avanço da chave + o bônus):
+```
+#CLASSIFICADO WC2026_R32_73 CASA
+#CLASSIFICADO WC2026_R32_73 Brasil PENALTIS
+```
+→ Grava em todos os bolões, recalcula a pontuação e avança a chave. Só o dono
+(`OWNER_WHATSAPP_IDS`) dispara; o lado aceita `CASA`/`VISITANTE`, `1`/`2` ou o nome do time.

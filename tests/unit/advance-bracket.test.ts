@@ -57,6 +57,18 @@ function fakeDb(jogos: JogoFix[], rodadas: RodadaFix[]) {
         Object.assign(j, data);
         return j;
       },
+      // escreverSlot usa updateMany com guarda no WHERE (slot ainda placeholder).
+      updateMany: async ({ where, data }: any) => {
+        const j = jogos.find(
+          (x) =>
+            x.id === where.id &&
+            (where.timeCasa === undefined || x.timeCasa === where.timeCasa) &&
+            (where.timeVisitante === undefined || x.timeVisitante === where.timeVisitante),
+        );
+        if (!j) return { count: 0 };
+        Object.assign(j, data);
+        return { count: 1 };
+      },
     },
     rodada: {
       update: async ({ where, data }: any) => {

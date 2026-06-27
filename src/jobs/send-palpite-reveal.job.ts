@@ -5,6 +5,7 @@ import { env } from '../config/env.js';
 import { reservarCotaAviso, devolverCotaAviso } from '../utils/aviso-cap.js';
 import { INCLUDE_REVELACAO, blocoDoJogo } from '../modules/palpite/revelacao.service.js';
 import { montarMensagemRevelacao, type BlocoRevelacao } from '../utils/palpite-reveal.js';
+import { ehTimePlaceholder } from '../data/bracket-2026.js';
 
 /**
  * v3.24.0 — Push de revelação de palpites quando o jogo COMEÇA.
@@ -40,13 +41,17 @@ export async function sendPalpiteRevealJob() {
   const agora = new Date();
   const desde = new Date(agora.getTime() - JANELA_MS);
 
-  const jogos = await prisma.jogo.findMany({
+  const jogosBrutos = await prisma.jogo.findMany({
     where: {
       dataHora: { lte: agora, gte: desde },
       status: { notIn: ['ADIADO', 'CANCELADO'] },
     },
     include: INCLUDE_REVELACAO,
   });
+  // Mata-mata: nunca revela jogo com time placeholder ("Vencedor 73").
+  const jogos = jogosBrutos.filter(
+    (j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante),
+  );
   if (jogos.length === 0) return;
 
   // user(id) → { whatsappId, apiJogoId → blocos[] }

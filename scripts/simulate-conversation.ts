@@ -989,6 +989,18 @@ const CENARIOS: Cenario[] = [
       palpite: { timeCasa: 'Brasil', golsCasa: 1, golsVisitante: 1, timeVisitante: 'Argentina' },
     },
   },
+  {
+    grupo: '🏆 Mata-mata — bônus de classificado',
+    desc: '"o que é o bônus?" → INFO_BONUS_CLASSIFICADO',
+    msg: 'o que é o bônus?',
+    esperado: { intencao: Intencao.INFO_BONUS_CLASSIFICADO },
+  },
+  {
+    grupo: '🏆 Mata-mata — o que muda',
+    desc: '"o que muda agora?" → INFO_O_QUE_MUDA',
+    msg: 'o que muda agora?',
+    esperado: { intencao: Intencao.INFO_O_QUE_MUDA },
+  },
 ];
 
 // ============================================================

@@ -106,10 +106,13 @@ async function escreverSlot(
   // Nunca sobrescreve um time já real (idempotência + segurança).
   if (!ehTimePlaceholder(atual)) return false;
 
-  await db.jogo.update({
-    where: { id: destino.id },
+  // Escrita atômica: updateMany com guarda no WHERE (o slot ainda é o placeholder
+  // lido). Se outro processo escreveu nesse meio-tempo, count=0 e não sobrescreve.
+  const r = await db.jogo.updateMany({
+    where: slot === 'CASA' ? { id: destino.id, timeCasa: atual } : { id: destino.id, timeVisitante: atual },
     data: slot === 'CASA' ? { timeCasa: timeNome } : { timeVisitante: timeNome },
   });
+  if (r.count === 0) return false;
   console.log(`[advance-bracket] ${apiJogoId} ${slot} ← ${timeNome} (bolão ${bolaoId})`);
   return true;
 }

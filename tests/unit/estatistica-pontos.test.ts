@@ -92,6 +92,7 @@ describe('getEstatisticaPontos', () => {
     expect(stats.cinco).toBe(1); // 7 = resultadoCerto de QUARTAS
     expect(stats.zero).toBe(0);
     expect(stats.totalPontos).toBe(12 + 3 + 7 + 4); // 26 (placar + bônus)
+    expect(stats.bonusTotal).toBe(3 + 4); // bônus de classificado somado
   });
 
   it('zera tudo quando o user não tem jogo pontuado', async () => {
