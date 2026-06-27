@@ -128,7 +128,15 @@ export async function getRankingPorBolao(bolaoId: string) {
   if (!bolao) throw new Error('Bolao nao encontrado.');
 
   const participacoes = await rankingRepo.buscarRankingBolao(bolao.id);
-  const rodadaAtual = bolao.rodadas?.[0]?.numero ?? 0;
+  // Rodada/fase "ativa" = a de maior número entre as ABERTA/FINALIZADA (a fase
+  // em curso), não a FINAL vazia. No mata-mata vira "Oitavas de final" etc.
+  const rodadaAtiva = await prisma.rodada.findFirst({
+    where: { bolaoId: bolao.id, status: { in: ['ABERTA', 'FINALIZADA'] } },
+    orderBy: { numero: 'desc' },
+    select: { numero: true, fase: true },
+  });
+  const rodadaAtual = rodadaAtiva?.numero ?? bolao.rodadas?.[0]?.numero ?? 0;
+  const faseAtual = rodadaAtiva?.fase ?? 'GRUPOS';
 
   // Ordena pela cascata canônica e deriva a posição do índice (i+1), pra o
   // número exibido SEMPRE bater com a ordem da lista — inclusive em empate
@@ -138,6 +146,7 @@ export async function getRankingPorBolao(bolaoId: string) {
   return {
     bolao,
     rodadaAtual,
+    faseAtual,
     ranking: ordenadas.map((p, i) => ({
       // ISSUE-023 (Sprint 2): inclui usuarioId pra caller poder achar
       // a propria posicao em iteracoes (handleResumoBoloes).
@@ -158,7 +167,8 @@ export interface EstatisticaPontos {
   tres: number; // só os gols de um time — 3 pts
   zero: number; // errou tudo — 0 pts
   totalJogos: number; // jogos JÁ pontuados (calculados)
-  totalPontos: number; // soma das faixas
+  totalPontos: number; // soma das faixas + bônus de classificado
+  bonusTotal: number; // soma do bônus de classificado (mata-mata; 0 em grupos)
   posicao: number; // posição atual no ranking (0 = desconhecida)
 }
 
@@ -183,12 +193,14 @@ export async function getEstatisticaPontos(
   let tres = 0;
   let zero = 0;
   let totalPontos = 0;
+  let bonusTotal = 0;
   for (const { pontosObtidos, bonusObtido, jogo } of pontuados) {
     // total inclui o bônus de classificado (mata-mata); as faixas são
     // classificadas SEMANTICAMENTE (exato / r+gols / resultado / gols / erro)
     // contra a config DA FASE — assim uma cravada de oitavas (12) não cai no
     // balde "zero". Em grupos a config é PONTUACAO_PADRAO (10/7/5/3/0).
     totalPontos += pontosObtidos + bonusObtido;
+    bonusTotal += bonusObtido;
     const cfg = TABELA_PONTOS[jogo.fase];
     if (pontosObtidos === cfg.placarExato) cravadas++;
     else if (pontosObtidos === cfg.resultadoMaisGols) sete++;
@@ -207,6 +219,7 @@ export async function getEstatisticaPontos(
     zero,
     totalJogos: pontuados.length,
     totalPontos,
+    bonusTotal,
     posicao: participacao?.posicaoAtual ?? 0,
   };
 }

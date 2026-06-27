@@ -34,7 +34,8 @@ export async function buscarPontuacaoDetalhada(usuarioId: string, bolaoId: strin
         include: { jogo: true },
       },
     },
-    orderBy: { rodada: { numero: 'desc' } },
+    // Ordem cronológica (grupos → R32 → ... → final) pro display "meus palpites".
+    orderBy: { rodada: { numero: 'asc' } },
   });
 }
 

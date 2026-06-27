@@ -52,7 +52,6 @@ import * as palpiteService from '../modules/palpite/palpite.service.js';
 import { revelacoesParaUsuario } from '../modules/palpite/revelacao.service.js';
 import { montarMensagemRevelacao } from '../utils/palpite-reveal.js';
 import * as rankingService from '../modules/ranking/ranking.service.js';
-import { PONTUACAO_PADRAO } from '../modules/ranking/ranking.types.js';
 import { classificarIntencao } from '../llm/intent.classifier.js';
 import { responderConversacional } from '../llm/conversational.responder.js';
 import { construirFatosVivos } from '../llm/fatos-vivos.js';
@@ -1440,7 +1439,15 @@ async function handlePlacarJogo(msg: IncomingMessage, usuarioId: string, raw: st
     //   ⏳ encerrado aguardando placar oficial (passou 2.5h, sem placar)
     //   ✅ finalizado com placar
     if (j.status === 'FINALIZADO') {
-      return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
+      // Mata-mata decidido nos pênaltis: o placar é o de 90'+prorrogação; sinaliza
+      // que foi nos pênaltis e quem avançou.
+      let extra = '';
+      if (j.decididoNosPenaltis) {
+        const quemPassou =
+          j.classificadoLado === 'CASA' ? j.timeCasa : j.classificadoLado === 'VISITANTE' ? j.timeVisitante : null;
+        extra = quemPassou ? ` _(nos pênaltis — ${quemPassou} avançou)_` : ' _(nos pênaltis)_';
+      }
+      return `✅ ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}${extra} _(${formatarDataHoraCurtaBR(j.dataHora)})_`;
     }
     // v3.22.0 — provider `hybrid` (FIFA) grava status=AO_VIVO com placar
     // parcial. Tratamos AO_VIVO como rolando independente da janela de
@@ -2839,6 +2846,19 @@ async function iniciarConfirmacaoPalpites(
     )
     .join('\n');
   let texto = `📝 Vou registrar ${palpitesParaConfirmar.length} palpite(s) no *${bolaoNome}*:\n\n${linhasPalpite}`;
+  // Mata-mata: reforça as regras no preview (placar até a prorrogação; empate
+  // → pergunto quem passa). Reduz o "por que vale X / cadê o bônus".
+  const jogosPorId = new Map(jogos.map((j) => [j.id, j]));
+  const ehMataMata = (jogoId: string) => {
+    const j = jogosPorId.get(jogoId);
+    return !!j && j.fase !== 'GRUPOS';
+  };
+  if (palpitesParaConfirmar.some((p) => ehMataMata(p.jogoId))) {
+    texto += `\n\n🏆 _Mata-mata: o placar vale até o fim da prorrogação (pênalti não entra)._`;
+    if (palpitesParaConfirmar.some((p) => p.golsCasa === p.golsVisitante && ehMataMata(p.jogoId))) {
+      texto += `\n_Tem empate aí — depois de confirmar eu te pergunto quem passa nos pênaltis (vale bônus)._`;
+    }
+  }
   // v3.20.0 — avisa NO PREVIEW os palpites de jogos já iniciados
   // (antes só falhava depois do "sim" — UX ruim)
   if (palpitesJaIniciados.length > 0) {
@@ -4076,13 +4096,18 @@ async function handleProgressoPalpites(msg: IncomingMessage, usuarioId: string) 
       },
     });
 
-    if (!rodada || rodada.jogos.length === 0) continue;
+    if (!rodada) continue;
+    // Mata-mata: ignora jogos ainda com time placeholder ("Vencedor 73").
+    const jogosReais = rodada.jogos.filter(
+      (j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante),
+    );
+    if (jogosReais.length === 0) continue;
 
-    const totalJogosAbertos = rodada.jogos.length;
+    const totalJogosAbertos = jogosReais.length;
     const adminId = rodada.bolao.adminId;
 
     // Mapa usuarioId → quantos jogos da rodada ele palpitou (só jogos abertos)
-    const jogosAbertosIds = new Set(rodada.jogos.map((j) => j.id));
+    const jogosAbertosIds = new Set(jogosReais.map((j) => j.id));
     const palpitesPorUsuario = new Map<string, number>();
     for (const p of rodada.palpites) {
       const cnt = p.jogos.filter((pj) => jogosAbertosIds.has(pj.jogoId)).length;
@@ -4115,8 +4140,9 @@ async function handleProgressoPalpites(msg: IncomingMessage, usuarioId: string) 
       .map((p) => `• ${p.nome}${p.ehAdmin ? ' 👑' : ''}`)
       .join('\n');
 
+    const faseHeader = rodada.fase !== 'GRUPOS' ? faseLabel(rodada.fase) : 'Fase de Grupos';
     const blocos: string[] = [
-      `🏆 *${b.nome}* — Fase de Grupos`,
+      `🏆 *${b.nome}* — ${faseHeader}`,
       `📊 ${participantes.length} participantes / ${totalJogosAbertos} jogos abertos`,
     ];
     if (comPalpite.length > 0) {
@@ -4605,7 +4631,9 @@ async function handleRanking(msg: IncomingMessage, usuarioId: string, raw: strin
 
 async function enviarRankingDoBolao(waId: string, bolaoId: string) {
   const dados = await rankingService.getRankingPorBolao(bolaoId);
-  const texto = formatRanking(dados.bolao.nome, dados.rodadaAtual, dados.bolao.campeonatoNome, dados.ranking);
+  // Mata-mata: cabeçalho mostra a fase ("Oitavas de final") em vez de "Rodada N".
+  const faseHeader = dados.faseAtual !== 'GRUPOS' ? faseLabel(dados.faseAtual) : undefined;
+  const texto = formatRanking(dados.bolao.nome, dados.rodadaAtual, dados.bolao.campeonatoNome, dados.ranking, faseHeader);
   // HOTFIX 17/05: deixa claro que e historico, nao status atual.
   const sufixo =
     dados.bolao.status === 'FINALIZADO'
@@ -4912,13 +4940,18 @@ async function enviarEstatisticaDoBolao(
   const destaque = faixaDestaque !== null ? montarDestaqueFaixa(faixaDestaque, stats) : null;
 
   const posicao = stats.posicao > 0 ? ` • Posição: ${stats.posicao}º` : '';
+  // Rótulos sem valor fixo de pts — no mata-mata os pontos por faixa variam por
+  // fase (oitavas 12, quartas 15…). "Grupos: 10/7/5/3" fica como referência.
+  const linhaBonus = stats.bonusTotal > 0 ? `🏆 Bônus de classificado: *+${stats.bonusTotal} pts*\n` : '';
   const corpo =
     `📊 *Estatística dos seus pontos — ${stats.nomeBolao}*\n\n` +
-    `🎯 Cravadas (placar exato, ${PONTUACAO_PADRAO.placarExato} pts): ${stats.cravadas}\n` +
-    `🔥 Vencedor + gols de um time (${PONTUACAO_PADRAO.resultadoMaisGols} pts): ${stats.sete}\n` +
-    `👍 Só o resultado (${PONTUACAO_PADRAO.resultadoCerto} pts): ${stats.cinco}\n` +
-    `😐 Só os gols de um time (${PONTUACAO_PADRAO.golsDeUmTime} pts): ${stats.tres}\n` +
-    `❌ Errou (${PONTUACAO_PADRAO.errouTudo} pts): ${stats.zero}\n\n` +
+    `🎯 Placar exato (cravadas): ${stats.cravadas}\n` +
+    `🔥 Vencedor + gols de um time: ${stats.sete}\n` +
+    `👍 Só o resultado: ${stats.cinco}\n` +
+    `😐 Só os gols de um time: ${stats.tres}\n` +
+    `❌ Errou: ${stats.zero}\n` +
+    linhaBonus +
+    `_(grupos valem 10/7/5/3; no mata-mata sobem por fase)_\n\n` +
     `⚽ ${stats.totalJogos} ${stats.totalJogos === 1 ? 'jogo pontuado' : 'jogos pontuados'} • *Total: ${stats.totalPontos} pts*${posicao}\n` +
     `_Quer ver os jogos de uma faixa? Manda *quais cravei*, *quais fiz 7 pontos*… Ou *ranking* pra a classificação._`;
 
@@ -5992,7 +6025,9 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
   const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`];
   for (const rodada of detalhes.rodadas) {
     if (rodada.jogos.length === 0) continue;
-    partes.push(`*Rodada ${rodada.rodada.numero}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
+    // Mata-mata: mostra a fase no cabeçalho da rodada.
+    const faseTag = rodada.rodada.fase !== 'GRUPOS' ? ` — ${faseLabel(rodada.rodada.fase)}` : '';
+    partes.push(`*Rodada ${rodada.rodada.numero}${faseTag}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
     const jogosOrdenados = [...rodada.jogos].sort(
       (a, b) => a.jogo.dataHora.getTime() - b.jogo.dataHora.getTime(),
     );
@@ -6010,8 +6045,14 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
       // "oficial: 0x1 ❌ (0 pts)" — final + zerado — enganando o usuário
       // (caso Humberto 12/06 00:22). Agora mostra "🔴 ao vivo: parcial…".
       if (j.status !== 'FINALIZADO') temJogoEmAberto = true;
-      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites);
-      partes.push(`• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`);
+      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites, pj.bonusObtido);
+      let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`;
+      // Mata-mata: mostra o classificado que o user cravou no empate.
+      if (pj.classificadoPalpite) {
+        const timeClass = pj.classificadoPalpite === 'CASA' ? j.timeCasa : j.timeVisitante;
+        linha += `\n   ↳ 🎯 _você acha que ${timeClass} passa_`;
+      }
+      partes.push(linha);
     }
     partes.push('');
   }
