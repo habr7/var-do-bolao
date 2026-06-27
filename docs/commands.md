@@ -849,9 +849,10 @@ ver a chave   /   mostra o bracket
 → Adversário + fase + horário (Brasília). Se o adversário ainda não saiu, o bot diz
 de qual jogo ele depende — **nunca inventa**.
 
-### Definir classificado (dono) — jogos de pênaltis
-Quando um jogo de mata-mata termina empatado e vai para os pênaltis, e o provedor
-não informa o vencedor, o dono define quem passou (destrava o avanço da chave + o bônus):
+### Definir classificado (dono) — fallback
+Normalmente o classificado (quem avança, inclusive nos pênaltis) e os confrontos vêm
+**automáticos da FIFA** (sync no fetch-results). Este comando é só fallback: se a FIFA
+atrasar, o dono define quem passou (destrava o avanço da chave + o bônus):
 ```
 #CLASSIFICADO WC2026_R32_73 CASA
 #CLASSIFICADO WC2026_R32_73 Brasil PENALTIS

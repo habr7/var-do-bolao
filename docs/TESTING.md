@@ -68,6 +68,8 @@ npm test
 | `admin-classificado.test.ts` | **(v3.42.0)** `parseClassificadoCmd`/`resolverLadoClassificado`: parse do comando admin `#CLASSIFICADO` (apiJogoId/lado/flag PENALTIS, nome com espaço, faltando args) + resolução de lado por CASA/VISITANTE/1/2/nome. 8 testes. |
 | `fifa.fetcher.test.ts` (+) | **(v3.42.0)** disputa de pênaltis: empate FINALIZADO com placar de pênaltis infere classificado (placar segue o de 90'); sem pênaltis mantém o shape mínimo. |
 | `advance-bracket.test.ts` (+) | **(v3.42.0)** `escreverSlot` via `updateMany` atômico (guarda no WHERE). |
+| `fifa-knockout.fetcher.test.ts` | **(v3.43.0)** `parseFixturesMataMata`: ignora grupos, mapeia número/fase/kickoff-UTC/times, placeholder quando sem time, classificado do `Winner` (decisivo e pênaltis), todas as fases. 6 testes. |
+| `mata-mata-sync.test.ts` | **(v3.43.0)** `sincronizarMataMata` (prisma em memória): cria as 6 rodadas + jogos, abre rodada com confronto real, trava time após abrir, corrige enquanto fechada, reseta cálculo no resultado. 4 testes. |
 
 Tempo: ~7s. Não toca rede nem DB. **1087 tests.**
 
