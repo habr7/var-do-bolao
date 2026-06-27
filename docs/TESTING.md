@@ -56,8 +56,16 @@ npm test
 | `intent.classifier.drift.test.ts` | **(v3.32.0)** ANTI-DRIFT: toda intent descrita no INTENT_CLASSIFIER_PROMPT ∈ INTENCOES_VALIDAS ∈ enum (bug "não sei" do caso Humberto 11/06). 5 testes. |
 | `fatos-vivos.test.ts` | **(v3.32.0)** `construirFatosVivos`: rolando/finalizado/próximo, dedup multi-bolão, teto de tamanho, null em vazio/erro. 7 testes. |
 | `palpite-render.test.ts` | **(v3.33.0)** `montarStatusResultado`: jogo AO VIVO com placar parcial NÃO vira "oficial 0 pts ❌" (bug Humberto 12/06); finalizado+calculado/calculando; adiado/cancelado/agendado. 8 testes. |
+| `bracket-2026.test.ts` | **(v3.41.0 mata-mata)** Integridade da chave: 32 jogos (73–104), apiJogoId por fase, ligações de avanço (cada slot 1 alimentador), R32→oitavas confirmados, semis→final+3º lugar, Sede→IANA. 11 testes. |
+| `pontuacao-mata-mata.test.ts` | **(v3.41.0)** `pontuarJogoMataMata`: casos A–G dos 16-avos (placar+bônus separados), valores por fase, inferência no decisivo, bônus só no empate quando acerta, crava preservada ao errar classificado, erro=0. 19 testes. |
+| `classificado-palpite.test.ts` | **(v3.41.0)** `registrarClassificadoPalpite`: grava `classificadoPalpite` por usuário/rodadas/jogo (single e multi-bolão) via updateMany. 2 testes. |
+| `advance-bracket.test.ts` | **(v3.41.0)** `advanceBracketComClient` (mock prisma): finalizar 73+75 abre a oitava 90, idempotência (não sobrescreve time real), perdedor das semis → 3º lugar. 3 testes. |
+| `seed-mata-mata.test.ts` | **(v3.41.0)** `parsearR32`/`ehTimeReal`: parse das 16 linhas, portão por times reais, conversão de fuso, erros (sede/número/data/faltando). 10 testes. |
+| `regras.text.test.ts` (+) | **(v3.41.0)** `regrasMataMata`/`regrasCompletas`: destaca prorrogação/pênalti, bônus, crava garantida, grade por fase (de `TABELA_PONTOS`), ranking cumulativo. |
+| `datetime.test.ts` (+) | **(v3.41.0)** `horaLocalSedeParaUtc`: local da sede → UTC tz-aware/DST (LA/NY/México), rejeita malformado. |
+| `message.parser.test.ts` (+) | **(v3.41.0)** 14 frases dos intents de mata-mata (INFO_* + ADVERSARIO_TIME/HORARIO_JOGO/VER_CHAVE). |
 
-Tempo: ~5s. Não toca rede nem DB.
+Tempo: ~7s. Não toca rede nem DB. **1071 tests.**
 
 ### Watch mode
 ```cmd

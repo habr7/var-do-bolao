@@ -801,3 +801,50 @@ resumo dos meus bolões
 - Placar ao vivo / áudio / vídeo
 
 Ver `BUGS_E_CENARIOS_VAR_DO_BOLAO.md` (raiz) para roadmap completo.
+
+---
+
+## 🏆 Mata-mata (Copa 2026)
+
+A partir dos 16-avos, o placar do bolão vale o resultado ao **fim da prorrogação**
+(pênalti não entra no placar, só decide quem avança). Os pontos sobem por fase e
+há um **bônus** por acertar quem se classifica.
+
+### Palpitar no mata-mata
+Igual aos grupos (`Brasil 2x1 Argentina`). Se você cravar **empate**, o bot pergunta
+quem passa nos pênaltis (acertar dá bônus; errar **não** tira o ponto do placar):
+```
+Você: Brasil 1x1 Argentina
+Bot:  (confirma) → "Deu empate 🤝 — quem se classifica nos pênaltis: Brasil ou Argentina?"
+Você: Brasil
+```
+
+### Regras (submenu)
+```
+regras
+```
+→ Bot pergunta: *completas* ou *mata-mata?*. Acesso direto:
+```
+regras do mata-mata
+```
+
+### Dúvidas frequentes (resposta na hora)
+| Frase | Responde |
+|-------|----------|
+| `a prorrogação conta?` | Conta — placar vale até o fim da prorrogação |
+| `pênalti conta?` / `e os pênaltis?` | Não entra no placar, só define quem avança |
+| `e se empatar?` | Dos 16-avos: cravou empate → bot pergunta quem passa (bônus) |
+| `quanto vale a final?` | Grade de pontos por fase (10/12/15/18/22) + bônus |
+| `o que é o bônus?` | Acertar quem avança (inferido no decisivo, perguntado no empate) |
+| `se errar quem passa perco a crava?` | Não — a crava fica garantida, só não leva o bônus |
+| `o ranking zera?` | Não — cumulativo, grupos + mata-mata |
+| `o que muda agora?` | Resumo do mata-mata |
+
+### Chave (lê os confrontos do seu bolão)
+```
+quem o Brasil enfrenta?
+que horas joga o Brasil?
+ver a chave   /   mostra o bracket
+```
+→ Adversário + fase + horário (Brasília). Se o adversário ainda não saiu, o bot diz
+de qual jogo ele depende — **nunca inventa**.
