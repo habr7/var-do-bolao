@@ -344,6 +344,25 @@ describe('parseIntencao', () => {
     it('"vamos montar um bolao"', () => {
       expect(parseIntencao('vamos montar um bolao').intencao).toBe(Intencao.CRIAR_BOLAO);
     });
+    // v3.40.0 — pergunta com verbo de criação (revisão diária 22/06).
+    it('caso real: "como posso fazer um bolao da minha familia?"', () => {
+      expect(parseIntencao('como posso fazer um bolao da minha familia?').intencao).toBe(
+        Intencao.CRIAR_BOLAO,
+      );
+    });
+    it('"como crio um bolão?"', () => {
+      expect(parseIntencao('como crio um bolão?').intencao).toBe(Intencao.CRIAR_BOLAO);
+    });
+    it('"como abro um bolão?"', () => {
+      expect(parseIntencao('como abro um bolão?').intencao).toBe(Intencao.CRIAR_BOLAO);
+    });
+    it('imperativo "faz um bolão pra família"', () => {
+      expect(parseIntencao('faz um bolão pra família').intencao).toBe(Intencao.CRIAR_BOLAO);
+    });
+    // NÃO-REGRESSÃO: "como funciona o bolão" (sem verbo de criação) → AJUDA.
+    it('"como funciona o bolão" continua AJUDA (não CRIAR_BOLAO)', () => {
+      expect(parseIntencao('como funciona o bolão').intencao).toBe(Intencao.AJUDA);
+    });
   });
 
   describe('variantes naturais — ENTRAR_BOLAO', () => {
@@ -680,6 +699,22 @@ describe('parseIntencao', () => {
     });
     it('"errei o palpite" → EDITAR_PALPITE', () => {
       expect(parseIntencao('errei o palpite').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    // v3.40.0 — "refazer"/"refaz" sozinho (revisão diária 22/06).
+    it('caso real: "refazer" sozinho → EDITAR_PALPITE', () => {
+      expect(parseIntencao('refazer').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"refaz" sozinho → EDITAR_PALPITE', () => {
+      expect(parseIntencao('refaz').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+    it('"refazer Brasil 2x1 Marrocos" continua EDITAR_PALPITE', () => {
+      expect(parseIntencao('refazer Brasil 2x1 Marrocos').intencao).toBe(Intencao.EDITAR_PALPITE);
+    });
+  });
+
+  describe('v3.40.0 — alias de autocorretor (MEU_PALPITE)', () => {
+    it('caso real: "Meus olhares" → MEU_PALPITE', () => {
+      expect(parseIntencao('Meus olhares').intencao).toBe(Intencao.MEU_PALPITE);
     });
   });
 

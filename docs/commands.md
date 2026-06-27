@@ -142,6 +142,12 @@ empate em 2 entre Alemanha e Espanha
 ```
 → LLM extrator entende. Usuário sempre confirma antes de registrar.
 
+### Palpite incompleto — o bot guia (v3.37.0 / v3.40.0)
+O bot não inventa palpite faltando dado — ele pede o que falta:
+- `Espanha 4x1` (só um time) → "Faltou o adversário — qual time o Espanha enfrentou?"
+- `3x0` (só o placar, sem time) → "Vi um placar, mas faltou dizer de qual jogo! Manda: `Time 3x0 Time`"
+- Lista de confrontos **sem placar** (`Noruega x França` / `Senegal x Iraque` / …) → "Vi que você listou jogos, mas faltou o placar de cada um! Manda: `Noruega 2x1 França`"
+
 ### Palpite único aplicado em vários bolões (ISSUE-015)
 
 Quando o mesmo jogo está aberto em N bolões em que você participa
