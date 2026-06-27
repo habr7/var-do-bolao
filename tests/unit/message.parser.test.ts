@@ -1384,6 +1384,33 @@ describe('parseIntencao', () => {
       }
     });
 
+    it('QA matrix: conjugações/typos/sinônimos do mata-mata roteados certo', () => {
+      const casos: Array<[string, Intencao]> = [
+        ['os penaltis contam no placar', Intencao.INFO_PENALTI],
+        ['como faco se eu achar que vai dar empate', Intencao.INFO_EMPATE_MATAMATA],
+        ['se eu cravar o empate e errar quem passa eu perco meus pontos?', Intencao.INFO_CRAVA_EMPATE],
+        ['errei quem passou mas acertei o placar, perco tudo?', Intencao.INFO_CRAVA_EMPATE],
+        ['meus pontos da fase de grupos contam ainda?', Intencao.INFO_RANKING_CONTINUA],
+        ['o ranking zerou?', Intencao.INFO_RANKING_CONTINUA],
+        ['como ta o bracket', Intencao.VER_CHAVE],
+        ['como funciona o mata mata', Intencao.INFO_O_QUE_MUDA],
+        ['mata mata', Intencao.INFO_O_QUE_MUDA],
+      ];
+      for (const [texto, esperado] of casos) {
+        expect(parseIntencao(texto).intencao, texto).toBe(esperado);
+      }
+    });
+
+    it('QA matrix: "jogos de hoje" é JOGOS_HOJE (não PERGUNTA_GERAL); "tabela" é RANKING', () => {
+      expect(parseIntencao('jogos de hoje').intencao).toBe(Intencao.JOGOS_HOJE);
+      expect(parseIntencao('horario dos jogos de hoje').intencao).toBe(Intencao.JOGOS_HOJE);
+      expect(parseIntencao('tabela').intencao).toBe(Intencao.RANKING);
+      // não-regressão: "jogos da Inglaterra" continua PERGUNTA_GERAL_FUTEBOL
+      expect(parseIntencao('quais jogos da Inglaterra').intencao).toBe(
+        Intencao.PERGUNTA_GERAL_FUTEBOL,
+      );
+    });
+
     it('não-regressão: "como vai?"/"tudo bem?" seguem CUMPRIMENTO_CASUAL (lookahead da chave não vaza)', () => {
       expect(parseIntencao('como vai?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);
       expect(parseIntencao('tudo bem?').intencao).toBe(Intencao.CUMPRIMENTO_CASUAL);

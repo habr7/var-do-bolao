@@ -3363,8 +3363,8 @@ function interpretarClassificado(
   jogo: { timeCasa: string; timeVisitante: string },
 ): 'CASA' | 'VISITANTE' | null {
   const t = texto.trim().toLowerCase();
-  if (/^(1|um|primeiro|casa|mandante|o primeiro)\b/.test(t)) return 'CASA';
-  if (/^(2|dois|segundo|visitante|fora|o segundo)\b/.test(t)) return 'VISITANTE';
+  if (/^(1|um|primeiro|casa|mandante|o primeiro|(?:o )?de cima|cima)\b/.test(t)) return 'CASA';
+  if (/^(2|dois|segundo|visitante|fora|o segundo|(?:o )?de baixo|baixo)\b/.test(t)) return 'VISITANTE';
   const casa = timeCorresponde(texto, jogo.timeCasa);
   const visitante = timeCorresponde(texto, jogo.timeVisitante);
   // Match exclusivo num dos lados.
@@ -3392,6 +3392,24 @@ async function handleConfirmandoClassificadoMataMata(
   const atual = fila[0];
   const lado = interpretarClassificado(msg.text, atual);
   if (!lado) {
+    // ESCAPE GRACIOSO: se em vez de responder quem passa o user mandou um
+    // comando de navegação forte ("ranking", "menu", "meus pontos"…), não
+    // fica preso na pergunta — sai do fluxo, AVISA que o placar já está
+    // salvo (só o bônus de classificado ficou pendente) e processa o
+    // comando. Resposta de time/lado nunca cai aqui (interpretarClassificado
+    // já casou), então isto só dispara em troca de assunto real.
+    const { intencao: intCarona } = parseIntencao(msg.text);
+    if (ehIntentForteNavegacao(intCarona)) {
+      await resetSession(msg.waId);
+      await sendText({
+        to: msg.waId,
+        text:
+          `👍 Deixei pra depois quem passa em *${atual.timeCasa} x ${atual.timeVisitante}* ` +
+          `— seu *placar já tá salvo*, só não marquei o bônus de classificado.`,
+      });
+      await handleIdle(msg, usuarioId, intCarona, msg.text);
+      return;
+    }
     await sendText({
       to: msg.waId,
       text:
@@ -5196,42 +5214,47 @@ function escapouFsmStaleParaNovaIntent(session: Session, intencao: Intencao): bo
     'APAGANDO_PALPITE_ESCOLHA_JOGO',
   ]);
   if (!ESTADOS_INTERROMPIVEIS.has(session.state)) return false;
+  return ehIntentForteNavegacao(intencao);
+}
 
-  // Intents fortes — a UX considera elas como "comando explicito"
-  const INTENTS_FORTES = new Set<Intencao>([
-    Intencao.PROXIMOS_JOGOS,
-    Intencao.JOGOS_HOJE,
-    Intencao.MEU_PALPITE,
-    Intencao.RANKING,
-    Intencao.MEUS_PONTOS,
-    Intencao.ESTATISTICA_PONTOS,
-    Intencao.MEUS_BOLOES,
-    Intencao.CRIAR_BOLAO,
-    Intencao.ENTRAR_BOLAO,
-    Intencao.COMO_CONVIDAR,
-    Intencao.QUEM_PARTICIPA,
-    Intencao.SAIR_BOLAO,
-    Intencao.ABRIR_RODADA,
-    Intencao.PENDENTES,
-    Intencao.AJUDA,
-    Intencao.MENU,
-    Intencao.REGRAS,
-    Intencao.INFO_SENHA,
-    Intencao.EXCLUIR_BOLAO,
-    // Sprint 2
-    Intencao.INFO_PRODUTO,
-    Intencao.INFO_PRECO,
-    Intencao.COMO_PALPITAR,
-    Intencao.QUANDO_COMECA,
-    Intencao.EDITAR_PALPITE,
-    Intencao.APAGAR_PALPITE,
-    Intencao.DEFINIR_BOLAO_PADRAO,
-    Intencao.RENOMEAR_BOLAO,
-    Intencao.REMOVER_PARTICIPANTE,
-    Intencao.RESUMO_BOLOES,
-    Intencao.CANCELAR,
-  ]);
-  return INTENTS_FORTES.has(intencao);
+// Intents "fortes" — a UX considera elas como comando explícito que vence um
+// estado de leitura/escolha stale (e também o escape gracioso da pergunta de
+// classificado do mata-mata). Fonte única pros dois usos.
+const INTENTS_FORTES_NAVEGACAO = new Set<Intencao>([
+  Intencao.PROXIMOS_JOGOS,
+  Intencao.JOGOS_HOJE,
+  Intencao.MEU_PALPITE,
+  Intencao.RANKING,
+  Intencao.MEUS_PONTOS,
+  Intencao.ESTATISTICA_PONTOS,
+  Intencao.MEUS_BOLOES,
+  Intencao.CRIAR_BOLAO,
+  Intencao.ENTRAR_BOLAO,
+  Intencao.COMO_CONVIDAR,
+  Intencao.QUEM_PARTICIPA,
+  Intencao.SAIR_BOLAO,
+  Intencao.ABRIR_RODADA,
+  Intencao.PENDENTES,
+  Intencao.AJUDA,
+  Intencao.MENU,
+  Intencao.REGRAS,
+  Intencao.INFO_SENHA,
+  Intencao.EXCLUIR_BOLAO,
+  Intencao.INFO_PRODUTO,
+  Intencao.INFO_PRECO,
+  Intencao.COMO_PALPITAR,
+  Intencao.QUANDO_COMECA,
+  Intencao.EDITAR_PALPITE,
+  Intencao.APAGAR_PALPITE,
+  Intencao.DEFINIR_BOLAO_PADRAO,
+  Intencao.RENOMEAR_BOLAO,
+  Intencao.REMOVER_PARTICIPANTE,
+  Intencao.RESUMO_BOLOES,
+  Intencao.CANCELAR,
+]);
+
+function ehIntentForteNavegacao(intencao: Intencao): boolean {
+  return INTENTS_FORTES_NAVEGACAO.has(intencao);
 }
 
 async function tentarAcaoAdminEmIdle(

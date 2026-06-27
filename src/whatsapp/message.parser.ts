@@ -332,8 +332,10 @@ const PERGUNTA_GERAL_FUTEBOL_PATTERNS: RegExp[] = [
   /\bfase de grupos\b/,
   /\boitavas|quartas|semifinal|final da copa\b/,
   // "jogos da/do [time]" / "jogo contra X" — captura "quais proximos jogos
-  // da Inglaterra?" e variantes que NAO sao sobre o bolao do user.
-  /\bjogos?\s+(?:d[aoe]|contra|na\s|no\s|em\s|sobre)\s+\w/,
+  // da Inglaterra?" e variantes que NAO sao sobre o bolao do user. O
+  // lookahead exclui temporais ("jogos de hoje/amanha/ontem" → JOGOS_HOJE,
+  // não pergunta geral sobre um time).
+  /\bjogos?\s+(?:d[aoe]|contra|na\s|no\s|em\s|sobre)\s+(?!hoje\b|amanha\b|amanhã\b|ontem\b|agora\b|hj\b)\w/,
   /\b(?:proxim[oa]|ultim[oa])\s+jogo\s+(?:d[aoe]|contra|na|no|em)\s+\w/,
   // Pergunta com nome de pais/time depois de "joga/jogou":
   // "Inglaterra joga hoje?", "Brasil jogou contra X" — quando comeca com
@@ -645,6 +647,7 @@ const ENTRAR_BOLAO_PATTERNS: RegExp[] = [
 // "Ranking / classificacao"
 const RANKING_PATTERNS: RegExp[] = [
   /^ranking\b/,
+  /^tabela$/, // "tabela" sozinha = ranking do bolão (grupo/copa caem antes em PERGUNTA_GERAL)
   /\bclassificacao\b/,
   /\bquem (?:ta|esta) na frente\b/,
   /\bquem (?:ta|esta) ganhando\b/,
@@ -963,8 +966,8 @@ const INFO_PRORROGACAO_PATTERNS: RegExp[] = [
   /\bvai pr[ao] (?:tempo )?extra\b/,
 ];
 const INFO_PENALTI_PATTERNS: RegExp[] = [
-  /\bp[êe]naltis?\b.*\b(conta|vale|entra|n[ãa]o)\b/,
-  /\b(conta|vale|entra|e os?|e as|tem)\b.*\bp[êe]naltis?\b/,
+  /\bp[êe]naltis?\b.*\b(conta[m]?|vale[m]?|entra[m]?|n[ãa]o)\b/,
+  /\b(conta[m]?|vale[m]?|entra[m]?|e os?|e as|tem)\b.*\bp[êe]naltis?\b/,
   /\bdisputa de p[êe]naltis?\b/,
   /\bnos p[êe]naltis?\b.*\b(conta|vale|placar)\b/,
 ];
@@ -973,6 +976,9 @@ const INFO_EMPATE_MATAMATA_PATTERNS: RegExp[] = [
   /\bcomo (?:eu )?palpit(?:o|ar) (?:um |o )?empate\b/,
   /\bempate no mata[\s-]?mata\b/,
   /\bdeu empate\b.*\b(e agora|quem passa|o que)\b/,
+  // "como faço se achar que vai dar empate" — sem placar (não é palpite).
+  /\bdar empate\b/,
+  /\bvai (?:dar|ser) (?:um )?empate\b/,
 ];
 const INFO_PONTOS_MATAMATA_PATTERNS: RegExp[] = [
   /\bos? pontos? (?:aumenta|subir|sobe|muda|cresce|subiram|cresceram)/,
@@ -998,16 +1004,22 @@ const INFO_BONUS_CLASSIFICADO_PATTERNS: RegExp[] = [
   /\bponto extra\b/,
 ];
 const INFO_CRAVA_EMPATE_PATTERNS: RegExp[] = [
-  /\bse (?:eu )?errar quem passa\b/,
+  /\berrar quem passa\b/,
   /\b(perco|perde|perdi) a crava\b/,
   /\berr(?:ei|ar|o) o classificad/,
-  /\berr(?:ei|ar|o) quem (?:passa|classifica)\b.*\b(placar|crava|ponto)\b/,
+  // "errei/errar quem passa/passou + (perco) placar/crava/pontos" — cobre
+  // conjugações e plural ("perco meus pontos", "cravar", "passou").
+  /\berr(?:ei|ar|o|ou) quem (?:passa|passou|passar|classifica|classificou)\b.*\b(placar|crava|ponto)/,
+  /\bcravar? (?:o )?empate\b.*\b(perco|perde|perd|bonus|b[ôo]nus|ponto)/,
 ];
 const INFO_RANKING_CONTINUA_PATTERNS: RegExp[] = [
-  /\b(?:o )?ranking (?:vai )?zera/,
+  /\b(?:o )?ranking (?:vai |j[áa] )?zer(?:a|ou|ar|o)/,
   /\bcome[çc]a do zero\b/,
   /\b(?:meus )?pontos (?:dos |da )?grupos? (?:contam|valem|continuam)/,
-  /\bzera (?:tudo|os pontos|o ranking)\b/,
+  // "meus pontos da fase de grupos contam ainda?" — termos podem ter
+  // palavras no meio ("da fase de grupos").
+  /\bpontos\b.*\bgrupos?\b.*\b(conta[m]?|vale[m]?|continua[m]?)/,
+  /\bzer(?:a|ou) (?:tudo|os pontos|o ranking)\b/,
   /\bperco (?:meus )?pontos (?:dos|da fase de) grupos\b/,
   /\branking continua\b/,
   /\bcontinua ou zera\b/,
@@ -1016,13 +1028,18 @@ const INFO_O_QUE_MUDA_PATTERNS: RegExp[] = [
   /\bo que (?:muda|mudou) (?:agora|no mata[\s-]?mata|na copa|pra frente)/,
   /\bo que (?:muda|mudou) (?:com o|no) (?:mata[\s-]?mata|eliminat)/,
   /\bmudou alguma coisa (?:no|com o) mata[\s-]?mata\b/,
+  // "como funciona o mata-mata", "mata-mata" sozinho, "mata-mata é diferente?"
+  // — abrem o resumo do que muda (placar+empate+pontos por fase).
+  /\bcomo funciona o mata[\s-]?mata\b/,
+  /^mata[\s-]?mata$/,
+  /\bmata[\s-]?mata (?:e|eh|é) (?:mt |muito |bem )?diferente\b/,
 ];
 const VER_CHAVE_PATTERNS: RegExp[] = [
   /\bver (?:a )?chave\b/,
   /\bcomo (?:t[áa]|esta|está) (?:o )?chaveamento\b/,
   /\bmostr(?:a|ar) (?:o )?(?:bracket|chaveamento|chave)\b/,
   /\bchave do mata[\s-]?mata\b/,
-  /\bcomo (?:ficou|t[áa]) a chave\b/,
+  /\bcomo (?:ficou|t[áa]|esta|está) (?:o |a )?(?:chave|bracket|chaveamento)\b/,
   // Status de classificação → mostra a chave, que diz honestamente quem
   // avançou (o handler lê o bracket; nunca inventa). Regex cobre só as formas
   // INEQUÍVOCAS; "o Brasil passou?" (ambíguo com "o prazo passou") fica pro
@@ -1406,7 +1423,8 @@ export function parseIntencao(text: string): ParsedMessage {
   // eh REGRAS, entao excluimos esse caso aqui pra que o INTENT_RULES capture.
   const ehComoFuncionaGenerico =
     norm.startsWith('como funciona') &&
-    !/^como (?:eh|funciona) (?:a )?pontuacao\b/.test(norm);
+    !/^como (?:eh|funciona) (?:a )?pontuacao\b/.test(norm) &&
+    !/mata[\s-]?mata/.test(norm); // "como funciona o mata-mata" → INFO_O_QUE_MUDA
   if (AJUDA_WORDS.has(norm) || norm === '!ajuda' || ehComoFuncionaGenerico || norm.startsWith('o que (?:vc|voce) faz')) {
     return { intencao: Intencao.AJUDA, raw, args: [] };
   }
