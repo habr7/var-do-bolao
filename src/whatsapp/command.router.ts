@@ -21,7 +21,7 @@ import {
   infoOQueMuda,
 } from './mata-mata.respostas.js';
 import * as bracketService from '../modules/bracket/bracket.service.js';
-import { faseLabel } from '../data/bracket-2026.js';
+import { faseLabel, ehTimePlaceholder } from '../data/bracket-2026.js';
 import type { FaseTorneio } from '@prisma/client';
 import { paginarBlocos } from '../utils/paginar.js';
 import { extrairNomeBolaoInlineSair } from './sair.helper.js';
@@ -81,6 +81,7 @@ import { incContador, registrarMsgNaoEntendida } from '../utils/metrics.js';
 import { parecAutoReply } from './auto-reply.detector.js';
 import { verificarAntiLoop, registrarResposta } from '../utils/resposta-cap.js';
 import { tentarBroadcastAdmin } from './broadcast.js';
+import { tentarClassificadoAdmin } from './admin-classificado.js';
 
 export interface IncomingMessage {
   // Em produção vem como JID completo (ex: "5511999999999@s.whatsapp.net"
@@ -112,6 +113,13 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     // mensagem (inclusive do dono sem o marcador) segue o fluxo normal.
     if (await tentarBroadcastAdmin(msg)) {
       void incContador('broadcast.admin');
+      return;
+    }
+
+    // Mata-mata — comando admin pra definir o classificado de um jogo (fallback
+    // pros decididos nos pênaltis). Só dono + marcador `#CLASSIFICADO`.
+    if (await tentarClassificadoAdmin(msg)) {
+      void incContador('classificado.admin');
       return;
     }
 
@@ -2702,11 +2710,20 @@ async function iniciarConfirmacaoPalpites(
   bolaoNome: string,
   rodadaId: string,
 ) {
-  const rodada = await prisma.rodada.findUnique({
-    where: { id: rodadaId },
+  // Mata-mata: o bolão pode ter VÁRIAS rodadas ABERTA ao mesmo tempo (R32 +
+  // oitavas na transição). Extrai contra os jogos abertos de TODAS elas (só
+  // confrontos reais — descarta placeholders "Vencedor 73") e registra cada
+  // palpite na rodada do jogo que casou. `rodadaId` (a rodada escolhida) ainda
+  // é o fallback/rótulo do bolão.
+  void rodadaId;
+  const rodadasAbertas = await prisma.rodada.findMany({
+    where: { bolaoId, status: 'ABERTA' },
     include: { jogos: { where: { status: { in: ['AGENDADO', 'AO_VIVO'] } } } },
   });
-  if (!rodada || rodada.jogos.length === 0) {
+  const jogos = rodadasAbertas
+    .flatMap((r) => r.jogos)
+    .filter((j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante));
+  if (jogos.length === 0) {
     await resetSession(msg.waId);
     await sendText({
       to: msg.waId,
@@ -2714,13 +2731,12 @@ async function iniciarConfirmacaoPalpites(
     });
     return;
   }
-  const jogos = rodada.jogos;
 
   // 1) Regex (rapido, cobre formato canonico)
   const regexResult = parseMultiplePalpitesDetalhado(textoCru);
 
   // 2) LLM (sempre — robusto a frases naturais como "Brasil perde do
-  //    Marrocos de 1 a 0"). Usa os jogos da rodada como ground truth.
+  //    Marrocos de 1 a 0"). Usa os jogos das rodadas abertas como ground truth.
   const llmPalpites = await extrairPalpites(
     textoCru,
     jogos.map((j) => ({ timeCasa: j.timeCasa, timeVisitante: j.timeVisitante })),
@@ -2730,7 +2746,7 @@ async function iniciarConfirmacaoPalpites(
   //    porque tende a normalizar nomes pros oficiais da rodada.
   const acumulado = new Map<
     string,
-    { jogoId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
+    { jogoId: string; rodadaId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
   >();
 
   // v3.25.0 — casa por times tolerando ordem INVERTIDA (mandante trocado);
@@ -2740,6 +2756,7 @@ async function iniciarConfirmacaoPalpites(
     if (!r) return;
     acumulado.set(r.jogo.id, {
       jogoId: r.jogo.id,
+      rodadaId: (r.jogo as { rodadaId: string }).rodadaId,
       timeCasa: r.timeCasa,
       timeVisitante: r.timeVisitante,
       golsCasa: r.golsCasa,
@@ -3189,17 +3206,19 @@ async function registrarPalpitesConfirmados(
   usuarioId: string,
   rodadaId: string,
   bolaoNome: string,
-  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }>,
+  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; rodadaId?: string }>,
 ) {
   let registrados = 0;
   const erros: string[] = [];
-  // Empates de mata-mata efetivamente registrados → precisam de classificado.
-  const empatesRegistrados: Array<{ timeCasa: string; timeVisitante: string }> = [];
+  // Empates registrados, com a rodada de cada um — mata-mata pode ter várias
+  // rodadas ABERTA, então cada palpite vai na rodada do seu jogo.
+  const empatesRegistrados: Array<{ timeCasa: string; timeVisitante: string; rodadaId: string }> = [];
   for (const p of palpites) {
+    const alvoRodada = p.rodadaId ?? rodadaId;
     try {
       await palpiteService.registrarPalpiteEmRodada({
         usuarioId,
-        rodadaId,
+        rodadaId: alvoRodada,
         timeCasa: p.timeCasa,
         timeVisitante: p.timeVisitante,
         golsCasa: p.golsCasa,
@@ -3207,7 +3226,7 @@ async function registrarPalpitesConfirmados(
       });
       registrados++;
       if (p.golsCasa === p.golsVisitante) {
-        empatesRegistrados.push({ timeCasa: p.timeCasa, timeVisitante: p.timeVisitante });
+        empatesRegistrados.push({ timeCasa: p.timeCasa, timeVisitante: p.timeVisitante, rodadaId: alvoRodada });
       }
     } catch (err) {
       erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
@@ -3218,19 +3237,22 @@ async function registrarPalpitesConfirmados(
   if (erros.length > 0) resposta += `\n\n⚠️ Não rolou:\n${erros.join('\n')}`;
   await sendText({ to: msg.waId, text: resposta });
 
-  // Mata-mata: pra cada EMPATE cravado, pergunta quem se classifica (bônus).
-  // Só a partir dos 16-avos (rodada.fase != GRUPOS). O placar JÁ está salvo —
-  // a crava fica garantida mesmo se o user não responder.
+  // Mata-mata: pra cada EMPATE cravado em rodada != GRUPOS, pergunta quem se
+  // classifica (bônus). O placar JÁ está salvo — a crava fica garantida mesmo
+  // se o user não responder.
   if (registrados > 0 && empatesRegistrados.length > 0) {
-    const rodada = await prisma.rodada.findUnique({
-      where: { id: rodadaId },
-      select: { fase: true },
+    const rodadaIdsEmpate = [...new Set(empatesRegistrados.map((e) => e.rodadaId))];
+    const rodadasMM = await prisma.rodada.findMany({
+      where: { id: { in: rodadaIdsEmpate }, fase: { not: 'GRUPOS' } },
+      select: { id: true },
     });
-    if (rodada && rodada.fase !== 'GRUPOS') {
+    const idsMM = new Set(rodadasMM.map((r) => r.id));
+    const empatesMM = empatesRegistrados.filter((e) => idsMM.has(e.rodadaId));
+    if (empatesMM.length > 0) {
       await iniciarPerguntasClassificado(
         msg,
-        empatesRegistrados,
-        [rodadaId],
+        empatesMM.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
+        [...idsMM],
         bolaoNome,
         rodadaId,
       );
@@ -5588,7 +5610,11 @@ async function mostrarProximosJogos(
   let algumLoteVoltouAoTopo = false;
 
   for (const b of boloes) {
-    const rodada = await prisma.rodada.findFirst({
+    // Mata-mata: um bolão pode ter VÁRIAS rodadas ABERTA ao mesmo tempo
+    // (R32 terminando enquanto as oitavas abrem). Junta os jogos de TODAS
+    // as rodadas abertas e descarta os de mata-mata ainda com time
+    // placeholder ("Vencedor 73") — só entram confrontos reais.
+    const rodadasAbertas = await prisma.rodada.findMany({
       where: { bolaoId: b.id, status: 'ABERTA' },
       include: {
         jogos: {
@@ -5604,27 +5630,33 @@ async function mostrarProximosJogos(
         },
       },
     });
+    if (rodadasAbertas.length === 0) continue;
 
-    if (!rodada || rodada.jogos.length === 0) continue;
+    let jogosFuturos = rodadasAbertas
+      .flatMap((r) => r.jogos)
+      .filter((j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante))
+      .sort((j1, j2) => j1.dataHora.getTime() - j2.dataHora.getTime());
+    if (jogosFuturos.length === 0) continue;
 
     // Separa rolando (kickoff passou) dos palpitáveis (kickoff futuro)
-    const jogosRolando = rodada.jogos.filter((j) => j.dataHora.getTime() <= agora.getTime());
-    rodada.jogos = rodada.jogos.filter((j) => j.dataHora.getTime() > agora.getTime());
-    if (rodada.jogos.length === 0 && jogosRolando.length === 0) continue;
+    const jogosRolando = jogosFuturos.filter((j) => j.dataHora.getTime() <= agora.getTime());
+    jogosFuturos = jogosFuturos.filter((j) => j.dataHora.getTime() > agora.getTime());
+    if (jogosFuturos.length === 0 && jogosRolando.length === 0) continue;
 
-    const palpite = await prisma.palpite.findUnique({
-      where: { usuarioId_rodadaId: { usuarioId, rodadaId: rodada.id } },
-      include: { jogos: true },
+    const rodadaIds = rodadasAbertas.map((r) => r.id);
+    const palpitesUser = await prisma.palpiteJogo.findMany({
+      where: { palpite: { usuarioId, rodadaId: { in: rodadaIds } } },
+      select: { jogoId: true },
     });
-    const palpitadosIds = new Set(palpite?.jogos.map((p) => p.jogoId) ?? []);
+    const palpitadosIds = new Set(palpitesUser.map((p) => p.jogoId));
 
-    // Totais da rodada ANTES do filtro de pendentes (pro contador honesto)
-    const totalAbertosRodada = rodada.jogos.length;
+    // Totais ANTES do filtro de pendentes (pro contador honesto)
+    const totalAbertosRodada = jogosFuturos.length;
 
     // v3.27.0 — modo "só os que faltam": esconde os já palpitados
     if (apenasPendentes) {
-      rodada.jogos = rodada.jogos.filter((j) => !palpitadosIds.has(j.id));
-      if (rodada.jogos.length === 0 && totalAbertosRodada > 0) {
+      jogosFuturos = jogosFuturos.filter((j) => !palpitadosIds.has(j.id));
+      if (jogosFuturos.length === 0 && totalAbertosRodada > 0) {
         partes.push(
           `🏆 *${b.nome}*\n🎉 Você já palpitou em *todos* os ${totalAbertosRodada} jogos abertos. Bolão fechado pelo seu lado!\n\n_Manda *próximos jogos* e escolhe *2* pra rever a lista completa._`,
         );
@@ -5632,8 +5664,8 @@ async function mostrarProximosJogos(
       }
     }
 
-    const totalRodada = rodada.jogos.length;
-    const palpitadosTotal = rodada.jogos.filter((j) => palpitadosIds.has(j.id)).length;
+    const totalRodada = jogosFuturos.length;
+    const palpitadosTotal = jogosFuturos.filter((j) => palpitadosIds.has(j.id)).length;
 
     // Resolver offset deste bolão
     let offset: number;
@@ -5653,7 +5685,7 @@ async function mostrarProximosJogos(
       if (offset >= totalRodada) offset = 0;
     }
 
-    const lote = rodada.jogos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
+    const lote = jogosFuturos.slice(offset, offset + PROXIMOS_JOGOS_LOTE);
     // v3.20.0 — edge: nenhum jogo futuro mas há jogo(s) ROLANDO agora.
     // Mostra só o bloco rolando em vez de pular o bolão silenciosamente.
     if (lote.length === 0 && jogosRolando.length > 0) {
@@ -5673,7 +5705,9 @@ async function mostrarProximosJogos(
       // v3.11.0 — força Brasília (caso Jeni 11/06: VPS UTC mostrava 22:00 em vez de 19:00)
       const data = formatarDataHoraCurtaBR(j.dataHora);
       const marcado = palpitadosIds.has(j.id) ? '✅' : '⚪';
-      return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}`;
+      // Mata-mata: mostra a fase do jogo (16-avos/oitavas/...).
+      const faseTag = j.fase !== 'GRUPOS' ? ` _(${faseLabel(j.fase)})_` : '';
+      return `${marcado} ${data} — ${j.timeCasa} x ${j.timeVisitante}${faseTag}`;
     });
 
     // Rodapé honesto: contador + indicação se há mais jogos

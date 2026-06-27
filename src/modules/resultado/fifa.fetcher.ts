@@ -61,6 +61,11 @@ interface FifaMatch {
   Away?: FifaTeam | null;
   HomeTeamScore?: number | null;
   AwayTeamScore?: number | null;
+  // Mata-mata: placar da disputa de pênaltis, quando o payload expõe (best-effort
+  // — nome não confirmado pra 2026; se ausente, o classificado fica null e o
+  // comando admin `#CLASSIFICADO` resolve).
+  HomeTeamPenaltyScore?: number | null;
+  AwayTeamPenaltyScore?: number | null;
 }
 
 interface FifaCalendarResponse {
@@ -224,7 +229,31 @@ export class FifaWorldCup2026Adapter implements FootballApiAdapter {
         continue;
       }
 
-      results.push({ apiJogoId, golsCasa, golsVisitante, status });
+      // Mata-mata decidido nos pênaltis: se o placar empata e o payload trouxe
+      // o placar de pênaltis, infere quem avançou (o placar gravado segue sendo
+      // 90'+prorrogação — pênalti não entra). Grupos nunca têm isto. Só anexa os
+      // campos quando detecta — jogos normais mantêm o shape mínimo.
+      const penCasa = m.HomeTeamPenaltyScore;
+      const penVis = m.AwayTeamPenaltyScore;
+      const ehPenaltis =
+        status === 'FINALIZADO' &&
+        golsCasa === golsVisitante &&
+        penCasa != null &&
+        penVis != null &&
+        penCasa !== penVis;
+
+      if (ehPenaltis) {
+        results.push({
+          apiJogoId,
+          golsCasa,
+          golsVisitante,
+          status,
+          classificadoLado: (penCasa as number) > (penVis as number) ? 'CASA' : 'VISITANTE',
+          decididoNosPenaltis: true,
+        });
+      } else {
+        results.push({ apiJogoId, golsCasa, golsVisitante, status });
+      }
     }
 
     console.log(

@@ -1,6 +1,7 @@
 import { prisma } from '../config/database.js';
 import { jogoEstaRolandoPorHorario } from '../utils/jogo-status.js';
 import { formatarDataHoraCurtaBR, formatarHoraBR } from '../utils/datetime.js';
+import { ehTimePlaceholder } from '../data/bracket-2026.js';
 
 /**
  * v3.32.0 — Bloco de DADOS AO VIVO pro smart-fallback conversacional.
@@ -45,9 +46,12 @@ export async function construirFatosVivos(usuarioId: string): Promise<string | n
   }
   if (jogos.length === 0) return null;
 
-  // Dedup por par de times (mesmo jogo em N bolões)
+  // Dedup por par de times (mesmo jogo em N bolões) + descarta jogos de
+  // mata-mata ainda com time placeholder ("Vencedor 73") — senão o LLM
+  // afirmaria "Vencedor 73 joga..." pro usuário.
   const vistos = new Set<string>();
   const unicos = jogos.filter((j) => {
+    if (ehTimePlaceholder(j.timeCasa) || ehTimePlaceholder(j.timeVisitante)) return false;
     const k = `${j.timeCasa}|${j.timeVisitante}|${j.dataHora.getTime()}`;
     if (vistos.has(k)) return false;
     vistos.add(k);

@@ -130,13 +130,16 @@ export interface ConversaContext {
   palpiteTextoCru?: string;
   palpiteRodadaIdEscolhida?: string;
   palpiteBolaoNomeEscolhido?: string;
-  // Lista de palpites prontos pra registrar (apos extracao + LLM)
+  // Lista de palpites prontos pra registrar (apos extracao + LLM).
+  // rodadaId: mata-mata pode ter várias rodadas ABERTA — cada palpite carrega
+  // a rodada do jogo que casou, pra registrar na rodada certa.
   palpitesParaConfirmar?: Array<{
     timeCasa: string;
     timeVisitante: string;
     golsCasa: number;
     golsVisitante: number;
     jogoId: string;
+    rodadaId?: string;
   }>;
   palpitesNaoEntendidos?: string[];
   // v3.7.0: placar inline guardado quando user mandou "corrigir Brasil 3x1"

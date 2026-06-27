@@ -66,6 +66,15 @@ export async function atualizarResultados(rodadaId: string, campeonatoId: string
         classificadoLado: classificado,
         decididoNosPenaltis: resultado.decididoNosPenaltis ?? null,
       };
+      // Empate finalizado sem classificado (foi a pênaltis e o provider não
+      // informou o vencedor) → não avança sozinho. Loga pro dono resolver com
+      // o comando admin `#CLASSIFICADO <apiJogoId> <lado>`.
+      if (classificado == null) {
+        console.warn(
+          `[fetch-results] empate de mata-mata sem classificado: ${resultado.apiJogoId} ` +
+            `(${resultado.golsCasa}x${resultado.golsVisitante}) — defina com #CLASSIFICADO`,
+        );
+      }
     }
 
     const r = await rodadaRepo.atualizarResultadoJogoComResetCalc(
