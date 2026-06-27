@@ -1514,21 +1514,50 @@ async function handlePontosDetalhe(msg: IncomingMessage, usuarioId: string) {
     return;
   }
 
-  const linhas = palpiteJogos.map((pj) => {
+  // Se a pergunta cita um time ("pontuação em Brasil x Japão"), filtra pra ele.
+  let times: string[] = [];
+  try {
+    times = construirFatosCopa2026(msg.text)?.detectado?.times ?? [];
+  } catch {
+    times = [];
+  }
+  let lista = palpiteJogos;
+  if (times.length > 0) {
+    const filtrado = palpiteJogos.filter((pj) =>
+      times.some((t) => timeCorresponde(t, pj.jogo.timeCasa) || timeCorresponde(t, pj.jogo.timeVisitante)),
+    );
+    if (filtrado.length > 0) {
+      lista = filtrado;
+    } else {
+      await sendText({
+        to: msg.waId,
+        text:
+          `📭 Não achei jogo de *${times.join(' / ')}* que você palpitou e que terminou nas últimas 48h.\n\n` +
+          `Manda *meus pontos* pra ver o total ou *meus palpites* pro histórico completo.`,
+      });
+      return;
+    }
+  }
+
+  const linhas = lista.map((pj) => {
     const j = pj.jogo;
     const calculado = pj.palpite.calculado;
-    const emoji = pj.pontosObtidos >= 10 ? '🎯' : pj.pontosObtidos >= 5 ? '🥈' : pj.pontosObtidos > 0 ? '👍' : '❌';
-    const pontosLabel = calculado ? `${emoji} *${pj.pontosObtidos} pts*` : '⏳ _calculando..._';
+    const total = pj.pontosObtidos + pj.bonusObtido;
+    const emoji = total >= 10 ? '🎯' : total >= 5 ? '🥈' : total > 0 ? '👍' : '❌';
+    // Mata-mata: mostra placar + bônus de classificado e se foi nos pênaltis.
+    const detalhe = pj.bonusObtido > 0 ? `${pj.pontosObtidos}+${pj.bonusObtido} bônus = ${total}` : `${total}`;
+    const pontosLabel = calculado ? `${emoji} *${detalhe} pts*` : '⏳ _calculando..._';
+    const pen = j.decididoNosPenaltis ? ' _(nos pênaltis)_' : '';
     return (
-      `• ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}\n` +
+      `• ${j.timeCasa} ${j.golsCasa} × ${j.golsVisitante} ${j.timeVisitante}${pen}\n` +
       `  Seu palpite: ${pj.golsCasa} × ${pj.golsVisitante} → ${pontosLabel} _(${pj.palpite.rodada.bolao.nome})_`
     );
   });
 
-  const totalPeriodo = palpiteJogos
+  const totalPeriodo = lista
     .filter((pj) => pj.palpite.calculado)
-    .reduce((acc, pj) => acc + pj.pontosObtidos, 0);
-  const temPendentes = palpiteJogos.some((pj) => !pj.palpite.calculado);
+    .reduce((acc, pj) => acc + pj.pontosObtidos + pj.bonusObtido, 0);
+  const temPendentes = lista.some((pj) => !pj.palpite.calculado);
 
   let texto = `📊 *Seus pontos — últimas 48h:*\n\n${linhas.join('\n\n')}\n\n*Total no período: ${totalPeriodo} pts*`;
   if (temPendentes) {
@@ -1634,6 +1663,7 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
       `Enquanto isso, vale saber como a pontuação funciona:\n` +
       `• Pontos calculam *automaticamente em poucos minutos* depois que o jogo termina (o placar aparece ao vivo durante a partida)\n` +
       `• Critérios: 10 pts placar exato; 7 vencedor + gols de um time; 5 só o vencedor; 3 só gols de um time; 0 errou — *vale o melhor acerto, não soma*\n` +
+      `• 🏆 *No mata-mata é normal passar de 10 num jogo*: os pontos sobem por fase (oitavas 12, quartas 15…) e ainda tem *bônus* por acertar quem se classifica. O placar vale até a prorrogação (pênalti não conta).\n` +
       `• Se o placar oficial mudar (VAR), os pontos *recalculam sozinhos*\n\n` +
       `Confere os detalhes:\n` +
       `• *meus pontos* — sua pontuação por rodada\n` +
@@ -3412,10 +3442,16 @@ function extrairTimeDaPergunta(texto: string): string {
   const padroes: RegExp[] = [
     /quem (?:o |a )?(.+?) (?:enfrenta|pega|joga contra|encara|vai pegar|vai enfrentar)\b/i,
     /advers[áa]rio (?:d[oae] )?(.+)$/i,
-    /(.+?) (?:joga|enfrenta|pega) contra quem/i,
+    /pr[óo]xim[oa] (?:advers[áa]rio|jogo) (?:d[oae] )?(.+)$/i,
+    /(.+?) (?:joga|enfrenta|pega) (?:contra |com )?quem/i,
     /contra quem (?:o |a )?(.+?) joga/i,
-    /que horas? (?:joga|joga[m]?) (?:o |a )?(.+)$/i,
-    /que horas? (?:o |a )?(.+?) joga/i,
+    /contra quem (?:joga|enfrenta|pega) (?:o |a )?(.+)$/i,
+    /(?:o |a )?(.+?) pega quem/i,
+    /quem (?:o |a )?(.+?) (?:vai )?(?:pegar|enfrentar|joga|pega) (?:depois|agora|de novo|na pr[óo]xima|nas?)/i,
+    /que (?:horas?|dia) (?:joga|joga[m]?) (?:o |a )?(.+)$/i,
+    /que (?:horas?|dia) (?:o |a )?(.+?) joga/i,
+    /quando (?:o |a )?(.+?) joga\b/i,
+    /(?:o |a )?(.+?) joga quando/i,
     /(?:quando|hor[áa]rio) (?:e |eh |é )?(?:o jogo )?(?:d[oae] )?(.+)$/i,
   ];
   for (const p of padroes) {

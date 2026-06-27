@@ -98,7 +98,7 @@ INTENCOES:
 - INFO_O_QUE_MUDA: pergunta o que muda no mata-mata. Ex: "o que muda agora?", "o que mudou no mata-mata?".
 - ADVERSARIO_TIME: quer saber o ADVERSARIO de um time na chave do bolao DELE. Ex: "quem o Brasil enfrenta?", "adversario do Brasil", "Brasil joga contra quem?", "quem a Franca pega nas quartas?". (Distinto de PERGUNTA_GERAL_FUTEBOL: aqui o bot le a chave semeada do bolao do user.)
 - HORARIO_JOGO: quer o HORARIO do proximo jogo de um time na chave do bolao. Ex: "que horas joga o Brasil?", "quando e o jogo da Franca?", "horario do jogo do Brasil".
-- VER_CHAVE: quer ver o chaveamento/bracket do mata-mata do bolao. Ex: "ver a chave", "como ta o chaveamento?", "mostra o bracket", "como ficou a chave?".
+- VER_CHAVE: quer ver o chaveamento/bracket do mata-mata do bolao, OU saber se um time avancou/caiu na chave do bolao. Ex: "ver a chave", "como ta o chaveamento?", "mostra o bracket", "como ficou a chave?", "o Brasil passou?", "o Brasil se classificou?", "o Brasil foi eliminado?", "o Brasil ta nas oitavas?", "quem ja se classificou?". (O handler le o bracket semeado do bolao e mostra quem avancou — nunca inventa.)
 - DESCONHECIDO: mensagem nao se encaixa em nada acima ou eh ambigua demais.
 
 DISTINCAO IMPORTANTE:

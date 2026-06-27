@@ -45,7 +45,7 @@ export function infoPontosMataMata(): string {
     linha('Semifinal', 'SEMI') + '\n' +
     linha('Final', 'FINAL') + '\n\n' +
     '_As outras faixas (resultado, gols de um time) sobem na mesma proporção._\n' +
-    'O placar vale até o fim da prorrogação.'
+    '🏆 *Por isso dá pra passar de 10 num jogo só* — o placar vale mais por fase E ainda soma o bônus de classificado. O placar conta até o fim da prorrogação (pênalti fora).'
   );
 }
 

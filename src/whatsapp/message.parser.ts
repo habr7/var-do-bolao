@@ -426,6 +426,14 @@ const PONTOS_DETALHE_PATTERNS: RegExp[] = [
   /\bmeus pontos? (?:de|do) (?:ontem|hoje|cada jogo)/,
   /\bdetalhe[s]? (?:da |de )?(?:minha )?pontua/,
   /\bpontos? por jogo\b/,
+  // Pontos de um JOGO específico ("pontuação em Brasil x Japão", "pontos no
+  // jogo do Brasil"). Requer dois times (separador x/×) ou a palavra "jogo" —
+  // assim "pontuação no mata-mata" NÃO cai aqui (vai pra INFO_PONTOS_MATAMATA).
+  /\bpontua[cç][ãa]o (?:em|no|na|do|da) .+\s*[x×]\s*.+/i,
+  /\bquantos? pontos? .*(?:no|na|em) (?:jogo )?(?:d[oae] )?.+\s*[x×]\s*.+/i,
+  /\bpontos? (?:no|do|da) jogo (?:d[oae] )?\w+/i,
+  /\bquantos? pontos? .*\bjogo (?:d[oae] )?\w+/i,
+  /\bpontua[cç][ãa]o (?:em|no|na|do|da) (?:o )?jogo\b/i,
 ];
 
 // v3.38.0 — ESTATISTICA_PONTOS: quebra dos pontos do user por FAIXA
@@ -575,6 +583,9 @@ const RECLAMACAO_BUG_PATTERNS: RegExp[] = [
   /\bfaltou pontos?\b/,
   /\bmeu ponto sumiu\b/,
   /\bpontos? sumiram\b/,
+  // "meus pontos do Brasil x Japão estão errados" (palavras entre pontos↔errado)
+  /\bpont(?:os?|ua[cç][ãa]o)\b[^.!?]{0,40}\berrad[oa]s?\b/,
+  /\bfaltando ponto/,
 ];
 
 // "Meus pontos / quanto fiz / pontuacao"
@@ -704,7 +715,10 @@ const DESPEDIDA_PATTERNS: RegExp[] = [
 const CUMPRIMENTO_CASUAL_PATTERNS: RegExp[] = [
   /\btudo (?:bem|bom|certo|tranquilo|jo[ií]a|joia)\b/,
   /\bt[aá] (?:tudo|tranquilo|de boa)\b/,
-  /\bcomo (?:voc[eê] )?(?:vai|ta|esta|anda|vai indo)\b/,
+  // "como vai/ta/esta/anda" — mas NAO "como ta a chave/bracket/chaveamento/
+  // mata-mata" (essas sao VER_CHAVE; o lookahead evita roubar a pergunta e
+  // bloquear o fallback de classificacao).
+  /\bcomo (?:voc[eê] )?(?:vai|ta|esta|anda|vai indo)\b(?!.*\b(?:chave|bracket|chaveamento|mata[\s-]?mata)\b)/,
   /^blz\?$/,
   /^belezinha\?$/,
   /^td certo\?$/,
@@ -934,7 +948,9 @@ const QUANDO_COMECA_PATTERNS: RegExp[] = [
   /\bquando (?:eh|e) (?:a |o )?(?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
   /\bdata (?:da|do) (?:proxim[oa] )?(?:rodada|jogo|partida)\b/,
   // Mata-mata: "quando começa o mata-mata", "quando são os 16-avos/oitavas"
-  /\bquando (?:comeca|come[cç]a|sao|s[ãa]o|eh|e|inicia[m]?) (?:os |as |o |a )?(?:16[\s-]?avos|dezesseis avos|mata[\s-]?mata|matamata|oitavas|quartas|semi|final)/,
+  /\bquando (?:comeca[m]?|come[cç]a[m]?|sao|s[ãa]o|eh|e|inicia[m]?) (?:os |as |o |a )?(?:16[\s-]?avos|dezesseis avos|mata[\s-]?mata|matamata|oitavas|quartas|semi|final)/,
+  // "que horas/dia é a final/semi/oitavas" — fase sem time → trata como agenda da fase.
+  /\b(?:que|qual) (?:horas?|dia|data) (?:e|eh|é|s[ãa]o|comeca[m]?) (?:a |o |as |os )?(?:final|semi(?:final)?|quartas|oitavas|16[\s-]?avos|mata[\s-]?mata)\b/,
 ];
 
 // ============================================================
@@ -959,16 +975,27 @@ const INFO_EMPATE_MATAMATA_PATTERNS: RegExp[] = [
   /\bdeu empate\b.*\b(e agora|quem passa|o que)\b/,
 ];
 const INFO_PONTOS_MATAMATA_PATTERNS: RegExp[] = [
-  /\bos? pontos? (?:aumentar|subir|mudar|cresce)/,
+  /\bos? pontos? (?:aumenta|subir|sobe|muda|cresce|subiram|cresceram)/,
   /\bquanto (?:vale|valem)\b.*\b(agora|mata[\s-]?mata|final|semi|quartas|oitavas|16[\s-]?avos)\b/,
   /\bquanto (?:vale|valem) (?:a |o )?(?:final|semi|semifinal|quartas|oitavas)\b/,
   /\bos pontos (?:do mata[\s-]?mata|aumentaram)\b/,
+  // "por que fiz mais de 10 pontos?" / "como fiz 13 pontos?" — explica que no
+  // mata-mata o placar sobe por fase + tem bônus (passar de 10 num jogo é normal).
+  /\b(?:por ?que|porque|pq|como) (?:eu )?(?:fiz|ganhei|tirei|consegui|peguei|fui) (?:mais de 10|acima de 10|1[1-9]|2[0-9]) pontos?\b/,
+  /\bfiz (?:1[1-9]|2[0-9]) pontos?\b/,
+  /\b(?:mais de|acima de) 10 pontos?\b/,
+  /\bagora vale[m]? mais pontos?\b/,
+  // "como é a pontuação do mata-mata?" (quando REGRAS não pega)
+  /\bpontua[cç][ãa]o\b[^?]*\bmata[\s-]?mata\b/,
 ];
 const INFO_BONUS_CLASSIFICADO_PATTERNS: RegExp[] = [
   /\bo que (?:e|eh|é) o b[ôo]nus\b/,
   /\bcomo (?:eu )?ganho o b[ôo]nus\b/,
   /\bponto de quem passa\b/,
   /\bb[ôo]nus (?:de |do )?(?:classificad|quem passa)/,
+  /\btem b[ôo]nus\b/,
+  /\bb[ôo]nus por acertar\b/,
+  /\bponto extra\b/,
 ];
 const INFO_CRAVA_EMPATE_PATTERNS: RegExp[] = [
   /\bse (?:eu )?errar quem passa\b/,
@@ -982,6 +1009,8 @@ const INFO_RANKING_CONTINUA_PATTERNS: RegExp[] = [
   /\b(?:meus )?pontos (?:dos |da )?grupos? (?:contam|valem|continuam)/,
   /\bzera (?:tudo|os pontos|o ranking)\b/,
   /\bperco (?:meus )?pontos (?:dos|da fase de) grupos\b/,
+  /\branking continua\b/,
+  /\bcontinua ou zera\b/,
 ];
 const INFO_O_QUE_MUDA_PATTERNS: RegExp[] = [
   /\bo que (?:muda|mudou) (?:agora|no mata[\s-]?mata|na copa|pra frente)/,
@@ -994,21 +1023,34 @@ const VER_CHAVE_PATTERNS: RegExp[] = [
   /\bmostr(?:a|ar) (?:o )?(?:bracket|chaveamento|chave)\b/,
   /\bchave do mata[\s-]?mata\b/,
   /\bcomo (?:ficou|t[áa]) a chave\b/,
+  // Status de classificação → mostra a chave, que diz honestamente quem
+  // avançou (o handler lê o bracket; nunca inventa). Regex cobre só as formas
+  // INEQUÍVOCAS; "o Brasil passou?" (ambíguo com "o prazo passou") fica pro
+  // classificador LLM, que desambígua pelo contexto.
+  /\b(?:se )?classificou\b.*\bmata[\s-]?mata\b/,
+  /\bquem (?:j[áa] )?(?:se classificou|classificou|avan[çc]ou|foi eliminad[oa])\b/,
+  /\bt[áa] (?:classificad[oa]|eliminad[oa]|nas oitavas|nas quartas|na semi|na final)\b/,
 ];
 // ADVERSARIO_TIME e HORARIO_JOGO precisam resolver um TIME. Os patterns
 // capturam o nome no grupo 1 (lido pelo handler via re-exec).
 const ADVERSARIO_TIME_PATTERNS: RegExp[] = [
-  /\bquem (?:o |a )?(.+?) (?:enfrenta|pega|joga contra|encara)\b/,
+  /\bquem (?:o |a )?(.+?) (?:enfrenta|pega|joga contra|encara|vai pegar|vai enfrentar)\b/,
   /\badvers[áa]rio (?:d[oae] )?(.+)$/,
-  /\b(.+?) (?:joga|enfrenta|pega) contra quem\b/,
+  /\bpr[óo]xim[oa] (?:advers[áa]rio|jogo) (?:d[oae] )?(.+)$/,
+  /\b(.+?) (?:joga|enfrenta|pega) (?:contra |com )?quem\b/,
   /\bcontra quem (?:o |a )?(.+?) joga\b/,
-  /\bquem (?:o |a )?(.+?) (?:vai )?(?:pegar|enfrentar) (?:n[oa]s? )?(?:oitavas|quartas|semi|final|16[\s-]?avos)\b/,
+  /\bcontra quem (?:joga|enfrenta|pega) (?:o |a )?(.+)$/,
+  /\b(?:o |a )?(.+?) pega quem\b/,
+  /\bquem (?:o |a )?(.+?) (?:vai )?(?:pegar|enfrentar|joga|pega) (?:depois|agora|de novo|n[oa]s? (?:pr[óo]xim[oa]|oitavas|quartas|semi|final|16[\s-]?avos))/,
 ];
 const HORARIO_JOGO_PATTERNS: RegExp[] = [
   /\bque horas? (?:joga|e o jogo d[oae]|joga[m]?) (?:o |a )?(.+)$/,
   /\bquando (?:e|eh|é) o jogo d[oae] (.+)$/,
   /\bhor[áa]rio do jogo (?:d[oae] )?(.+)$/,
   /\bque horas? (?:o |a )?(.+?) joga\b/,
+  /\bque dia (?:joga|e o jogo d[oae]|joga[m]?) (?:o |a )?(.+)$/,
+  /\bquando (?:o |a )?(.+?) joga (?:de novo|denovo|na pr[óo]xima|nas oitavas|nas quartas|na semi|na final)\b/,
+  /\b(?:o |a )?(.+?) joga quando\b/,
 ];
 
 // v3.8.0 — PROGRESSO_PALPITES: visibilidade pra qualquer participante do
