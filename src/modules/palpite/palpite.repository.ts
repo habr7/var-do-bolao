@@ -20,10 +20,15 @@ export async function registrarPalpiteJogo(
   golsCasa: number,
   golsVisitante: number,
 ) {
+  // Mata-mata: placar DECISIVO não tem "quem passa" (é inferido do vencedor).
+  // Ao reescrever um palpite que ANTES era empate (com classificadoPalpite
+  // cravado) e agora é decisivo, zera o campo — senão fica órfão e o display
+  // mostra "você acha que X passa" num jogo que não é mais empate.
+  const empate = golsCasa === golsVisitante;
   return prisma.palpiteJogo.upsert({
     where: { palpiteId_jogoId: { palpiteId, jogoId } },
     create: { palpiteId, jogoId, golsCasa, golsVisitante },
-    update: { golsCasa, golsVisitante },
+    update: { golsCasa, golsVisitante, ...(empate ? {} : { classificadoPalpite: null }) },
   });
 }
 
