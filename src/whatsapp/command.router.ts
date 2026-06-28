@@ -25,7 +25,7 @@ import { faseLabel, ehTimePlaceholder } from '../data/bracket-2026.js';
 import type { FaseTorneio } from '@prisma/client';
 import { paginarBlocos } from '../utils/paginar.js';
 import { extrairNomeBolaoInlineSair } from './sair.helper.js';
-import { montarStatusResultado } from './palpite-render.js';
+import { montarStatusResultado, linhaClassificadoMeusPalpites } from './palpite-render.js';
 import {
   getSession,
   resetSession,
@@ -3442,6 +3442,29 @@ async function registrarClassificadosInline<
 }
 
 /**
+ * Mata-mata — nota curta "quem passa: X (pelo placar)" pra confirmação de
+ * EDIÇÃO de um palpite DECISIVO. Transparência: o user vê o que o classificado
+ * virou ao mudar o placar (caso Humberto 28/06: editou 1x1→1x2 e não sabia se
+ * o classificado tinha mudado). '' se não for mata-mata ou for empate (empate
+ * tem o fluxo de pergunta). Ordem já vem alinhada (encontrarJogo exige).
+ */
+async function notaQuemPassaDecisivo(
+  usuarioId: string,
+  jogo: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number },
+): Promise<string> {
+  if (jogo.golsCasa === jogo.golsVisitante) return '';
+  const matches = await palpiteService.buscarBoloesComJogo(usuarioId, jogo.timeCasa, jogo.timeVisitante);
+  if (matches.length === 0) return '';
+  const rodadasMM = await prisma.rodada.findMany({
+    where: { id: { in: matches.map((m) => m.rodadaId) }, fase: { not: 'GRUPOS' } },
+    select: { id: true },
+  });
+  if (rodadasMM.length === 0) return '';
+  const vencedor = jogo.golsCasa > jogo.golsVisitante ? jogo.timeCasa : jogo.timeVisitante;
+  return `\n🎯 _Quem passa agora: *${vencedor}* (pelo placar)._`;
+}
+
+/**
  * Mata-mata — FONTE ÚNICA do fluxo empate→classificado. Recebe os palpites que
  * acabaram de ser (re)gravados; pros que são EMPATE num jogo de rodada de
  * mata-mata ABERTA, grava o classificado já indicado na mensagem ("...e o X
@@ -6293,11 +6316,10 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
       if (j.status !== 'FINALIZADO') temJogoEmAberto = true;
       const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites, pj.bonusObtido);
       let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`;
-      // Mata-mata: mostra o classificado que o user cravou no empate.
-      if (pj.classificadoPalpite) {
-        const timeClass = pj.classificadoPalpite === 'CASA' ? j.timeCasa : j.timeVisitante;
-        linha += `\n   ↳ 🎯 _você acha que ${timeClass} passa_`;
-      }
+      // Mata-mata: mostra "quem você acha que passa" pra TODO jogo (empate =
+      // a crava; decisivo = o vencedor pelo placar — ignora dado órfão). Em
+      // jogo ENCERRADO, valida contra quem passou de verdade (✅/❌).
+      linha += linhaClassificadoMeusPalpites(j, pj);
       partes.push(linha);
     }
     partes.push('');
@@ -6880,11 +6902,13 @@ async function registrarEdicaoDireta(
     });
     await resetSession(msg.waId);
     const novoStr = `*${r.jogoTimeCasa} ${p.golsCasa} × ${p.golsVisitante} ${r.jogoTimeVisitante}*`;
-    const texto = r.anterior
+    let texto = r.anterior
       ? `✅ Palpite atualizado no *${nomeBolao}*!\n` +
         `Era: *${r.jogoTimeCasa} ${r.anterior.golsCasa} × ${r.anterior.golsVisitante} ${r.jogoTimeVisitante}*\n` +
         `Agora: ${novoStr}`
       : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(não tinha palpite anterior pra esse jogo)_`;
+    // Mata-mata DECISIVO: avisa quem passa pelo placar (transparência na edição).
+    texto += await notaQuemPassaDecisivo(usuarioId, { timeCasa: r.jogoTimeCasa, timeVisitante: r.jogoTimeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante });
     await sendText({ to: msg.waId, text: texto });
     // Mata-mata: se virou EMPATE, pergunta quem se classifica.
     await talvezPerguntarClassificadoMataMata(msg, usuarioId, [
@@ -6939,6 +6963,8 @@ async function registrarEdicaoEmTodosBoloes(
     const linhasErr = erros.slice(0, 4).map((e) => `• *${e.bolaoNome}*: ${e.motivo}`).join('\n');
     resumo += `\n\n⚠️ Falhou em ${erros.length} bolão(ões):\n${linhasErr}\n\n_Manda *corrigir ${p.timeCasa} ${p.golsCasa}x${p.golsVisitante} ${p.timeVisitante}* de novo pra tentar — registros já feitos não duplicam._`;
   }
+  // Mata-mata DECISIVO: avisa quem passa pelo placar (transparência na edição).
+  resumo += await notaQuemPassaDecisivo(usuarioId, { timeCasa: p.timeCasa, timeVisitante: p.timeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante });
   await sendText({ to: msg.waId, text: resumo });
   // Mata-mata: se virou EMPATE, pergunta quem se classifica (em todos os
   // bolões de mata-mata que têm esse jogo).
@@ -7078,11 +7104,13 @@ async function handleEditandoPalpiteNovoPlacar(
     });
     await resetSession(msg.waId);
     const novoStr = `*${r.jogoTimeCasa} ${palpite.golsCasa} × ${palpite.golsVisitante} ${r.jogoTimeVisitante}*`;
-    const texto = r.anterior
+    let texto = r.anterior
       ? `✅ Palpite atualizado no *${nomeBolao}*!\n` +
         `Era: *${r.jogoTimeCasa} ${r.anterior.golsCasa} × ${r.anterior.golsVisitante} ${r.jogoTimeVisitante}*\n` +
         `Agora: ${novoStr}`
       : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(você ainda não tinha palpite pra esse jogo)_`;
+    // Mata-mata DECISIVO: avisa quem passa pelo placar (transparência na edição).
+    texto += await notaQuemPassaDecisivo(usuarioId, { timeCasa: r.jogoTimeCasa, timeVisitante: r.jogoTimeVisitante, golsCasa: palpite.golsCasa, golsVisitante: palpite.golsVisitante });
     await sendText({ to: msg.waId, text: texto });
     // Mata-mata: se virou EMPATE, pergunta quem se classifica.
     await talvezPerguntarClassificadoMataMata(msg, usuarioId, [

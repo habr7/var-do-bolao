@@ -65,3 +65,54 @@ export function montarStatusResultado(
 
   return `_ainda não rolou (${formatarHoraBR(jogo.dataHora)})_`;
 }
+
+/**
+ * Mata-mata — lado classificado IMPLÍCITO de um palpite:
+ *   - EMPATE  → o lado cravado (`classificadoPalpite`); null se ainda não escolheu.
+ *   - DECISIVO → o vencedor PELO PLACAR (ignora `classificadoPalpite`, que pode
+ *     estar órfão de quando o palpite era empate). O placar gravado é sempre
+ *     alinhado à ordem oficial do jogo, então golsCasa ↔ timeCasa.
+ */
+export function ladoClassificadoImplicito(pj: {
+  golsCasa: number;
+  golsVisitante: number;
+  classificadoPalpite?: 'CASA' | 'VISITANTE' | null;
+}): 'CASA' | 'VISITANTE' | null {
+  if (pj.golsCasa === pj.golsVisitante) return pj.classificadoPalpite ?? null;
+  return pj.golsCasa > pj.golsVisitante ? 'CASA' : 'VISITANTE';
+}
+
+/**
+ * Sub-linha de "quem passa" pro "meus palpites" (só mata-mata). Quando o jogo
+ * já encerrou e tem classificado real, VALIDA o acerto (✅/❌) — pra empate E
+ * decisivo. Retorna '' pra grupos ou quando não há o que mostrar.
+ */
+export function linhaClassificadoMeusPalpites(
+  j: {
+    fase: string;
+    timeCasa: string;
+    timeVisitante: string;
+    status: string;
+    classificadoLado?: 'CASA' | 'VISITANTE' | null;
+  },
+  pj: { golsCasa: number; golsVisitante: number; classificadoPalpite?: 'CASA' | 'VISITANTE' | null },
+): string {
+  if (j.fase === 'GRUPOS') return '';
+  const ehEmpate = pj.golsCasa === pj.golsVisitante;
+  const lado = ladoClassificadoImplicito(pj);
+  const nome = (l: 'CASA' | 'VISITANTE') => (l === 'CASA' ? j.timeCasa : j.timeVisitante);
+
+  // Encerrado com classificado real → valida (empate E decisivo).
+  if (j.status === 'FINALIZADO' && j.classificadoLado && lado) {
+    if (j.classificadoLado === lado) return `\n   ↳ 🎯 _quem passa: ${nome(lado)} — ✅ você acertou_`;
+    return `\n   ↳ 🎯 _você achou ${nome(lado)}, passou ${nome(j.classificadoLado)} ❌_`;
+  }
+  // Empate sem o classificado cravado → ainda falta escolher.
+  if (ehEmpate && !pj.classificadoPalpite) {
+    return `\n   ↳ 🎯 _empate: falta dizer quem passa (manda o palpite de novo pra escolher)_`;
+  }
+  // Empate com crava, ainda não encerrado → mostra a escolha.
+  if (ehEmpate && lado) return `\n   ↳ 🎯 _você acha que ${nome(lado)} passa_`;
+  // Decisivo não encerrado → o placar já diz quem passa; não polui.
+  return '';
+}
