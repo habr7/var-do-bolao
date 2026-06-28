@@ -198,7 +198,7 @@ export interface ConversaContext {
   // (quem passa nos pênaltis). Processada um a um em
   // CONFIRMANDO_CLASSIFICADO_MATAMATA; aplicada nos PalpiteJogo das rodadas
   // em classificadoRodadaIds (1 no fluxo single-bolão, N no multi-bolão).
-  classificadosPendentes?: Array<{ timeCasa: string; timeVisitante: string }>;
+  classificadosPendentes?: Array<{ timeCasa: string; timeVisitante: string; qtdBoloes?: number }>;
   classificadoRodadaIds?: string[];
   classificadoBolaoLabel?: string;
   // Só no fluxo single-bolão: rodada pra oferecer "mais jogos" ao fim da fila.
