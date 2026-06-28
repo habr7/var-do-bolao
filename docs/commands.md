@@ -874,3 +874,11 @@ atrasar, o dono define quem passou (destrava o avanço da chave + o bônus):
 ```
 → Grava em todos os bolões, recalcula a pontuação e avança a chave. Só o dono
 (`OWNER_WHATSAPP_IDS`) dispara; o lado aceita `CASA`/`VISITANTE`, `1`/`2` ou o nome do time.
+
+### Versão em produção (dono)
+```
+versão        (ou #versao / version)
+```
+→ Bot responde a versão que está rodando (ex.: `🤖 VAR do Bolão v3.44.0 — ambiente: production`).
+Serve pra conferir, sem acessar o VPS, se o deploy é o esperado. Também aparece no log de
+boot: `docker compose logs app | grep boot`. Só o dono (`OWNER_WHATSAPP_IDS`) dispara.

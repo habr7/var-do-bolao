@@ -79,7 +79,8 @@ import { renderizarConvite } from './convite.helper.js';
 import { incContador, registrarMsgNaoEntendida } from '../utils/metrics.js';
 import { parecAutoReply } from './auto-reply.detector.js';
 import { verificarAntiLoop, registrarResposta } from '../utils/resposta-cap.js';
-import { tentarBroadcastAdmin } from './broadcast.js';
+import { tentarBroadcastAdmin, ehDono } from './broadcast.js';
+import { APP_VERSION } from '../version.js';
 import { tentarClassificadoAdmin } from './admin-classificado.js';
 
 export interface IncomingMessage {
@@ -119,6 +120,19 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     // pros decididos nos pênaltis). Só dono + marcador `#CLASSIFICADO`.
     if (await tentarClassificadoAdmin(msg)) {
       void incContador('classificado.admin');
+      return;
+    }
+
+    // Versão em produção — dono manda "versão"/"#versao" e recebe a versão que
+    // está rodando (pra conferir se o deploy é o esperado, sem acessar o VPS).
+    if (
+      /^#?vers[ãa]o$|^#?version$/i.test(msg.text.trim()) &&
+      ehDono(msg.waId, env.OWNER_WHATSAPP_IDS)
+    ) {
+      await sendText({
+        to: msg.waId,
+        text: `🤖 *VAR do Bolão* v${APP_VERSION}\n_ambiente: ${env.NODE_ENV}_`,
+      });
       return;
     }
 
