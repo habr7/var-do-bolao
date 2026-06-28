@@ -72,8 +72,9 @@ npm test
 | `mata-mata-sync.test.ts` | **(v3.43.0)** `sincronizarMataMata` (prisma em memória): cria as 6 rodadas + jogos, abre rodada com confronto real, trava time após abrir, corrige enquanto fechada, reseta cálculo no resultado. 4 testes. |
 | `empate-classificado-inline.test.ts` | **(v3.44.0)** Captura do classificado na mesma mensagem do empate ("Brasil 1x1 Japão e o Brasil passa"): 11 frases (e/mas/com/vírgula/parênteses, "quem passa é X", "vai o X", "X avança"), CASA/VISITANTE, decisivo ignora o hint, ambíguo não captura, nome não poluído, e palpite real não vira INFO_PENALTI. 8 testes. |
 | `message.parser.test.ts` (+) | **(v3.44.0)** Bateria de QA: "jogos de hoje"→JOGOS_HOJE, "tabela"→RANKING, conjugações/typos do mata-mata, lookahead da chave não vaza pra CUMPRIMENTO. |
+| `palpite-repository-classificado.test.ts` | **(v3.45.0)** `registrarPalpiteJogo` zera `classificadoPalpite` quando o placar vira decisivo; em empate não mexe. 2 testes. |
 
-Tempo: ~7s. Não toca rede nem DB. **1101 tests.**
+Tempo: ~7s. Não toca rede nem DB. **1103 tests.**
 
 ### Watch mode
 ```cmd

@@ -2424,6 +2424,11 @@ async function handlePalpitando(msg: IncomingMessage, usuarioId: string, session
 
   await sendText({ to: msg.waId, text: resposta });
 
+  // Mata-mata: pros empates, pergunta quem se classifica antes de oferecer mais.
+  if (registrados > 0 && (await talvezPerguntarClassificadoMataMata(msg, usuarioId, palpites, rodadaId))) {
+    return;
+  }
+
   // v3.5.0: oferece mais jogos se fechou o lote
   if (registrados > 0) {
     await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
@@ -3307,51 +3312,19 @@ async function handleConfirmandoPalpiteMultiBolao(
   }
   await sendText({ to: msg.waId, text: textoResp });
 
-  // Mata-mata: se foi EMPATE e o jogo está numa rodada de mata-mata em algum
-  // dos bolões, pergunta quem se classifica (ou grava direto se o user já
-  // disse na mensagem). Faltava neste caminho (1 palpite → N bolões) — caso
-  // real Jeniffer 28/06: empate registrado sem perguntar quem passa.
-  if (registrados.length > 0 && pendente.golsCasa === pendente.golsVisitante) {
-    const matches = await palpiteService.buscarBoloesComJogo(
-      usuarioId,
-      pendente.timeCasa,
-      pendente.timeVisitante,
-    );
-    const rodadaIds = matches.map((m) => m.rodadaId);
-    const rodadasMM = rodadaIds.length
-      ? await prisma.rodada.findMany({
-          where: { id: { in: rodadaIds }, fase: { not: 'GRUPOS' } },
-          select: { id: true },
-        })
-      : [];
-    if (rodadasMM.length > 0) {
-      const idsMM = rodadasMM.map((r) => r.id);
-      // Usa os nomes OFICIAIS do fixture (registrarClassificadoPalpite casa
-      // por nome exato) e corrige o lado se o user digitou a ordem invertida.
-      const jc = matches[0].jogoTimeCasa;
-      const jv = matches[0].jogoTimeVisitante;
-      let lado = pendente.classificado;
-      if (lado) {
-        const invertido =
-          timeCorresponde(pendente.timeVisitante, jc) && !timeCorresponde(pendente.timeCasa, jc);
-        if (invertido) lado = lado === 'CASA' ? 'VISITANTE' : 'CASA';
-      }
-      if (lado) {
-        await registrarClassificadosInline(
-          usuarioId,
-          [{ timeCasa: jc, timeVisitante: jv, classificado: lado }],
-          () => idsMM,
-          msg,
-        );
-      } else {
-        await iniciarPerguntasClassificado(
-          msg,
-          [{ timeCasa: jc, timeVisitante: jv }],
-          idsMM,
-          registrados.length === 1 ? registrados[0].bolaoNome : 'seus bolões',
-        );
-      }
-    }
+  // Mata-mata: se foi EMPATE, pergunta quem se classifica (ou grava o que o
+  // user já disse). Helper único — cobre todos os bolões de mata-mata com o
+  // jogo. (Caso real Jeniffer 28/06: empate aplicado em N bolões não perguntava.)
+  if (registrados.length > 0) {
+    await talvezPerguntarClassificadoMataMata(msg, usuarioId, [
+      {
+        timeCasa: pendente.timeCasa,
+        timeVisitante: pendente.timeVisitante,
+        golsCasa: pendente.golsCasa,
+        golsVisitante: pendente.golsVisitante,
+        classificado: pendente.classificado,
+      },
+    ]);
   }
 }
 
@@ -3460,6 +3433,62 @@ async function registrarClassificadosInline<
       text: `🏆 Já marquei quem passa (vale o bônus se acertar):\n${linhas.join('\n')}`,
     });
   }
+}
+
+/**
+ * Mata-mata — FONTE ÚNICA do fluxo empate→classificado. Recebe os palpites que
+ * acabaram de ser (re)gravados; pros que são EMPATE num jogo de rodada de
+ * mata-mata ABERTA, grava o classificado já indicado na mensagem ("...e o X
+ * passa") ou PERGUNTA quem passa. Todo caminho de registro/edição deve chamar
+ * isto — evita o buraco de um caminho esquecer de perguntar (casos 28/06).
+ *
+ * Retorna `true` se entrou em CONFIRMANDO_CLASSIFICADO_MATAMATA (caller não
+ * deve mexer mais na sessão).
+ */
+async function talvezPerguntarClassificadoMataMata(
+  msg: IncomingMessage,
+  usuarioId: string,
+  jogos: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; classificado?: 'CASA' | 'VISITANTE' }>,
+  rodadaIdParaMais?: string,
+): Promise<boolean> {
+  const empates = jogos.filter((j) => j.golsCasa === j.golsVisitante);
+  if (empates.length === 0) return false;
+
+  const rodadaIdsUnion = new Set<string>();
+  const resolvidos: Array<{ timeCasa: string; timeVisitante: string; classificado: 'CASA' | 'VISITANTE'; idsMM: string[] }> = [];
+  const perguntar: Array<{ timeCasa: string; timeVisitante: string }> = [];
+
+  for (const e of empates) {
+    // Acha as rodadas ABERTA (em qualquer bolão do user) que têm esse jogo…
+    const matches = await palpiteService.buscarBoloesComJogo(usuarioId, e.timeCasa, e.timeVisitante);
+    if (matches.length === 0) continue;
+    // …e mantém só as de mata-mata (fase != GRUPOS).
+    const rodadasMM = await prisma.rodada.findMany({
+      where: { id: { in: matches.map((m) => m.rodadaId) }, fase: { not: 'GRUPOS' } },
+      select: { id: true },
+    });
+    if (rodadasMM.length === 0) continue;
+    const idsMM = rodadasMM.map((r) => r.id);
+    idsMM.forEach((id) => rodadaIdsUnion.add(id));
+    // Nomes OFICIAIS do fixture (registrarClassificadoPalpite casa por nome
+    // exato); corrige o lado se o user digitou a ordem invertida.
+    const jc = matches[0].jogoTimeCasa;
+    const jv = matches[0].jogoTimeVisitante;
+    let lado = e.classificado;
+    if (lado) {
+      const invertido = timeCorresponde(e.timeVisitante, jc) && !timeCorresponde(e.timeCasa, jc);
+      if (invertido) lado = lado === 'CASA' ? 'VISITANTE' : 'CASA';
+    }
+    if (lado) resolvidos.push({ timeCasa: jc, timeVisitante: jv, classificado: lado, idsMM });
+    else perguntar.push({ timeCasa: jc, timeVisitante: jv });
+  }
+
+  await registrarClassificadosInline(usuarioId, resolvidos, (e) => e.idsMM, msg);
+  if (perguntar.length > 0) {
+    await iniciarPerguntasClassificado(msg, perguntar, [...rodadaIdsUnion], 'seus bolões', rodadaIdParaMais);
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -6845,6 +6874,10 @@ async function registrarEdicaoDireta(
         `Agora: ${novoStr}`
       : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(não tinha palpite anterior pra esse jogo)_`;
     await sendText({ to: msg.waId, text: texto });
+    // Mata-mata: se virou EMPATE, pergunta quem se classifica.
+    await talvezPerguntarClassificadoMataMata(msg, usuarioId, [
+      { timeCasa: r.jogoTimeCasa, timeVisitante: r.jogoTimeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante },
+    ]);
   } catch (err) {
     const m = (err as Error).message;
     const amigavel = m.includes('ja comecou') || m.includes('ja iniciou')
@@ -6895,6 +6928,11 @@ async function registrarEdicaoEmTodosBoloes(
     resumo += `\n\n⚠️ Falhou em ${erros.length} bolão(ões):\n${linhasErr}\n\n_Manda *corrigir ${p.timeCasa} ${p.golsCasa}x${p.golsVisitante} ${p.timeVisitante}* de novo pra tentar — registros já feitos não duplicam._`;
   }
   await sendText({ to: msg.waId, text: resumo });
+  // Mata-mata: se virou EMPATE, pergunta quem se classifica (em todos os
+  // bolões de mata-mata que têm esse jogo).
+  await talvezPerguntarClassificadoMataMata(msg, usuarioId, [
+    { timeCasa: p.timeCasa, timeVisitante: p.timeVisitante, golsCasa: p.golsCasa, golsVisitante: p.golsVisitante },
+  ]);
 }
 
 async function iniciarEdicaoPalpite(
@@ -7034,6 +7072,10 @@ async function handleEditandoPalpiteNovoPlacar(
         `Agora: ${novoStr}`
       : `✅ Palpite registrado no *${nomeBolao}*: ${novoStr}\n_(você ainda não tinha palpite pra esse jogo)_`;
     await sendText({ to: msg.waId, text: texto });
+    // Mata-mata: se virou EMPATE, pergunta quem se classifica.
+    await talvezPerguntarClassificadoMataMata(msg, usuarioId, [
+      { timeCasa: r.jogoTimeCasa, timeVisitante: r.jogoTimeVisitante, golsCasa: palpite.golsCasa, golsVisitante: palpite.golsVisitante },
+    ]);
   } catch (err) {
     const m = (err as Error).message;
     const amigavel = m.includes('ja comecou') || m.includes('ja iniciou')
