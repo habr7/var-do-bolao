@@ -2498,6 +2498,7 @@ async function handlePalpiteInlineEmIdle(
               golsCasa: p.golsCasa,
               golsVisitante: p.golsVisitante,
               bolaoNomes: matches.map((m) => m.bolaoNome),
+              classificado: p.classificado,
             },
           },
         });
@@ -3305,6 +3306,53 @@ async function handleConfirmandoPalpiteMultiBolao(
     textoResp += `\n\n⚠️ Não rolou em:\n${erros.map((e) => `• ${e.bolaoNome}: ${e.motivo}`).join('\n')}`;
   }
   await sendText({ to: msg.waId, text: textoResp });
+
+  // Mata-mata: se foi EMPATE e o jogo está numa rodada de mata-mata em algum
+  // dos bolões, pergunta quem se classifica (ou grava direto se o user já
+  // disse na mensagem). Faltava neste caminho (1 palpite → N bolões) — caso
+  // real Jeniffer 28/06: empate registrado sem perguntar quem passa.
+  if (registrados.length > 0 && pendente.golsCasa === pendente.golsVisitante) {
+    const matches = await palpiteService.buscarBoloesComJogo(
+      usuarioId,
+      pendente.timeCasa,
+      pendente.timeVisitante,
+    );
+    const rodadaIds = matches.map((m) => m.rodadaId);
+    const rodadasMM = rodadaIds.length
+      ? await prisma.rodada.findMany({
+          where: { id: { in: rodadaIds }, fase: { not: 'GRUPOS' } },
+          select: { id: true },
+        })
+      : [];
+    if (rodadasMM.length > 0) {
+      const idsMM = rodadasMM.map((r) => r.id);
+      // Usa os nomes OFICIAIS do fixture (registrarClassificadoPalpite casa
+      // por nome exato) e corrige o lado se o user digitou a ordem invertida.
+      const jc = matches[0].jogoTimeCasa;
+      const jv = matches[0].jogoTimeVisitante;
+      let lado = pendente.classificado;
+      if (lado) {
+        const invertido =
+          timeCorresponde(pendente.timeVisitante, jc) && !timeCorresponde(pendente.timeCasa, jc);
+        if (invertido) lado = lado === 'CASA' ? 'VISITANTE' : 'CASA';
+      }
+      if (lado) {
+        await registrarClassificadosInline(
+          usuarioId,
+          [{ timeCasa: jc, timeVisitante: jv, classificado: lado }],
+          () => idsMM,
+          msg,
+        );
+      } else {
+        await iniciarPerguntasClassificado(
+          msg,
+          [{ timeCasa: jc, timeVisitante: jv }],
+          idsMM,
+          registrados.length === 1 ? registrados[0].bolaoNome : 'seus bolões',
+        );
+      }
+    }
+  }
 }
 
 async function registrarPalpitesConfirmados(

@@ -180,6 +180,7 @@ export interface ConversaContext {
     golsCasa: number;
     golsVisitante: number;
     bolaoNomes: string[]; // pra exibir no preview
+    classificado?: 'CASA' | 'VISITANTE'; // mata-mata: "quem passa" dito junto
   };
   // v3.12.0 (Bruna 10/06) — LOTE de palpites pra registrar em N bolões.
   // Confirmação multi-bolão de lote.
