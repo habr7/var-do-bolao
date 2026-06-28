@@ -70,8 +70,10 @@ npm test
 | `advance-bracket.test.ts` (+) | **(v3.42.0)** `escreverSlot` via `updateMany` atômico (guarda no WHERE). |
 | `fifa-knockout.fetcher.test.ts` | **(v3.43.0)** `parseFixturesMataMata`: ignora grupos, mapeia número/fase/kickoff-UTC/times, placeholder quando sem time, classificado do `Winner` (decisivo e pênaltis), todas as fases. 6 testes. |
 | `mata-mata-sync.test.ts` | **(v3.43.0)** `sincronizarMataMata` (prisma em memória): cria as 6 rodadas + jogos, abre rodada com confronto real, trava time após abrir, corrige enquanto fechada, reseta cálculo no resultado. 4 testes. |
+| `empate-classificado-inline.test.ts` | **(v3.44.0)** Captura do classificado na mesma mensagem do empate ("Brasil 1x1 Japão e o Brasil passa"): 11 frases (e/mas/com/vírgula/parênteses, "quem passa é X", "vai o X", "X avança"), CASA/VISITANTE, decisivo ignora o hint, ambíguo não captura, nome não poluído, e palpite real não vira INFO_PENALTI. 8 testes. |
+| `message.parser.test.ts` (+) | **(v3.44.0)** Bateria de QA: "jogos de hoje"→JOGOS_HOJE, "tabela"→RANKING, conjugações/typos do mata-mata, lookahead da chave não vaza pra CUMPRIMENTO. |
 
-Tempo: ~7s. Não toca rede nem DB. **1087 tests.**
+Tempo: ~7s. Não toca rede nem DB. **1101 tests.**
 
 ### Watch mode
 ```cmd

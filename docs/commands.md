@@ -819,6 +819,21 @@ Bot:  (confirma) → "Deu empate 🤝 — quem se classifica nos pênaltis: Bras
 Você: Brasil
 ```
 
+**Atalho — dizer quem passa na mesma mensagem.** Em empate dá pra já indicar o
+classificado; o bot mostra no **preview de confirmação** (placar + quem passa) e só
+registra depois do *sim*. Não precisa esperar a pergunta:
+```
+Você: Brasil 1x1 Argentina e o Brasil passa
+Bot:  📝 Vou registrar 1 palpite:
+      1. Brasil 1 × 1 Argentina
+         ↳ classificado: *Brasil* passa
+      Confirma? (sim / não / refazer)
+```
+Formas reconhecidas: `, Brasil passa` · `e o Brasil classifica` · `com a Argentina avançando` ·
+`quem passa é o Brasil` · `vai o Brasil` · `(Brasil)` · `o Brasil se classifica nos pênaltis`.
+Em **vitória** o classificado é o vencedor (o hint é ignorado). Se a frase ficar ambígua,
+o bot pergunta normalmente. Um palpite real **nunca** é confundido com pergunta de regra.
+
 ### Regras (submenu)
 ```
 regras

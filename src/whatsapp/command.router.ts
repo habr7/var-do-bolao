@@ -2879,13 +2879,6 @@ async function iniciarConfirmacaoPalpites(
     },
   });
 
-  const linhasPalpite = palpitesParaConfirmar
-    .map(
-      (p, i) =>
-        `${i + 1}. ${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`,
-    )
-    .join('\n');
-  let texto = `📝 Vou registrar ${palpitesParaConfirmar.length} palpite(s) no *${bolaoNome}*:\n\n${linhasPalpite}`;
   // Mata-mata: reforça as regras no preview (placar até a prorrogação; empate
   // → pergunto quem passa). Reduz o "por que vale X / cadê o bônus".
   const jogosPorId = new Map(jogos.map((j) => [j.id, j]));
@@ -2893,10 +2886,27 @@ async function iniciarConfirmacaoPalpites(
     const j = jogosPorId.get(jogoId);
     return !!j && j.fase !== 'GRUPOS';
   };
+  const timeClassificado = (p: { timeCasa: string; timeVisitante: string; classificado?: 'CASA' | 'VISITANTE' }) =>
+    p.classificado === 'CASA' ? p.timeCasa : p.classificado === 'VISITANTE' ? p.timeVisitante : null;
+  const linhasPalpite = palpitesParaConfirmar
+    .map((p, i) => {
+      let linha = `${i + 1}. ${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`;
+      // Empate de mata-mata com "quem passa" já dito na mensagem → mostra no
+      // preview pra o user CONFIRMAR placar + classificado de uma vez.
+      const t = timeClassificado(p);
+      if (t && ehMataMata(p.jogoId) && p.golsCasa === p.golsVisitante) {
+        linha += `\n   ↳ _classificado: *${t}* passa_`;
+      }
+      return linha;
+    })
+    .join('\n');
+  let texto = `📝 Vou registrar ${palpitesParaConfirmar.length} palpite(s) no *${bolaoNome}*:\n\n${linhasPalpite}`;
   if (palpitesParaConfirmar.some((p) => ehMataMata(p.jogoId))) {
     texto += `\n\n🏆 _Mata-mata: o placar vale até o fim da prorrogação (pênalti não entra)._`;
-    if (palpitesParaConfirmar.some((p) => p.golsCasa === p.golsVisitante && ehMataMata(p.jogoId))) {
-      texto += `\n_Tem empate aí — depois de confirmar eu te pergunto quem passa nos pênaltis (vale bônus)._`;
+    // Só avisa "depois pergunto quem passa" pros empates que AINDA não têm
+    // classificado indicado na mensagem.
+    if (palpitesParaConfirmar.some((p) => p.golsCasa === p.golsVisitante && ehMataMata(p.jogoId) && !p.classificado)) {
+      texto += `\n_Tem empate sem quem passa — depois de confirmar eu te pergunto (vale bônus)._`;
     }
   }
   // v3.20.0 — avisa NO PREVIEW os palpites de jogos já iniciados
@@ -3016,7 +3026,15 @@ async function iniciarConfirmacaoPalpitesMultiBolao(
   });
 
   const linhasPalpite = palpites
-    .map((p, i) => `${i + 1}. ${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`)
+    .map((p, i) => {
+      let linha = `${i + 1}. ${p.timeCasa} ${p.golsCasa} × ${p.golsVisitante} ${p.timeVisitante}`;
+      // Empate com "quem passa" já dito → mostra no preview pra confirmar junto.
+      if (p.classificado && p.golsCasa === p.golsVisitante) {
+        const t = p.classificado === 'CASA' ? p.timeCasa : p.timeVisitante;
+        linha += `\n   ↳ _classificado: *${t}* passa_`;
+      }
+      return linha;
+    })
     .join('\n');
   const linhasBoloes = boloes.map((b) => `• *${b.nome}*`).join('\n');
   void usuarioId;

@@ -261,6 +261,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.41.0–v3.44.0** (2026-06-27/28) — **Fase MATA-MATA da Copa 2026 (16-avos→final+3º).** Migration aditiva (fase em Rodada/Jogo/PalpiteJogo + classificado/pênaltis), pontuação por fase + bônus de classificado (placar 90'+prorrogação, pênalti fora, crava nunca perdida), chave `bracket-2026.ts`, **sync automático dos confrontos pela API da FIFA** (times/datas/placar/classificado por `MatchNumber`, resolve pênaltis pelo `Winner`), FSM de empate + submenu de regras + intents de dúvida/chave. **v3.44.0:** dá pra dizer quem passa no MESMO palpite do empate ("Brasil 1x1 Japão e o Brasil passa" → preview confirma placar + classificado antes de registrar); palpite real não vira mais intent de dúvida; roteamento da bateria de QA + escape gracioso da pergunta de classificado. **1101 tests, simulador 141/141.**
 - **v3.37.1** (2026-06-15) — Palpites que falhavam no parse (revisão diária): separador × (unicode do celular) e "c" (typo de x) agora viram placar; "Espanha 4x1" (um time só) pede o adversário em vez de "não entendi". 953 tests.
 
 - **v3.37.0** (2026-06-15) — **Fix grave: placar de Costa do Marfim x Equador nunca atualizava** (e jogos de Irã/RD Congo): o `nome` no teams.json ("Cote d'Ivoire"/"IR Iran"/"Congo DR") divergia dos fixtures/DB, quebrando o matcher FIFA (fifaCode→nome→fixture) e o grounding. Nomes alinhados + teste de consistência que trava re-syncs. Auto-corrige no próximo tick do fetch-results. 944 tests.
