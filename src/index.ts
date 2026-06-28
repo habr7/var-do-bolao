@@ -4,6 +4,7 @@ import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { disconnectRedis } from './config/redis.js';
 import { webhookVerifyHandler, webhookMessageHandler } from './whatsapp/webhook.handler.js';
 import { registerJobs } from './jobs/index.js';
+import { APP_VERSION } from './version.js';
 
 async function buildApp() {
   const app = Fastify({
@@ -38,7 +39,7 @@ async function start() {
     registerJobs();
 
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
-    console.log(`⚽ VAR do Bolão rodando na porta ${env.PORT}`);
+    console.log(`[boot] ⚽ VAR do Bolão v${APP_VERSION} (${env.NODE_ENV}) rodando na porta ${env.PORT}`);
     console.log(`📨 Webhook WhatsApp: ${env.APP_URL}/webhook/whatsapp`);
   } catch (error) {
     console.error('❌ Erro ao iniciar servidor:', error);
