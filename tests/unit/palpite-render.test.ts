@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { montarStatusResultado } from '../../src/whatsapp/palpite-render.js';
+import {
+  montarStatusResultado,
+  ladoClassificadoImplicito,
+  linhaClassificadoMeusPalpites,
+} from '../../src/whatsapp/palpite-render.js';
 
 const agora = new Date('2026-06-12T03:00:00Z'); // 00:00 BRT
 
@@ -63,5 +67,64 @@ describe('montarStatusResultado (v3.33.0 — caso Humberto 12/06)', () => {
   it('placar exato finalizado → 🎯 10 pts', () => {
     const s = montarStatusResultado(jogo('FINALIZADO', 2, 1, -120), 10, true, agora);
     expect(s).toBe('oficial: *2x1* 🎯 (10 pts)');
+  });
+});
+
+describe('classificado no "meus palpites" (mata-mata)', () => {
+  const J = (over: Partial<{ fase: string; timeCasa: string; timeVisitante: string; status: string; classificadoLado: 'CASA' | 'VISITANTE' | null }> = {}) => ({
+    fase: 'R32', timeCasa: 'Brasil', timeVisitante: 'Japão', status: 'AGENDADO', classificadoLado: null, ...over,
+  });
+
+  it('lado implícito: empate usa a crava; decisivo usa o vencedor pelo placar', () => {
+    expect(ladoClassificadoImplicito({ golsCasa: 1, golsVisitante: 1, classificadoPalpite: 'VISITANTE' })).toBe('VISITANTE');
+    expect(ladoClassificadoImplicito({ golsCasa: 1, golsVisitante: 1, classificadoPalpite: null })).toBe(null);
+    expect(ladoClassificadoImplicito({ golsCasa: 2, golsVisitante: 1 })).toBe('CASA');
+    // dado órfão: decisivo IGNORA classificadoPalpite antigo
+    expect(ladoClassificadoImplicito({ golsCasa: 1, golsVisitante: 2, classificadoPalpite: 'CASA' })).toBe('VISITANTE');
+  });
+
+  it('grupos não mostra nada', () => {
+    expect(linhaClassificadoMeusPalpites(J({ fase: 'GRUPOS' }), { golsCasa: 1, golsVisitante: 1 })).toBe('');
+  });
+
+  it('empate sem crava → avisa que falta escolher', () => {
+    expect(linhaClassificadoMeusPalpites(J(), { golsCasa: 1, golsVisitante: 1, classificadoPalpite: null }))
+      .toContain('falta dizer quem passa');
+  });
+
+  it('empate com crava (não encerrado) → mostra a escolha', () => {
+    expect(linhaClassificadoMeusPalpites(J(), { golsCasa: 1, golsVisitante: 1, classificadoPalpite: 'CASA' }))
+      .toContain('você acha que Brasil passa');
+  });
+
+  it('decisivo não encerrado → não polui (placar já diz)', () => {
+    expect(linhaClassificadoMeusPalpites(J(), { golsCasa: 2, golsVisitante: 1 })).toBe('');
+  });
+
+  it('encerrado: ACERTOU quem passa (decisivo)', () => {
+    const s = linhaClassificadoMeusPalpites(J({ status: 'FINALIZADO', classificadoLado: 'CASA' }), { golsCasa: 2, golsVisitante: 1 });
+    expect(s).toContain('Brasil');
+    expect(s).toContain('✅');
+  });
+
+  it('encerrado: ERROU quem passa (órfão não engana) — achou Brasil, passou Japão', () => {
+    // palpite decisivo 1x2 (Japão vence) mas dado órfão classificadoPalpite=CASA;
+    // real: Brasil passou (nos pênaltis). Deve dizer "achou Japão, passou Brasil ❌".
+    const s = linhaClassificadoMeusPalpites(
+      J({ status: 'FINALIZADO', classificadoLado: 'CASA' }),
+      { golsCasa: 1, golsVisitante: 2, classificadoPalpite: 'CASA' },
+    );
+    expect(s).toContain('você achou Japão');
+    expect(s).toContain('passou Brasil');
+    expect(s).toContain('❌');
+  });
+
+  it('encerrado: empate cravado ACERTOU', () => {
+    const s = linhaClassificadoMeusPalpites(
+      J({ status: 'FINALIZADO', classificadoLado: 'VISITANTE' }),
+      { golsCasa: 1, golsVisitante: 1, classificadoPalpite: 'VISITANTE' },
+    );
+    expect(s).toContain('Japão');
+    expect(s).toContain('✅');
   });
 });
