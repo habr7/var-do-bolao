@@ -63,6 +63,7 @@ export interface VerificacaoAntiLoop {
 export async function verificarAntiLoop(
   waId: string,
   texto: string,
+  opts: { emFluxoInterativo?: boolean } = {},
 ): Promise<VerificacaoAntiLoop> {
   // (a) Já está silenciado
   if (await redis.get(`silenciado:${waId}`)) {
@@ -78,12 +79,19 @@ export async function verificarAntiLoop(
     return { permitir: false, motivo: 'cap_60s', detalhe: `msgs=${atual}` };
   }
 
-  // (c) Repetida
-  const hash = hashCurto(texto.trim());
-  const keyHash = `resposta:lasthash:${waId}`;
-  const ultimoHash = await redis.get(keyHash);
-  if (ultimoHash === hash) {
-    return { permitir: false, motivo: 'repetida' };
+  // (c) Repetida — NÃO aplica quando o user está NUM FLUXO INTERATIVO
+  // (confirmando/respondendo): aí repetir a MESMA resposta é legítimo
+  // (caso real Andre 28/06: respondeu "2" pra um empate e "2" de novo pro
+  // próximo da fila → o 2º "2" era silenciado e a fila travava). O cap_60s
+  // (b) continua barrando loop de verdade com auto-reply. Em IDLE, a camada
+  // 4 segue ativa contra ping-pong de auto-reply.
+  if (!opts.emFluxoInterativo) {
+    const hash = hashCurto(texto.trim());
+    const keyHash = `resposta:lasthash:${waId}`;
+    const ultimoHash = await redis.get(keyHash);
+    if (ultimoHash === hash) {
+      return { permitir: false, motivo: 'repetida' };
+    }
   }
 
   return { permitir: true };
