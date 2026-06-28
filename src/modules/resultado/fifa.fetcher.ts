@@ -210,8 +210,13 @@ async function fetchCalendar(): Promise<FifaCalendarResponse> {
     `https://api.fifa.com/api/v3/calendar/matches` +
     `?idCompetition=${FIFA_COMPETITION_ID}&idSeason=${encodeURIComponent(seasonId)}` +
     `&count=200&language=en`;
+  // TIMEOUT obrigatório: sem isso o fetch fica PENDURADO pra sempre quando a
+  // api.fifa.com não responde (caso real: VPS sem rota pra FIFA travava o
+  // fetch-results inteiro, segurando o lock e pulando todo tick — placar
+  // openfootball junto). Aborta em 12s → LANÇA → o caller cai pro fallback.
   const res = await fetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': 'var-do-bolao/fifa-fetcher' },
+    signal: AbortSignal.timeout(12_000),
   });
   if (!res.ok) {
     // LANÇA — o HybridFootballAdapter cai pro openfootball.

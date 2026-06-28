@@ -16,8 +16,12 @@ export async function fetchResultsJob() {
 }
 
 async function fetchResultsJobInterno() {
+  // NÃO retornar cedo quando não há jogo "em andamento": o sync do mata-mata
+  // (abaixo) precisa rodar pra CRIAR/ABRIR a rodada do R32 — que, antes de
+  // abrir, não tem jogo em andamento nenhum. O loop de placar abaixo já lida
+  // com lista vazia. (Bug: com os grupos encerrados o job retornava aqui e o
+  // R32 nunca abria.)
   const rodadas = await buscarRodadasComJogosEmAndamento();
-  if (rodadas.length === 0) return;
 
   for (const rodada of rodadas) {
     try {
