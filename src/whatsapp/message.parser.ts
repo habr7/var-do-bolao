@@ -114,6 +114,89 @@ export interface PalpiteInline {
   golsCasa: number;
   golsVisitante: number;
   timeVisitante: string;
+  /**
+   * Mata-mata: lado que o usuário JÁ indicou como classificado na MESMA
+   * mensagem do palpite (ex.: "Brasil 1x1 Japão e o Brasil passa"). Só é
+   * preenchido em EMPATE (placar decisivo infere o vencedor). Quando vem
+   * preenchido, o fluxo registra direto e NÃO pergunta quem passa.
+   */
+  classificado?: 'CASA' | 'VISITANTE';
+}
+
+// Mata-mata — sinais de que o trecho fala de QUEM AVANÇA (não do placar).
+// "vai" entra porque é comum ("vai o Brasil"), e a resolução exige que um
+// dos dois times apareça no trecho — então "vai dar zebra" não vira nada.
+const AVANCO_CLASSIFICADO_RE =
+  /\b(passa\w*|classific\w*|avan[cç]\w*|segue\w*|seguir|vai)\b/i;
+
+/**
+ * Separa de uma linha de palpite um eventual "rabicho" de classificado
+ * ("..., Brasil passa" / "...e o Japão avança" / "...(Brasil)"). Devolve a
+ * parte limpa (só o placar, pra parsear sem poluir o nome do time) e o texto
+ * do rabicho (pra resolver o lado depois, já com os nomes parseados).
+ * Conservador: só corta quando há sinal de avanço OU parêntese final curto.
+ */
+function separarClassificadoInline(linha: string): { semClassificado: string; tail: string | null } {
+  // 1) Parêntese final: "Brasil 1x1 Japão (Brasil)".
+  const paren = linha.match(/^(.*\d.*?)\s*\(([^)]{2,40})\)\s*$/);
+  if (paren) return { semClassificado: paren[1].trim(), tail: paren[2].trim() };
+
+  // 2) Rabicho após delimitador (vírgula/;) ou conector (e/mas/com/porém),
+  //    contendo sinal de avanço. Âncora no 1º delimitador/conector que tem
+  //    sinal de avanço até o fim — preserva o placar à esquerda.
+  const m = linha.match(
+    /^(.*\d.*?)(?:\s*[,;]\s*|\s+(?:e|mas|com|por[ée]m)\s+)(.+)$/i,
+  );
+  if (m && AVANCO_CLASSIFICADO_RE.test(m[2])) {
+    return { semClassificado: m[1].trim(), tail: m[2].trim() };
+  }
+  return { semClassificado: linha, tail: null };
+}
+
+// Intents informativas do mata-mata que CEDEM pra um palpite real na mesma
+// mensagem (evita perder palpite quando a frase menciona pênaltis/empate/etc).
+const INTENTS_INFO_MATAMATA_PERDEM_PRA_PALPITE = new Set<Intencao>([
+  Intencao.INFO_PRORROGACAO,
+  Intencao.INFO_PENALTI,
+  Intencao.INFO_EMPATE_MATAMATA,
+  Intencao.INFO_PONTOS_MATAMATA,
+  Intencao.INFO_BONUS_CLASSIFICADO,
+  Intencao.INFO_CRAVA_EMPATE,
+  Intencao.INFO_RANKING_CONTINUA,
+  Intencao.INFO_O_QUE_MUDA,
+]);
+
+// Palavras que um nome de TIME nunca tem — sinal de que o "palpite" parseado é
+// na verdade uma pergunta ("se eu fizer 2x1 ganho quanto?") e NÃO deve
+// sobrescrever a intent informativa.
+const NAO_E_NOME_DE_TIME = new Set<string>([
+  'que', 'quanto', 'quantos', 'quantas', 'ganho', 'ganha', 'ganhar', 'fizer',
+  'fizermos', 'fizer', 'vale', 'valem', 'se', 'eu', 'perco', 'perde', 'faco',
+  'quero', 'acho', 'sera', 'vou', 'pra', 'pro',
+]);
+
+/** Heurística: o nome parseado parece um time real (não um pedaço de pergunta)? */
+function pareceTimeLimpo(nome: string): boolean {
+  if (/\d/.test(nome)) return false;
+  const palavras = normalize(nome).split(/\s+/).filter(Boolean);
+  if (palavras.length === 0 || palavras.length > 3) return false;
+  return !palavras.some((w) => NAO_E_NOME_DE_TIME.has(w));
+}
+
+/** Resolve o rabicho ("o Brasil passa") pra CASA/VISITANTE pelos nomes parseados. */
+function resolverLadoClassificado(
+  tail: string,
+  timeCasa: string,
+  timeVisitante: string,
+): 'CASA' | 'VISITANTE' | null {
+  const nt = normalize(tail);
+  const nc = normalize(timeCasa);
+  const nv = normalize(timeVisitante);
+  const casaIn = nc.length >= 3 && nt.includes(nc);
+  const visIn = nv.length >= 3 && nt.includes(nv);
+  if (casaIn && !visIn) return 'CASA';
+  if (visIn && !casaIn) return 'VISITANTE';
+  return null; // ambíguo (os dois ou nenhum) → fluxo pergunta normalmente
 }
 
 // Aceita varios separadores entre os placares: x/X, " a ", " - ", " por ".
@@ -1467,6 +1550,16 @@ export function parseIntencao(text: string): ParsedMessage {
       return { intencao: Intencao.PALPITE_INLINE, raw, args: [], palpite: lote[0] };
     }
   }
+  // Mata-mata: um palpite REAL não pode ser sequestrado por uma intent de
+  // DÚVIDA. "Brasil 1x1 Japão e o Brasil se classifica nos penaltis" casava
+  // INFO_PENALTI ("...e o ... penaltis") e PERDIA o palpite. Se a mensagem
+  // parseia como palpite com nomes que parecem times, o palpite vence.
+  if (intentPorPadrao && INTENTS_INFO_MATAMATA_PERDEM_PRA_PALPITE.has(intentPorPadrao)) {
+    const pk = tentarParsearPalpiteInline(raw);
+    if (pk && pareceTimeLimpo(pk.timeCasa) && pareceTimeLimpo(pk.timeVisitante)) {
+      return { intencao: Intencao.PALPITE_INLINE, raw, args: [], palpite: pk };
+    }
+  }
   if (intentPorPadrao) {
     // Pra ranking, extrai possivel argumento ("ranking firma fc")
     if (intentPorPadrao === Intencao.RANKING) {
@@ -1563,7 +1656,18 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
   // "✅ 13/06 19:00 — Brasil 2x1 Marrocos"). Sem isso o "23:00 —" grudava
   // no nome do time e o match ficava sujo (caso +5531 12/06). NÃO mexe em
   // "1x1 México x África" (inverte): data exige "/", hora exige ":".
-  const linha = stripPrefixoDataHora(linhaRaw);
+  const linhaSemData = stripPrefixoDataHora(linhaRaw);
+  // Mata-mata: corta um eventual rabicho de classificado ("...e o Brasil
+  // passa") ANTES de parsear o placar — senão o nome do visitante fica
+  // poluído. O lado é resolvido após o parse (só em empate).
+  const { semClassificado: linha, tail: classTail } = separarClassificadoInline(linhaSemData);
+  const finalize = (p: PalpiteInline): PalpiteInline => {
+    if (classTail && p.golsCasa === p.golsVisitante) {
+      const lado = resolverLadoClassificado(classTail, p.timeCasa, p.timeVisitante);
+      if (lado) p.classificado = lado;
+    }
+    return p;
+  };
   // v3.10.0: validador anti-match-ruim. Se um time parseado contém placar
   // embutido (ex: "1x1 México x África do Sul" sequestrado como timeCasa),
   // descarta — sinal de regex pegando lixo de palpites concatenados.
@@ -1584,12 +1688,12 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
     const tc = direto[1].trim();
     const tv = direto[4].trim();
     if (validar(tc, tv)) {
-      return {
+      return finalize({
         timeCasa: tc,
         golsCasa: parseInt(direto[2], 10),
         golsVisitante: parseInt(direto[3], 10),
         timeVisitante: tv,
-      };
+      });
     }
   }
 
@@ -1599,12 +1703,12 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
     const tc = invertido[3].trim();
     const tv = invertido[4].trim();
     if (validar(tc, tv)) {
-      return {
+      return finalize({
         timeCasa: tc,
         golsCasa: parseInt(invertido[1], 10),
         golsVisitante: parseInt(invertido[2], 10),
         timeVisitante: tv,
-      };
+      });
     }
   }
 
@@ -1619,12 +1723,12 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
       const tc = seg[1].trim();
       const tv = seg[4].trim();
       if (validar(tc, tv)) {
-        return {
+        return finalize({
           timeCasa: tc,
           golsCasa: parseInt(seg[2], 10),
           golsVisitante: parseInt(seg[3], 10),
           timeVisitante: tv,
-        };
+        });
       }
     }
     const segInv = comDigitos.match(PALPITE_INVERTIDO_REGEX);
@@ -1632,12 +1736,12 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
       const tc = segInv[3].trim();
       const tv = segInv[4].trim();
       if (validar(tc, tv)) {
-        return {
+        return finalize({
           timeCasa: tc,
           golsCasa: parseInt(segInv[1], 10),
           golsVisitante: parseInt(segInv[2], 10),
           timeVisitante: tv,
-        };
+        });
       }
     }
   }
@@ -1658,12 +1762,12 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
       !timeEhStopwordSemantica(tv) &&
       validar(tc, tv)
     ) {
-      return {
+      return finalize({
         timeCasa: tc,
         golsCasa: parseInt(separados[1], 10),
         golsVisitante: parseInt(separados[3], 10),
         timeVisitante: tv,
-      };
+      });
     }
   }
 
@@ -1788,12 +1892,29 @@ export function parseMultiplePalpitesDetalhado(text: string): {
 
   const ok: PalpiteInline[] = [];
   const descartadas: string[] = [];
+  let ultimo: PalpiteInline | null = null; // último palpite OK (pra anexar classificado)
   for (const line of lines) {
     // v3.10.0 — primeiro tenta linha como UM palpite (canônico/invertido).
     const p = tentarParsearPalpiteInline(line);
     if (p) {
       ok.push(p);
+      ultimo = p;
       continue;
+    }
+    // Mata-mata: o split por vírgula pode ter isolado um rabicho de
+    // classificado ("Brasil 1x1 Japão, Brasil passa"). Se a linha tem sinal
+    // de avanço e cita um dos times do último empate, anexa o lado a ele.
+    if (
+      ultimo &&
+      ultimo.golsCasa === ultimo.golsVisitante &&
+      !ultimo.classificado &&
+      AVANCO_CLASSIFICADO_RE.test(line)
+    ) {
+      const lado = resolverLadoClassificado(line, ultimo.timeCasa, ultimo.timeVisitante);
+      if (lado) {
+        ultimo.classificado = lado;
+        continue;
+      }
     }
     // Se falhou E a linha tem 2+ âncoras NxN, é provável "palpites
     // concatenados sem newline" (caso Valéria 11:20). Tokeniza.

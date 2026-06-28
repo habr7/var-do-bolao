@@ -2783,14 +2783,22 @@ async function iniciarConfirmacaoPalpites(
   //    porque tende a normalizar nomes pros oficiais da rodada.
   const acumulado = new Map<
     string,
-    { jogoId: string; rodadaId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }
+    { jogoId: string; rodadaId: string; timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; classificado?: 'CASA' | 'VISITANTE' }
   >();
 
   // v3.25.0 — casa por times tolerando ordem INVERTIDA (mandante trocado);
   // resolverPalpiteParaJogo já troca o placar pra alinhar ao fixture.
-  const registrar = (p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }) => {
+  const registrar = (p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; classificado?: 'CASA' | 'VISITANTE' }) => {
     const r = resolverPalpiteParaJogo(jogos, p);
     if (!r) return;
+    // Mata-mata: o user pode ter indicado quem passa na mesma mensagem. Se o
+    // resolver inverteu a ordem (mandante trocado), o lado também inverte.
+    let classificado = p.classificado;
+    if (classificado) {
+      const invertido =
+        timeCorresponde(p.timeVisitante, r.timeCasa) && !timeCorresponde(p.timeCasa, r.timeCasa);
+      if (invertido) classificado = classificado === 'CASA' ? 'VISITANTE' : 'CASA';
+    }
     acumulado.set(r.jogo.id, {
       jogoId: r.jogo.id,
       rodadaId: (r.jogo as { rodadaId: string }).rodadaId,
@@ -2798,6 +2806,8 @@ async function iniciarConfirmacaoPalpites(
       timeVisitante: r.timeVisitante,
       golsCasa: r.golsCasa,
       golsVisitante: r.golsVisitante,
+      // preserva um classificado já capturado se a fonte atual (ex.: LLM) não trouxe
+      classificado: classificado ?? acumulado.get(r.jogo.id)?.classificado,
     });
   };
 
@@ -2958,18 +2968,25 @@ async function iniciarConfirmacaoPalpitesMultiBolao(
   const llmPalpites = await extrairPalpites(textoCru, jogosUnicos);
 
   // Mescla: chave = (timeCasa, timeVisitante) normalizado. LLM vence regex.
-  type PalpiteResolvido = { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number };
+  type PalpiteResolvido = { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; classificado?: 'CASA' | 'VISITANTE' };
   const resolvidos = new Map<string, PalpiteResolvido>();
   // v3.25.0 — casa por times tolerando ordem INVERTIDA; troca o placar quando invertido.
-  const registrar = (p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number }) => {
+  const registrar = (p: { timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; classificado?: 'CASA' | 'VISITANTE' }) => {
     const r = resolverPalpiteParaJogo(jogosUnicos, p);
     if (!r) return;
     const k = `${normalizeTeamName(r.timeCasa)}_${normalizeTeamName(r.timeVisitante)}`;
+    let classificado = p.classificado;
+    if (classificado) {
+      const invertido =
+        timeCorresponde(p.timeVisitante, r.timeCasa) && !timeCorresponde(p.timeCasa, r.timeCasa);
+      if (invertido) classificado = classificado === 'CASA' ? 'VISITANTE' : 'CASA';
+    }
     resolvidos.set(k, {
       timeCasa: r.timeCasa,
       timeVisitante: r.timeVisitante,
       golsCasa: r.golsCasa,
       golsVisitante: r.golsVisitante,
+      classificado: classificado ?? resolvidos.get(k)?.classificado,
     });
   };
   for (const p of regexResult.ok) registrar(p);
@@ -3114,12 +3131,19 @@ async function handleConfirmandoPalpitesInlineMultiBolao(
       select: { id: true },
     });
     if (rodadasMataMata.length > 0) {
-      await iniciarPerguntasClassificado(
-        msg,
-        empates.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
-        rodadasMataMata.map((r) => r.id),
-        'seus bolões',
-      );
+      const todasRodadas = rodadasMataMata.map((r) => r.id);
+      // Empates que já vieram com "quem passa" na mensagem → grava direto.
+      const resolvidos = empates.filter((e) => e.classificado);
+      const perguntar = empates.filter((e) => !e.classificado);
+      await registrarClassificadosInline(usuarioId, resolvidos, () => todasRodadas, msg);
+      if (perguntar.length > 0) {
+        await iniciarPerguntasClassificado(
+          msg,
+          perguntar.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
+          todasRodadas,
+          'seus bolões',
+        );
+      }
     }
   }
 }
@@ -3256,13 +3280,13 @@ async function registrarPalpitesConfirmados(
   usuarioId: string,
   rodadaId: string,
   bolaoNome: string,
-  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; rodadaId?: string }>,
+  palpites: Array<{ timeCasa: string; timeVisitante: string; golsCasa: number; golsVisitante: number; rodadaId?: string; classificado?: 'CASA' | 'VISITANTE' }>,
 ) {
   let registrados = 0;
   const erros: string[] = [];
   // Empates registrados, com a rodada de cada um — mata-mata pode ter várias
   // rodadas ABERTA, então cada palpite vai na rodada do seu jogo.
-  const empatesRegistrados: Array<{ timeCasa: string; timeVisitante: string; rodadaId: string }> = [];
+  const empatesRegistrados: Array<{ timeCasa: string; timeVisitante: string; rodadaId: string; classificado?: 'CASA' | 'VISITANTE' }> = [];
   for (const p of palpites) {
     const alvoRodada = p.rodadaId ?? rodadaId;
     try {
@@ -3276,7 +3300,7 @@ async function registrarPalpitesConfirmados(
       });
       registrados++;
       if (p.golsCasa === p.golsVisitante) {
-        empatesRegistrados.push({ timeCasa: p.timeCasa, timeVisitante: p.timeVisitante, rodadaId: alvoRodada });
+        empatesRegistrados.push({ timeCasa: p.timeCasa, timeVisitante: p.timeVisitante, rodadaId: alvoRodada, classificado: p.classificado });
       }
     } catch (err) {
       erros.push(`• ${p.timeCasa} x ${p.timeVisitante}: ${(err as Error).message}`);
@@ -3299,20 +3323,62 @@ async function registrarPalpitesConfirmados(
     const idsMM = new Set(rodadasMM.map((r) => r.id));
     const empatesMM = empatesRegistrados.filter((e) => idsMM.has(e.rodadaId));
     if (empatesMM.length > 0) {
-      await iniciarPerguntasClassificado(
-        msg,
-        empatesMM.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
-        [...idsMM],
-        bolaoNome,
-        rodadaId,
-      );
-      return; // a oferta de "mais jogos" acontece no fim da fila de classificado
+      // Inline: empates onde o user JÁ disse quem passa ("Brasil 1x1 Japão e
+      // o Brasil passa") são gravados direto — só pergunta o resto.
+      const resolvidos = empatesMM.filter((e) => e.classificado);
+      const perguntar = empatesMM.filter((e) => !e.classificado);
+      await registrarClassificadosInline(usuarioId, resolvidos, (e) => [e.rodadaId], msg);
+      if (perguntar.length > 0) {
+        await iniciarPerguntasClassificado(
+          msg,
+          perguntar.map((e) => ({ timeCasa: e.timeCasa, timeVisitante: e.timeVisitante })),
+          [...idsMM],
+          bolaoNome,
+          rodadaId,
+        );
+        return; // a oferta de "mais jogos" acontece no fim da fila de classificado
+      }
     }
   }
 
   // v3.5.0: se o user fechou todos os jogos do lote visível, oferece mais
   if (registrados > 0) {
     await talvezOferecerMaisJogos(msg, usuarioId, rodadaId);
+  }
+}
+
+/**
+ * Mata-mata — grava direto o classificado dos empates que já vieram com "quem
+ * passa" na mesma mensagem do palpite (ex.: "Brasil 1x1 Japão e o Brasil
+ * passa"), sem perguntar. Avisa o user em uma linha por jogo resolvido.
+ */
+async function registrarClassificadosInline<
+  T extends { timeCasa: string; timeVisitante: string; classificado?: 'CASA' | 'VISITANTE' },
+>(
+  usuarioId: string,
+  resolvidos: T[],
+  rodadaIdsDe: (e: T) => string[],
+  msg: IncomingMessage,
+): Promise<void> {
+  if (resolvidos.length === 0) return;
+  const linhas: string[] = [];
+  for (const e of resolvidos) {
+    if (!e.classificado) continue;
+    await palpiteService.registrarClassificadoPalpite({
+      usuarioId,
+      rodadaIds: rodadaIdsDe(e),
+      timeCasa: e.timeCasa,
+      timeVisitante: e.timeVisitante,
+      lado: e.classificado,
+    });
+    const time = e.classificado === 'CASA' ? e.timeCasa : e.timeVisitante;
+    linhas.push(`• *${e.timeCasa} x ${e.timeVisitante}*: anotei que *${time}* se classifica 🎯`);
+  }
+  if (linhas.length > 0) {
+    await sendText({
+      to: msg.waId,
+      text: `🏆 Já marquei quem passa (vale o bônus se acertar):\n${linhas.join('\n')}`,
+    });
   }
 }
 

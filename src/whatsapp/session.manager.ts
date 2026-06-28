@@ -140,6 +140,9 @@ export interface ConversaContext {
     golsVisitante: number;
     jogoId: string;
     rodadaId?: string;
+    // Mata-mata: lado já indicado como classificado na mensagem do palpite
+    // (empate "Brasil 1x1 Japão e o Brasil passa") — grava sem perguntar.
+    classificado?: 'CASA' | 'VISITANTE';
   }>;
   palpitesNaoEntendidos?: string[];
   // v3.7.0: placar inline guardado quando user mandou "corrigir Brasil 3x1"
@@ -186,6 +189,7 @@ export interface ConversaContext {
       timeVisitante: string;
       golsCasa: number;
       golsVisitante: number;
+      classificado?: 'CASA' | 'VISITANTE';
     }>;
     bolaoNomes: string[]; // pra exibir no preview
   };
