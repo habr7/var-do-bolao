@@ -3417,7 +3417,7 @@ async function registrarClassificadosInline<
   const linhas: string[] = [];
   for (const e of resolvidos) {
     if (!e.classificado) continue;
-    await palpiteService.registrarClassificadoPalpite({
+    const aplicados = await palpiteService.registrarClassificadoPalpite({
       usuarioId,
       rodadaIds: rodadaIdsDe(e),
       timeCasa: e.timeCasa,
@@ -3425,7 +3425,8 @@ async function registrarClassificadosInline<
       lado: e.classificado,
     });
     const time = e.classificado === 'CASA' ? e.timeCasa : e.timeVisitante;
-    linhas.push(`• *${e.timeCasa} x ${e.timeVisitante}*: anotei que *${time}* se classifica 🎯`);
+    const sufixo = aplicados > 1 ? ` (em *${aplicados}* bolões)` : '';
+    linhas.push(`• *${e.timeCasa} x ${e.timeVisitante}*: anotei que *${time}* se classifica 🎯${sufixo}`);
   }
   if (linhas.length > 0) {
     await sendText({
@@ -3456,7 +3457,7 @@ async function talvezPerguntarClassificadoMataMata(
 
   const rodadaIdsUnion = new Set<string>();
   const resolvidos: Array<{ timeCasa: string; timeVisitante: string; classificado: 'CASA' | 'VISITANTE'; idsMM: string[] }> = [];
-  const perguntar: Array<{ timeCasa: string; timeVisitante: string }> = [];
+  const perguntar: Array<{ timeCasa: string; timeVisitante: string; qtdBoloes: number }> = [];
 
   for (const e of empates) {
     // Acha as rodadas ABERTA (em qualquer bolão do user) que têm esse jogo…
@@ -3480,7 +3481,7 @@ async function talvezPerguntarClassificadoMataMata(
       if (invertido) lado = lado === 'CASA' ? 'VISITANTE' : 'CASA';
     }
     if (lado) resolvidos.push({ timeCasa: jc, timeVisitante: jv, classificado: lado, idsMM });
-    else perguntar.push({ timeCasa: jc, timeVisitante: jv });
+    else perguntar.push({ timeCasa: jc, timeVisitante: jv, qtdBoloes: idsMM.length });
   }
 
   await registrarClassificadosInline(usuarioId, resolvidos, (e) => e.idsMM, msg);
@@ -3498,7 +3499,7 @@ async function talvezPerguntarClassificadoMataMata(
  */
 async function iniciarPerguntasClassificado(
   msg: IncomingMessage,
-  empates: Array<{ timeCasa: string; timeVisitante: string }>,
+  empates: Array<{ timeCasa: string; timeVisitante: string; qtdBoloes?: number }>,
   rodadaIds: string[],
   bolaoLabel: string,
   rodadaIdParaMais?: string,
@@ -3518,12 +3519,15 @@ async function iniciarPerguntasClassificado(
 /** Envia a pergunta de classificado pro próximo empate da fila. */
 async function perguntarClassificado(
   msg: IncomingMessage,
-  jogo: { timeCasa: string; timeVisitante: string },
+  jogo: { timeCasa: string; timeVisitante: string; qtdBoloes?: number },
 ) {
+  // Transparência: se o palpite foi pra mais de um bolão, a MESMA resposta
+  // vale pra todos (o placar também é igual nos dois). Deixa explícito.
+  const escopo = jogo.qtdBoloes && jogo.qtdBoloes > 1 ? ` _(vale pros ${jogo.qtdBoloes} bolões)_` : '';
   await sendText({
     to: msg.waId,
     text:
-      `Deu empate 🤝 em *${jogo.timeCasa} x ${jogo.timeVisitante}* — ` +
+      `Deu empate 🤝 em *${jogo.timeCasa} x ${jogo.timeVisitante}*${escopo} — ` +
       `quem se classifica nos pênaltis: *${jogo.timeCasa}* ou *${jogo.timeVisitante}*?\n\n` +
       `_(responde o nome do time, ou *1* pra ${jogo.timeCasa} / *2* pra ${jogo.timeVisitante})_`,
   });
@@ -3594,7 +3598,8 @@ async function handleConfirmandoClassificadoMataMata(
     return;
   }
 
-  await palpiteService.registrarClassificadoPalpite({
+  // count = quantos PalpiteJogo foram atualizados = em quantos bolões aplicou.
+  const aplicados = await palpiteService.registrarClassificadoPalpite({
     usuarioId,
     rodadaIds,
     timeCasa: atual.timeCasa,
@@ -3604,12 +3609,14 @@ async function handleConfirmandoClassificadoMataMata(
 
   const restante = fila.slice(1);
   const escolhido = lado === 'CASA' ? atual.timeCasa : atual.timeVisitante;
+  // Transparência: deixa claro em quantos bolões a escolha valeu.
+  const sufixoBoloes = aplicados > 1 ? ` em *${aplicados}* bolões` : '';
 
   if (restante.length > 0) {
     await updateSession(msg.waId, {
       ctxPatch: { classificadosPendentes: restante },
     });
-    await sendText({ to: msg.waId, text: `🎯 Anotado: *${escolhido}* passa. Próximo:` });
+    await sendText({ to: msg.waId, text: `🎯 Anotado: *${escolhido}* passa${sufixoBoloes}. Próximo:` });
     await perguntarClassificado(msg, restante[0]);
     return;
   }
@@ -3619,7 +3626,7 @@ async function handleConfirmandoClassificadoMataMata(
   await resetSession(msg.waId);
   await sendText({
     to: msg.waId,
-    text: `🎯 Anotado: *${escolhido}* passa. Pronto, registrei quem você acha que se classifica! 🏆`,
+    text: `🎯 Anotado: *${escolhido}* passa${sufixoBoloes}. Pronto, registrei quem você acha que se classifica! 🏆`,
   });
   if (rodadaIdParaMais) {
     await talvezOferecerMaisJogos(msg, usuarioId, rodadaIdParaMais);
