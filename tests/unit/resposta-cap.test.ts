@@ -90,6 +90,34 @@ describe('verificarAntiLoop — caso Lucas 11/06', () => {
     expect(r2.motivo).toBe('repetida');
   });
 
+  it('NÃO silencia resposta repetida quando o user está em FLUXO interativo (caso Andre 28/06)', async () => {
+    const wa = '5511ANDRE';
+    // Responde "2" pro 1º empate da fila → processa
+    expect((await verificarAntiLoop(wa, '2', { emFluxoInterativo: true })).permitir).toBe(true);
+    await registrarResposta(wa, '2');
+    // Responde "2" de novo pro 2º empate → ANTES era silenciado (repetida);
+    // agora passa porque está num fluxo (CONFIRMANDO_CLASSIFICADO_MATAMATA).
+    expect((await verificarAntiLoop(wa, '2', { emFluxoInterativo: true })).permitir).toBe(true);
+  });
+
+  it('em IDLE (sem fluxo) a camada 4 segue ativa contra auto-reply', async () => {
+    const wa = '5511IDLE';
+    const texto = 'Agradeço seu contato, respondo em breve';
+    expect((await verificarAntiLoop(wa, texto, { emFluxoInterativo: false })).permitir).toBe(true);
+    await registrarResposta(wa, texto);
+    const r2 = await verificarAntiLoop(wa, texto, { emFluxoInterativo: false });
+    expect(r2.permitir).toBe(false);
+    expect(r2.motivo).toBe('repetida');
+  });
+
+  it('o cap_60s continua valendo MESMO em fluxo interativo (loop real é barrado)', async () => {
+    const wa = '5511CAP';
+    for (let i = 0; i < 8; i++) await registrarResposta(wa, '2');
+    const nona = await verificarAntiLoop(wa, '2', { emFluxoInterativo: true });
+    expect(nona.permitir).toBe(false);
+    expect(nona.motivo).toBe('cap_60s');
+  });
+
   it('isolamento entre users', async () => {
     for (let i = 0; i < 8; i++) {
       await registrarResposta('5511aaaaaaaaa', `m${i}`);

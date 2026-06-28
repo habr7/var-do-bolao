@@ -153,7 +153,14 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
       );
       return;
     }
-    const antiLoop = await verificarAntiLoop(msg.waId, msg.text);
+    // Carrega a sessão ANTES do anti-loop: a camada "repetida" não pode
+    // silenciar uma resposta legítima quando o user está num fluxo interativo
+    // (ex.: responder "2" pra empates consecutivos da fila de classificado).
+    const session = await getSession(msg.waId);
+    tSession = Date.now();
+    const emFluxoInterativo = session.state !== 'IDLE';
+
+    const antiLoop = await verificarAntiLoop(msg.waId, msg.text, { emFluxoInterativo });
     if (!antiLoop.permitir) {
       void incContador(`msg.anti_loop.${antiLoop.motivo}`);
       console.log(
@@ -164,8 +171,6 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
 
     const usuario = await bolaoService.getOrCreateUsuario(msg.waId, msg.senderName);
     tUser = Date.now();
-    const session = await getSession(msg.waId);
-    tSession = Date.now();
     const parsed = parseIntencao(msg.text);
     tParse = Date.now();
     intencaoFinal = parsed.intencao;
