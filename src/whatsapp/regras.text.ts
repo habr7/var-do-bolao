@@ -96,6 +96,7 @@ export function regrasMataMata(): string {
     'Acertar quem se classifica dá um bônus EXTRA (somado ao placar):\n' +
     '• Se você crava um *vencedor*, já conta que ele passa — não pergunto nada.\n' +
     '• Se você crava *empate*, eu pergunto quem você acha que passa nos pênaltis.\n' +
+    '  _(ou já diga na mesma mensagem: "Brasil 1x1 Japão e o Brasil passa" — confirmo no preview)._\n' +
     '*Errar quem passa NUNCA tira o ponto do placar* — a crava fica garantida. 🔒\n\n' +
     '━━━━━━━━━━━━━━━━━━━\n' +
     '📈 *PONTOS SOBEM POR FASE*\n' +

@@ -30,6 +30,8 @@ export function infoEmpateMataMata(): string {
     'A partir dos *16-avos*, se você cravar um empate, eu pergunto quem você acha ' +
     'que se classifica nos pênaltis. Acertar quem passa dá um *bônus* extra.\n' +
     'Se você cravar um vencedor, já conta que ele passa — não pergunto nada.\n\n' +
+    '💡 *Dá pra adiantar*: diga quem passa na mesma mensagem — _"Brasil 1x1 Japão ' +
+    'e o Brasil passa"_ — que eu mostro no preview pra você *confirmar* tudo de uma vez.\n\n' +
     'Lembrando: o placar vale até o fim da *prorrogação* (pênalti não entra no placar).'
   );
 }
