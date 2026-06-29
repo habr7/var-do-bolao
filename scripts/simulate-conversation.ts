@@ -141,6 +141,15 @@ const CENARIOS: Cenario[] = [
       palpite: { golsCasa: 2, golsVisitante: 3 },
     },
   },
+  {
+    grupo: '⚽ Lados por vírgula',
+    desc: 'Brasil 2, Marrocos 1',
+    msg: 'Brasil 2, Marrocos 1',
+    esperado: {
+      intencao: Intencao.PALPITE_INLINE,
+      palpite: { golsCasa: 2, golsVisitante: 1 },
+    },
+  },
 
   // ====================================================================
   // GRUPO 3: Saudacao + intent (P11 e variacoes)
