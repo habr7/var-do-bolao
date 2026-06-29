@@ -85,7 +85,10 @@ export async function sendBomDiaJob() {
   interface Alvo {
     waId: string;
     nome: string;
-    jogos: JogoComStatus[]; // sorted asc
+    // chave = confronto (apiJogoId) → status. Dedup CROSS-BOLÃO: o mesmo jogo
+    // existe em cada bolão do usuário (rodada própria por bolão), mas o
+    // bom-dia é UMA mensagem por telefone — então lista cada confronto 1x.
+    jogos: Map<string, JogoComStatus>;
   }
   const alvos = new Map<string, Alvo>();
 
@@ -99,21 +102,30 @@ export async function sendBomDiaJob() {
         const waId = part.usuario.whatsappId;
         if (!waId) continue;
         const jaPalpitouEm = palpitouPorUser.get(part.usuarioId) ?? new Set<string>();
-        const jogosDoUser: JogoComStatus[] = rodada.jogos
+        const alvo =
+          alvos.get(waId) ?? { waId, nome: part.usuario.nome, jogos: new Map<string, JogoComStatus>() };
+        if (!alvos.has(waId)) alvos.set(waId, alvo);
+
+        for (const j of rodada.jogos) {
           // Mata-mata: ignora jogos ainda com time placeholder ("Vencedor 73").
-          .filter((j) => !ehTimePlaceholder(j.timeCasa) && !ehTimePlaceholder(j.timeVisitante))
-          .map((j) => ({
-            timeCasa: j.timeCasa,
-            timeVisitante: j.timeVisitante,
-            dataHora: j.dataHora,
-            palpitou: jaPalpitouEm.has(j.id),
-          }));
-        const existente = alvos.get(waId);
-        if (existente) {
-          existente.jogos.push(...jogosDoUser);
-          existente.jogos.sort((a, b) => a.dataHora.getTime() - b.dataHora.getTime());
-        } else {
-          alvos.set(waId, { waId, nome: part.usuario.nome, jogos: jogosDoUser });
+          if (ehTimePlaceholder(j.timeCasa) || ehTimePlaceholder(j.timeVisitante)) continue;
+          // Chave estável do confronto (mesmo apiJogoId em todos os bolões).
+          // Fallback p/ times+horário se faltar apiJogoId.
+          const chave = j.apiJogoId || `${j.timeCasa}|${j.timeVisitante}|${j.dataHora.getTime()}`;
+          const palpitou = jaPalpitouEm.has(j.id);
+          const existente = alvo.jogos.get(chave);
+          if (existente) {
+            // Só conta ✅ se palpitou em TODOS os bolões com esse confronto —
+            // senão o lembrete esconderia uma pendência num dos bolões.
+            existente.palpitou = existente.palpitou && palpitou;
+          } else {
+            alvo.jogos.set(chave, {
+              timeCasa: j.timeCasa,
+              timeVisitante: j.timeVisitante,
+              dataHora: j.dataHora,
+              palpitou,
+            });
+          }
         }
       }
     }
@@ -121,7 +133,9 @@ export async function sendBomDiaJob() {
 
   // Pra cada alvo, decide envio.
   for (const alvo of alvos.values()) {
-    if (alvo.jogos.length === 0) continue;
+    // Map de confrontos → lista ordenada por horário (já deduplicada cross-bolão).
+    const jogos = [...alvo.jogos.values()].sort((a, b) => a.dataHora.getTime() - b.dataHora.getTime());
+    if (jogos.length === 0) continue;
 
     // v3.36.0 — idempotência diária PRÓPRIA (não divide trava com outros
     // jobs). SET NX = 1 envio por usuário por dia.
@@ -137,11 +151,11 @@ export async function sendBomDiaJob() {
 
     // Monta mensagem
     const header = headerPorHorario(agora);
-    const linhas = alvo.jogos.slice(0, 10).map((j) => {
+    const linhas = jogos.slice(0, 10).map((j) => {
       const marcado = j.palpitou ? '✅' : '⚪';
       return `${marcado} ${formatarDataHoraCurtaBR(j.dataHora)} — ${j.timeCasa} x ${j.timeVisitante}`;
     });
-    const faltaPalpitar = alvo.jogos.filter((j) => !j.palpitou).length;
+    const faltaPalpitar = jogos.filter((j) => !j.palpitou).length;
     const footer = faltaPalpitar > 0
       ? `\n⚪ = falta palpitar (${faltaPalpitar}). Manda *próximos jogos* pra palpitar o que falta.`
       : `\n🎉 Você já palpitou em todos! Boa sorte!`;
@@ -153,7 +167,7 @@ export async function sendBomDiaJob() {
     try {
       await sendText({ to: alvo.waId, text: mensagem });
       console.log(
-        `[bom-dia] waId=${alvo.waId} jogos=${alvo.jogos.length} pendentes=${faltaPalpitar}`,
+        `[bom-dia] waId=${alvo.waId} jogos=${jogos.length} pendentes=${faltaPalpitar}`,
       );
     } catch (error) {
       await devolverCotaAviso(alvo.waId); // envio falhou — devolve a cota
