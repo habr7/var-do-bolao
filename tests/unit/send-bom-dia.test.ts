@@ -61,6 +61,41 @@ function bolaoComJogo(participantes: Array<{ id: string; wa: string; palpitou: b
   ];
 }
 
+// v3.49.0 — usuário no MESMO confronto em N bolões (rodada própria por bolão).
+// `apiJogoId` é o mesmo em todos; `idDoBolao` deixa o `Jogo.id`/palpite únicos
+// por bolão. `palpitouEm` = lista dos bolões (índice) onde a pessoa já palpitou.
+function doisBoloesMesmoJogo(opts: {
+  wa: string;
+  uid: string;
+  apiJogoId: string;
+  palpitouEm: number[]; // índices dos bolões (0,1) onde palpitou
+  nBoloes?: number;
+}) {
+  const n = opts.nBoloes ?? 2;
+  return Array.from({ length: n }, (_, b) => {
+    const jogoId = `j-${b}`; // Jogo.id distinto por bolão
+    const palpitou = opts.palpitouEm.includes(b);
+    return {
+      nome: `Bolao ${b}`,
+      participacoes: [{ usuarioId: opts.uid, usuario: { whatsappId: opts.wa, nome: opts.uid } }],
+      rodadas: [
+        {
+          jogos: [
+            {
+              id: jogoId,
+              apiJogoId: opts.apiJogoId,
+              timeCasa: 'Brasil',
+              timeVisitante: 'Japão',
+              dataHora: new Date(Date.now() + 5 * 3600_000),
+            },
+          ],
+          palpites: palpitou ? [{ usuarioId: opts.uid, jogos: [{ jogoId }] }] : [],
+        },
+      ],
+    };
+  });
+}
+
 // força a "hora BRT" pro teste — controla via mock de Date? Simplest: setamos
 // HORARIO_BOM_DIA pra a hora atual em BRT, e pra o teste "fora de hora",
 // setamos pra uma hora impossível de bater.
@@ -120,5 +155,40 @@ describe('sendBomDiaJob (v3.36.0 — hora fixa)', () => {
     h.env.ENABLE_BOM_DIA = false;
     await sendBomDiaJob();
     expect(h.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('sendBomDiaJob — dedup cross-bolão (v3.49.0, caso "bom dia duplicado")', () => {
+  it('usuário em 2 bolões com o MESMO jogo → lista o confronto 1x só', async () => {
+    h.findMany.mockResolvedValue(
+      doisBoloesMesmoJogo({ wa: 'wa-1', uid: 'u1', apiJogoId: 'WC_R32_73', palpitouEm: [0, 1] }),
+    );
+    await sendBomDiaJob();
+    expect(h.sendText).toHaveBeenCalledTimes(1);
+    const texto: string = h.sendText.mock.calls[0][0].text;
+    // o confronto aparece UMA vez (antes do fix vinha 2x)
+    const ocorrencias = texto.split('Brasil x Japão').length - 1;
+    expect(ocorrencias).toBe(1);
+  });
+
+  it('palpitou em TODOS os bolões → ✅ e "Boa sorte"', async () => {
+    h.findMany.mockResolvedValue(
+      doisBoloesMesmoJogo({ wa: 'wa-1', uid: 'u1', apiJogoId: 'WC_R32_73', palpitouEm: [0, 1] }),
+    );
+    await sendBomDiaJob();
+    const texto: string = h.sendText.mock.calls[0][0].text;
+    expect(texto).toContain('✅');
+    expect(texto).toContain('Boa sorte');
+    expect(texto).not.toContain('falta palpitar');
+  });
+
+  it('palpitou em SÓ UM bolão → ⚪ pendente (não esconde a falta no outro)', async () => {
+    h.findMany.mockResolvedValue(
+      doisBoloesMesmoJogo({ wa: 'wa-1', uid: 'u1', apiJogoId: 'WC_R32_73', palpitouEm: [0] }),
+    );
+    await sendBomDiaJob();
+    const texto: string = h.sendText.mock.calls[0][0].text;
+    expect(texto).toContain('⚪');
+    expect(texto).toContain('falta palpitar (1)');
   });
 });

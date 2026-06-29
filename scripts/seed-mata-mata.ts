@@ -53,13 +53,24 @@ async function main() {
   // Import dinâmico do banco SÓ aqui — assim o --dry-run não precisa de DATABASE_URL.
   const { prisma, connectDatabase, disconnectDatabase } = await import('../src/config/database.js');
   const { sincronizarMataMata } = await import('../src/modules/resultado/mata-mata.sync.service.js');
+  const { comLockJob } = await import('../src/utils/lock.js');
   await connectDatabase();
   try {
-    const r = await sincronizarMataMata(prisma, fixtures);
-    console.log(
-      `\n✅ Sync: ${r.jogosAtualizados} jogo(s) atualizado(s), ` +
-        `${r.rodadasAbertas} rodada(s) aberta(s), ${r.rodadaIds.length} rodada(s) recalculada(s).`,
-    );
+    // v3.49.0 — sob o MESMO lock do fetch-results. Como o fetch-results roda
+    // o sync a cada tick em produção, sem o lock os dois poderiam criar
+    // rodadas da mesma fase em paralelo (garantirRodadas não é atômico) →
+    // rodada duplicada. O lock serializa os dois caminhos.
+    const rodou = await comLockJob('fetch-results', async () => {
+      const r = await sincronizarMataMata(prisma, fixtures);
+      console.log(
+        `\n✅ Sync: ${r.jogosAtualizados} jogo(s) atualizado(s), ` +
+          `${r.rodadasAbertas} rodada(s) aberta(s), ${r.rodadaIds.length} rodada(s) recalculada(s).`,
+      );
+    });
+    if (!rodou) {
+      console.error('⚠️  fetch-results está rodando agora — sync pulado. Rode de novo em alguns segundos.');
+      process.exitCode = 1;
+    }
   } finally {
     await disconnectDatabase();
   }

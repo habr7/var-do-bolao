@@ -1,6 +1,6 @@
 {
   "name": "var-do-bolao",
-  "version": "3.48.0",
+  "version": "3.49.0",
   "description": "Bot de WhatsApp (Meta Cloud API) para gerenciar bolões de futebol — o árbitro digital em DM",
   "type": "module",
   "engines": {
