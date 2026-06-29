@@ -222,6 +222,50 @@ describe('parseIntencao', () => {
       expect(r.palpite?.golsCasa).toBe(1);
       expect(r.palpite?.golsVisitante).toBe(3);
     });
+
+    // v3.50.0 — formato GOLS DEPOIS DO TIME (caso real 29/06, "Alemanha 2 x
+    // Paraguai 3"): antes caía em TEXTO_LIVRE e o "Sim" seguinte virava
+    // "🙌 Combinado!" — falsa impressão de palpite registrado.
+    describe('v3.50.0 — "Time1 N x Time2 N" (gols depois do time)', () => {
+      it('parseia "Alemanha 2 x Paraguai 3" (o bug)', () => {
+        const r = parseIntencao('Alemanha 2 x Paraguai 3');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite).toEqual({
+          timeCasa: 'Alemanha',
+          golsCasa: 2,
+          golsVisitante: 3,
+          timeVisitante: 'Paraguai',
+        });
+      });
+      it('visitante com nome composto: "Brasil 2 x Coreia do Sul 1"', () => {
+        const r = parseIntencao('Brasil 2 x Coreia do Sul 1');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite?.timeCasa).toBe('Brasil');
+        expect(r.palpite?.timeVisitante).toBe('Coreia do Sul');
+        expect(r.palpite?.golsCasa).toBe(2);
+        expect(r.palpite?.golsVisitante).toBe(1);
+      });
+      it('separador unicode ×: "Alemanha 2 × Paraguai 3"', () => {
+        const r = parseIntencao('Alemanha 2 × Paraguai 3');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite?.golsVisitante).toBe(3);
+      });
+      it('empate continua empate: "França 1 x Inglaterra 1"', () => {
+        const r = parseIntencao('França 1 x Inglaterra 1');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite?.golsCasa).toBe(1);
+        expect(r.palpite?.golsVisitante).toBe(1);
+      });
+      it('NÃO rouba o canônico "Brasil 2 x 1 Marrocos" (placar no meio)', () => {
+        const r = parseIntencao('Brasil 2 x 1 Marrocos');
+        expect(r.palpite).toEqual({
+          timeCasa: 'Brasil',
+          golsCasa: 2,
+          golsVisitante: 1,
+          timeVisitante: 'Marrocos',
+        });
+      });
+    });
   });
 
   describe('texto livre e casos irreconhecidos', () => {

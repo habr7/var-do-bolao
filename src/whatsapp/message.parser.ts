@@ -240,6 +240,23 @@ const PALPITE_INVERTIDO_REGEX = /^(\d+)\s*(?:[xX×-]|\s+(?:a|por|c|C)\s+)\s*(\d+
 // falharem. Ordem em `tentarParsearPalpiteInline`.
 const PALPITE_GOLS_SEPARADOS_REGEX = /^(\d+)\s+(.+?)\s+[xX×]\s+(\d+)\s+(.+)$/;
 
+// v3.50.0 — formato GOLS DEPOIS DO TIME: "Time1 N x Time2 N" (o gol vem
+// LOGO APÓS o nome de cada time, com o separador entre os dois lados). Caso
+// real 29/06: usuário mandou "Alemanha 2 x Paraguai 3" — o bot NÃO entendeu
+// (caía em TEXTO_LIVRE), e o "Sim" seguinte virou conversa fiada ("🙌
+// Combinado!"), dando a falsa impressão de palpite registrado. É um jeito
+// MUITO natural de escrever, então passou a ser suportado.
+//
+//   - PALPITE_REGEX (canônico):     "Time1 NxN Time2"   — placar grudado, no meio
+//   - PALPITE_INVERTIDO_REGEX:      "NxN Time1 x Time2" — placar grudado no início
+//   - PALPITE_GOLS_SEPARADOS_REGEX: "N Time1 X N Time2" — gol ANTES de cada time
+//   - PALPITE_GOLS_POS_TIME_REGEX:  "Time1 N x Time2 N" — gol DEPOIS de cada time
+//
+// É o mais genérico de todos (qualquer "palavra N x palavra N" casa), então só
+// roda por ÚLTIMO, com os mesmos guards anti-lixo do gols-separados. Exige
+// ESPAÇO em volta do separador pra não roubar o canônico "Time 2x1 Time".
+const PALPITE_GOLS_POS_TIME_REGEX = /^(.+?)\s+(\d+)\s+[xX×]\s+(.+?)\s+(\d+)$/;
+
 // v3.10.0 — detecta um "âncora" de placar (NxN) dentro de uma linha.
 // Usado pra: (1) tokenizar linhas com vários palpites concatenados sem
 // quebra de linha, (2) validar que um time parseado não tem placar
@@ -1766,6 +1783,30 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
         timeCasa: tc,
         golsCasa: parseInt(separados[1], 10),
         golsVisitante: parseInt(separados[3], 10),
+        timeVisitante: tv,
+      });
+    }
+  }
+
+  // 5) v3.50.0 — GOLS DEPOIS DO TIME: "Time1 N x Time2 N" (caso real 29/06,
+  // "Alemanha 2 x Paraguai 3"). O MAIS genérico — roda por último, com os
+  // mesmos guards anti-lixo do gols-separados (time não começa com dígito,
+  // não é stopword semântica, sem placar embutido).
+  const posTime = linha.match(PALPITE_GOLS_POS_TIME_REGEX);
+  if (posTime) {
+    const tc = posTime[1].trim();
+    const tv = posTime[3].trim();
+    if (
+      !timeComecaComDigito(tc) &&
+      !timeComecaComDigito(tv) &&
+      !timeEhStopwordSemantica(tc) &&
+      !timeEhStopwordSemantica(tv) &&
+      validar(tc, tv)
+    ) {
+      return finalize({
+        timeCasa: tc,
+        golsCasa: parseInt(posTime[2], 10),
+        golsVisitante: parseInt(posTime[4], 10),
         timeVisitante: tv,
       });
     }
