@@ -257,6 +257,14 @@ const PALPITE_GOLS_SEPARADOS_REGEX = /^(\d+)\s+(.+?)\s+[xX×]\s+(\d+)\s+(.+)$/;
 // ESPAÇO em volta do separador pra não roubar o canônico "Time 2x1 Time".
 const PALPITE_GOLS_POS_TIME_REGEX = /^(.+?)\s+(\d+)\s+[xX×]\s+(.+?)\s+(\d+)$/;
 
+// v3.51.0 — formato com os LADOS separados por VÍRGULA ou "e", gol depois de
+// cada time: "Brasil 2, Marrocos 1" / "Brasil 2 e Marrocos 1" (o LLM legacy
+// já citava "brasil 3, argentina 1" como exemplo natural). Exige dígito ANTES
+// do separador, então NÃO rouba listas reais ("Brasil 2x1 Marrocos, França
+// 1x0 Argentina" não tem dígito antes da vírgula → cai no splitter). Roda por
+// último, com os mesmos guards anti-lixo.
+const PALPITE_LADOS_VIRGULA_E_REGEX = /^(.+?)\s+(\d+)\s*(?:,|\be\b)\s+(.+?)\s+(\d+)$/;
+
 // v3.10.0 — detecta um "âncora" de placar (NxN) dentro de uma linha.
 // Usado pra: (1) tokenizar linhas com vários palpites concatenados sem
 // quebra de linha, (2) validar que um time parseado não tem placar
@@ -1807,6 +1815,28 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
         timeCasa: tc,
         golsCasa: parseInt(posTime[2], 10),
         golsVisitante: parseInt(posTime[4], 10),
+        timeVisitante: tv,
+      });
+    }
+  }
+
+  // 6) v3.51.0 — LADOS por VÍRGULA/"e": "Brasil 2, Marrocos 1" / "Brasil 2 e
+  // Marrocos 1". Mesmos guards. Roda por último (genérico).
+  const ladosSep = linha.match(PALPITE_LADOS_VIRGULA_E_REGEX);
+  if (ladosSep) {
+    const tc = ladosSep[1].trim();
+    const tv = ladosSep[3].trim();
+    if (
+      !timeComecaComDigito(tc) &&
+      !timeComecaComDigito(tv) &&
+      !timeEhStopwordSemantica(tc) &&
+      !timeEhStopwordSemantica(tv) &&
+      validar(tc, tv)
+    ) {
+      return finalize({
+        timeCasa: tc,
+        golsCasa: parseInt(ladosSep[2], 10),
+        golsVisitante: parseInt(ladosSep[4], 10),
         timeVisitante: tv,
       });
     }

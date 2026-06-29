@@ -266,6 +266,33 @@ describe('parseIntencao', () => {
         });
       });
     });
+
+    // v3.51.0 — lados separados por vírgula ou "e".
+    describe('v3.51.0 — "Time1 N, Time2 M" e "Time1 N e Time2 M"', () => {
+      it('vírgula: "Brasil 2, Marrocos 1"', () => {
+        const r = parseIntencao('Brasil 2, Marrocos 1');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite).toEqual({
+          timeCasa: 'Brasil',
+          golsCasa: 2,
+          golsVisitante: 1,
+          timeVisitante: 'Marrocos',
+        });
+      });
+      it('conector "e": "Brasil 2 e Marrocos 1"', () => {
+        const r = parseIntencao('Brasil 2 e Marrocos 1');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite?.golsCasa).toBe(2);
+        expect(r.palpite?.golsVisitante).toBe(1);
+      });
+      it('NÃO quebra lista real por vírgula (vira lote, 1º palpite)', () => {
+        // sem dígito antes da vírgula → cai no splitter de multi-palpite
+        const r = parseIntencao('Brasil 2x1 Marrocos, França 1x0 Argentina');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite?.timeCasa).toBe('Brasil');
+        expect(r.palpite?.timeVisitante).toBe('Marrocos');
+      });
+    });
   });
 
   describe('texto livre e casos irreconhecidos', () => {

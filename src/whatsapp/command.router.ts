@@ -60,6 +60,7 @@ import {
   parecePalpiteIncompleto,
   parecePalpiteSoPlacar,
   pareceListaDeConfrontosSemPlacar,
+  pareceTentativaDePalpite,
 } from './palpite.heuristics.js';
 import {
   construirFatosCopa2026,
@@ -417,7 +418,8 @@ async function handleIdle(
   // (TTL 5min), tenta extrair palpites em linguagem natural via LLM
   // ANTES de cair na intent normal. Cobre "2 a zero pra Brasil", "1 a 1
   // Coreia", etc — formatos que regex de palpite inline nao pega.
-  if (intencao === Intencao.TEXTO_LIVRE && (await janelaPalpiteLivreAtiva(msg.waId))) {
+  const janelaAtiva = intencao === Intencao.TEXTO_LIVRE && (await janelaPalpiteLivreAtiva(msg.waId));
+  if (janelaAtiva) {
     const aplicou = await tentarPalpiteLivreViaLLM(msg, usuarioId);
     if (aplicou) {
       await fecharJanelaPalpiteLivre(msg.waId);
@@ -453,6 +455,21 @@ async function handleIdle(
     }
   }
 
+  // v3.51.0 — BLINDAGEM ROBUSTA: a mensagem PARECE uma tentativa de palpite
+  // (2+ números de placar + 2+ nomes prováveis de time) que NENHUM regex
+  // pegou — formato inesperado tipo "Alemanha 2 x Paraguai 3" (caso real
+  // 29/06) ou "Brasil 2 Marrocos 1". Em vez de cair em conversa casual (que
+  // gerava o "🙌 Combinado!" enganoso), tenta o EXTRATOR LLM contra os jogos
+  // OFICIAIS da rodada aberta — MESMO fora da janela de "próximos jogos". O
+  // extractor só age se casar times REAIS, e SEMPRE via preview + confirmação
+  // (nunca registra direto). Se não casar, segue o fluxo normal (sem forçar
+  // nada). Pula se a janela já tentou o LLM acima (evita 2ª chamada).
+  if (!janelaAtiva && pareceTentativaDePalpite(msg.text)) {
+    void incContador('msg.parece_palpite_fora_janela');
+    const aplicou = await tentarPalpiteLivreViaLLM(msg, usuarioId);
+    if (aplicou) return;
+  }
+
   // v3.10.0 — PRÉ-CHECK CRÍTICO ANTI-MENTIRA DO LLM (caso Valéria 22/05):
   // se a mensagem parece um lote de palpites (2+ âncoras "NxN") mas nada
   // de palpite válido foi extraído, NÃO chama LLM — em smart-fallback ele
@@ -467,10 +484,12 @@ async function handleIdle(
       to: msg.waId,
       text:
         `🤔 Parece que você quis mandar palpites, mas não consegui entender o formato.\n\n` +
-        `*Formato aceito*:\n` +
+        `*Formatos aceitos* (vários jeitos funcionam):\n` +
         `• \`Brasil 2x1 Marrocos\` (placar ENTRE os times)\n` +
         `• \`Brasil 2 a 1 Marrocos\`\n` +
-        `• \`1x1 México x África do Sul\` (placar antes dos times também funciona)\n\n` +
+        `• \`Alemanha 2 x Paraguai 3\` (gol depois de cada time)\n` +
+        `• \`Brasil 2, Marrocos 1\`\n` +
+        `• \`1x1 México x África do Sul\` (placar antes dos times)\n\n` +
         `Pode mandar *vários palpites* de uma vez, *um por linha*:\n` +
         `\`\`\`\nBrasil 2x1 Marrocos\nFrança 1x0 Argentina\n\`\`\`\n\n` +
         `Manda *próximos jogos* pra ver os jogos abertos e os nomes oficiais dos times.`,

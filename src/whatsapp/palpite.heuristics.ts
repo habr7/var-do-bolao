@@ -47,6 +47,54 @@ export function parecePalpiteIncompleto(texto: string): { time: string; placar: 
 
 const ANCHOR_REGEX = /\d+\s*(?:[xX×-]|\s+(?:a|por|c|C)\s+)\s*\d+/g;
 
+// Palavras que sinalizam PERGUNTA/comando/informação — NÃO palpite. Se a frase
+// tem alguma delas, não tratamos como tentativa de palpite (evita falso
+// positivo tipo "quantos pontos vale 2x1?").
+const PALAVRAS_NAO_PALPITE =
+  /\b(quando|quant[oa]s?|qual|quais|quem|onde|com[oo]|porqu[eê]|por que|vale[m]?|ganho|ganha|perco|perde|hoje|amanh[ãa]|ranking|tabela|regras?|ajuda|menu|pontos?|jogo[s]?\s+de|que\s+horas|rolando|placar\s+(?:de|do)|resultado)\b/i;
+
+// Stopwords que não contam como "nome de time" ao medir se a frase é um placar.
+const STOP_TIME = new Set<string>([
+  'de', 'do', 'da', 'e', 'o', 'a', 'no', 'na', 'pra', 'pro', 'com', 'vs',
+  'contra', 'x', 'por', 'foi', 'vai', 'la', 'ai', 'um', 'uma',
+]);
+
+/**
+ * v3.51.0 — Detecta uma TENTATIVA de palpite com placar que os regex NÃO
+ * pegaram, de forma ampla (qualquer separador/ordem). Caso real 29/06:
+ * "Alemanha 2 x Paraguai 3" caía em TEXTO_LIVRE e o bot não tratava como
+ * palpite — o "Sim" seguinte virava "🙌 Combinado!" (falsa impressão de
+ * registro).
+ *
+ * Critério (conservador, alta precisão): a frase é CURTA, NÃO é pergunta/
+ * comando, e tem **2+ números de placar** (0–20) + **2+ palavras** que podem
+ * ser nomes de time. Isso cobre "Time N x Time N", "Time N, Time N",
+ * "N Time N Time", "Time N Time N", etc. — sem casar conversa ("vou no jogo
+ * sábado") nem placar puro ("3x0", 0 times) nem palpite incompleto ("Espanha
+ * 4x1", 1 time), que têm fluxos próprios.
+ *
+ * Uso: o caller tenta o EXTRATOR LLM contra os jogos oficiais (preview +
+ * confirmação) mesmo fora da janela de "próximos jogos". O LLM só age se casar
+ * times REAIS — então um falso positivo aqui apenas dispara 1 chamada que não
+ * registra nada.
+ */
+export function pareceTentativaDePalpite(texto: string): boolean {
+  const t = texto.trim();
+  if (t.length < 5 || t.length > 60) return false; // placar é curto
+  if (t.includes('?')) return false; // pergunta
+  // remove horas (20:00, 16h, 9h30) pra não contar como gols/placar
+  const semHora = t.replace(/\b\d{1,2}\s*[:h]\s*\d{0,2}\b/gi, ' ');
+  if (PALAVRAS_NAO_PALPITE.test(semHora)) return false;
+  // 2+ números de placar (0–20) isolados
+  const placares = (semHora.match(/\b\d{1,2}\b/g) ?? []).filter((n) => Number(n) <= 20);
+  if (placares.length < 2) return false;
+  // 2+ "palavras" alfabéticas que podem ser nomes de time (≥2 letras, não stop)
+  const palavras = (semHora.match(/[a-zà-ú]{2,}/gi) ?? [])
+    .map((w) => w.toLowerCase())
+    .filter((w) => !STOP_TIME.has(w));
+  return palavras.length >= 2;
+}
+
 /**
  * v3.40.0 — Detecta um PLACAR PURO, sem time nenhum ("3x0", "2 a 1", "3 x 0!").
  * Caso real ("3x0"): o usuário manda só o placar e o bot não sabe de qual

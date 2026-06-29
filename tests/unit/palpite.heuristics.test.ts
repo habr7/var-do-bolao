@@ -3,6 +3,7 @@ import {
   parecePalpiteMasNaoEntendi,
   parecePalpiteSoPlacar,
   pareceListaDeConfrontosSemPlacar,
+  pareceTentativaDePalpite,
 } from '../../src/whatsapp/palpite.heuristics.js';
 
 /**
@@ -65,6 +66,52 @@ describe('parecePalpiteMasNaoEntendi', () => {
     it('horário (não é placar de bolão) → false', () => {
       // "20:00" tem dígitos mas não casa formato NxN
       expect(parecePalpiteMasNaoEntendi('o jogo é 20:00 sábado')).toBe(false);
+    });
+  });
+});
+
+/**
+ * v3.51.0 — detector AMPLO de tentativa de palpite (placar não-adjacente que
+ * os regex não pegaram). Dispara o extractor LLM contra os jogos oficiais
+ * (preview + confirmação), fechando o caso "Alemanha 2 x Paraguai 3" e
+ * variantes — sem cair na conversa casual que simulava "registrei".
+ */
+describe('pareceTentativaDePalpite (v3.51.0)', () => {
+  describe('POSITIVOS — 2+ números + 2+ nomes prováveis de time', () => {
+    it('gol depois do time, sem separador: "Alemanha 2 Paraguai 3"', () => {
+      expect(pareceTentativaDePalpite('Alemanha 2 Paraguai 3')).toBe(true);
+    });
+    it('"Brasil 2 Marrocos 1"', () => {
+      expect(pareceTentativaDePalpite('Brasil 2 Marrocos 1')).toBe(true);
+    });
+    it('vírgula entre os lados: "Brasil 2, Marrocos 1"', () => {
+      expect(pareceTentativaDePalpite('Brasil 2, Marrocos 1')).toBe(true);
+    });
+  });
+  describe('NEGATIVOS — não é palpite', () => {
+    it('saudação → false', () => {
+      expect(pareceTentativaDePalpite('oi tudo bem')).toBe(false);
+    });
+    it('pergunta com "?" → false', () => {
+      expect(pareceTentativaDePalpite('quantos pontos vale 2x1?')).toBe(false);
+    });
+    it('pergunta sobre jogo de hoje → false', () => {
+      expect(pareceTentativaDePalpite('qual o jogo de hoje')).toBe(false);
+    });
+    it('horário não vira placar → false', () => {
+      expect(pareceTentativaDePalpite('o jogo é 20:00 sábado')).toBe(false);
+    });
+    it('placar puro sem time ("3x0") → false (fluxo soPlacar)', () => {
+      expect(pareceTentativaDePalpite('3x0')).toBe(false);
+    });
+    it('palpite incompleto 1 time ("Espanha 4x1") → false (fluxo incompleto)', () => {
+      expect(pareceTentativaDePalpite('Espanha 4x1')).toBe(false);
+    });
+    it('frase casual com placar adjacente → false', () => {
+      expect(pareceTentativaDePalpite('vou no jogo 2x1 sabado')).toBe(false);
+    });
+    it('comando de leitura ("ranking") → false', () => {
+      expect(pareceTentativaDePalpite('ranking')).toBe(false);
     });
   });
 });
