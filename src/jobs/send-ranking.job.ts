@@ -2,6 +2,7 @@ import { prisma } from '../config/database.js';
 import { recalcularRanking } from '../modules/ranking/ranking.service.js';
 import { sendText } from '../whatsapp/evolution.client.js';
 import { redis } from '../config/redis.js';
+import { env } from '../config/env.js';
 import { celebracao, lamento, medalha } from '../utils/football.terms.js';
 
 /**
@@ -15,6 +16,9 @@ import { celebracao, lamento, medalha } from '../utils/football.terms.js';
  * Idempotente via flag Redis `ranking-sent:{rodadaId}` com TTL 7d.
  */
 export async function sendRankingJob() {
+  // v3.53.0 — disparo em massa (1 msg por participante por rodada). OFF por
+  // padrão; ligue ENABLE_RANKING=true só quando o número estiver seguro.
+  if (!env.ENABLE_RANKING) return;
   const rodadasFinalizadas = await prisma.rodada.findMany({
     where: { status: 'FINALIZADA' },
     select: { id: true, bolaoId: true, numero: true },

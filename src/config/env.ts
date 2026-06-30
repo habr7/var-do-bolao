@@ -71,7 +71,14 @@ const baseSchema = z.object({
   // v3.13.0 — flags pra desabilitar canais de comunicacao isoladamente
   // sem mexer em DRY_RUN_WHATSAPP (que afeta TODO envio). Util pra
   // staging onde queremos jobs rodando mas sem cutucar usuario.
-  ENABLE_BOM_DIA: z.coerce.boolean().default(true),
+  // v3.53.0 — defaults SEGUROS: todos os disparos em massa OFF por padrão.
+  // Num número recém-recuperado (pós-ban), um deploy NUNCA deve blastar
+  // sozinho. Ligue explicitamente no .env só o que quiser (ex.: bom-dia).
+  ENABLE_BOM_DIA: z.coerce.boolean().default(false),
+  // v3.53.0 — ranking horário (send-ranking): manda a posição pra CADA
+  // participante após rodada finalizar. Faltava flag — agora tem, OFF por
+  // padrão (era um disparo em massa sem interruptor).
+  ENABLE_RANKING: z.coerce.boolean().default(false),
   // v3.36.0 — DESATIVADO por padrão: redundante com o bom-dia (9h, lista
   // quem falta palpitar pra TODOS) + lembrete de 30min (última chance por
   // jogo). Mantê-la dava mensagem dobrada e dividia a trava com o bom-dia
@@ -83,14 +90,16 @@ const baseSchema = z.object({
   // bom-dia + chamada de palpites.
   ENABLE_REMINDERS: z.coerce.boolean().default(false),
   // v3.24.0 — revelação de palpites no kickoff (push automático).
-  ENABLE_PALPITE_REVEAL: z.coerce.boolean().default(true),
+  // v3.53.0 — OFF por padrão: a revelação fica sob demanda ("palpite dos
+  // participantes" → PALPITE_OUTROS), uma mensagem automática a menos.
+  ENABLE_PALPITE_REVEAL: z.coerce.boolean().default(false),
   // v3.32.0 — revisão diária: 1x/dia manda pro(s) dono(s) (OWNER_WHATSAPP_IDS)
   // o relatório das mensagens não-entendidas das últimas 24h (loop de melhoria).
   ENABLE_REVISAO_DIARIA: z.coerce.boolean().default(true),
   // v3.31.0 — lembrete de última hora POR JOGO: ~30 min antes do kickoff,
   // cutuca quem ainda não palpitou aquele jogo. Anti-spam: 1x por (user,
   // jogo) + cooldown por usuário + cap diário + coalescência por janela.
-  ENABLE_LEMBRETE_30MIN: z.coerce.boolean().default(true),
+  ENABLE_LEMBRETE_30MIN: z.coerce.boolean().default(false),
   // Antecedência da janela (min). Default 30 (= "faltando 30 min").
   LEMBRETE_30MIN_ANTECEDENCIA_MIN: z.coerce.number().int().min(5).max(120).default(30),
   // Cooldown por usuário (min): no máx. 1 lembrete-de-última-hora por janela.
