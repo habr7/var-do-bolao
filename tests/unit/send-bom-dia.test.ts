@@ -136,6 +136,13 @@ describe('sendBomDiaJob (v3.36.0 — hora fixa)', () => {
     expect(porWa['wa-2']).toContain('Boa sorte'); // palpitou tudo → boa sorte
   });
 
+  it('v3.53.0 — inclui a nota de "palpite dos participantes" (revelação sob demanda)', async () => {
+    h.findMany.mockResolvedValue(bolaoComJogo([{ id: 'u1', wa: 'wa-1', palpitou: false }]));
+    await sendBomDiaJob();
+    const texto: string = h.sendText.mock.calls[0][0].text;
+    expect(texto).toContain('palpite dos participantes');
+  });
+
   it('idempotência diária: 2ª execução no mesmo dia não reenvia', async () => {
     h.findMany.mockResolvedValue(bolaoComJogo([{ id: 'u1', wa: 'wa-1', palpitou: false }]));
     await sendBomDiaJob();

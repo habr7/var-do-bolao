@@ -159,10 +159,14 @@ export async function sendBomDiaJob() {
     const footer = faltaPalpitar > 0
       ? `\n⚪ = falta palpitar (${faltaPalpitar}). Manda *próximos jogos* pra palpitar o que falta.`
       : `\n🎉 Você já palpitou em todos! Boa sorte!`;
+    // v3.53.0 — como a revelação automática no kickoff foi desligada, avisa
+    // que dá pra ver os palpites da galera SOB DEMANDA (intent PALPITE_OUTROS).
+    const notaPalpites =
+      `\n\n👀 _Quando a partida começar, manda *palpite dos participantes* pra ver o que a galera cravou._`;
     // v3.17.0 — fuso explícito (caso Camila 11/06: ela perguntou se 16:00 era BRT)
     const rodapeBrt = `\n\n_(horários em fuso de Brasília 🇧🇷)_`;
 
-    const mensagem = `${header}\n\n${linhas.join('\n')}\n${footer}${rodapeBrt}`;
+    const mensagem = `${header}\n\n${linhas.join('\n')}\n${footer}${notaPalpites}${rodapeBrt}`;
 
     try {
       await sendText({ to: alvo.waId, text: mensagem });
