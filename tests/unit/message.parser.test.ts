@@ -292,6 +292,19 @@ describe('parseIntencao', () => {
         expect(r.palpite?.timeCasa).toBe('Brasil');
         expect(r.palpite?.timeVisitante).toBe('Marrocos');
       });
+      // v3.52.0 — gols ≤12: enumeração de datas/números não vira placar absurdo.
+      it('NÃO vira palpite "15x16": "o Brasil joga 15 e a Argentina 16"', () => {
+        expect(parseIntencao('o Brasil joga 15 e a Argentina 16').intencao).toBe(Intencao.TEXTO_LIVRE);
+      });
+      it('NÃO vira palpite com vírgula: "o Brasil joga 15, a Argentina 16"', () => {
+        expect(parseIntencao('o Brasil joga 15, a Argentina 16').intencao).toBe(Intencao.TEXTO_LIVRE);
+      });
+      it('placar alto plausível (≤12) ainda passa: "Alemanha 7, Brasil 1"', () => {
+        const r = parseIntencao('Alemanha 7, Brasil 1');
+        expect(r.intencao).toBe(Intencao.PALPITE_INLINE);
+        expect(r.palpite?.golsCasa).toBe(7);
+        expect(r.palpite?.golsVisitante).toBe(1);
+      });
     });
   });
 

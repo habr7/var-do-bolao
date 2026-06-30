@@ -87,6 +87,17 @@ describe('pareceTentativaDePalpite (v3.51.0)', () => {
     it('vírgula entre os lados: "Brasil 2, Marrocos 1"', () => {
       expect(pareceTentativaDePalpite('Brasil 2, Marrocos 1')).toBe(true);
     });
+    // v3.52.0 — NL com "ganha"/"perde" (achado nos testes 29/06: a v3.51.0
+    // excluía essas palavras e matava o palpite natural).
+    it('NL "Brasil ganha de 2 a 1 do Marrocos"', () => {
+      expect(pareceTentativaDePalpite('Brasil ganha de 2 a 1 do Marrocos')).toBe(true);
+    });
+    it('NL "acho que o Brasil ganha do Marrocos por 2 a 1"', () => {
+      expect(pareceTentativaDePalpite('acho que o Brasil ganha do Marrocos por 2 a 1')).toBe(true);
+    });
+    it('NL "Argentina perde do Nigéria de 1 a 0"', () => {
+      expect(pareceTentativaDePalpite('Argentina perde do Nigéria de 1 a 0')).toBe(true);
+    });
   });
   describe('NEGATIVOS — não é palpite', () => {
     it('saudação → false', () => {
@@ -112,6 +123,14 @@ describe('pareceTentativaDePalpite (v3.51.0)', () => {
     });
     it('comando de leitura ("ranking") → false', () => {
       expect(pareceTentativaDePalpite('ranking')).toBe(false);
+    });
+    // v3.52.0 — controles que NÃO podem virar palpite mesmo com "ganho/perco"
+    // (devem casar "quanto/quantos" antes).
+    it('pergunta "quanto ganho se acertar 2 a 1" → false', () => {
+      expect(pareceTentativaDePalpite('quanto ganho se acertar 2 a 1')).toBe(false);
+    });
+    it('pergunta "quantos pontos perco com 2 a 1" → false', () => {
+      expect(pareceTentativaDePalpite('quantos pontos perco com 2 a 1')).toBe(false);
     });
   });
 });

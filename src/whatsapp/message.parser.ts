@@ -1822,11 +1822,19 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
 
   // 6) v3.51.0 — LADOS por VÍRGULA/"e": "Brasil 2, Marrocos 1" / "Brasil 2 e
   // Marrocos 1". Mesmos guards. Roda por último (genérico).
+  // v3.52.0 — gols limitados a ≤12 (placar real máximo): sem isso, uma
+  // ENUMERAÇÃO de datas/números ("o Brasil joga 15 e a Argentina 16") virava
+  // um palpite absurdo "15x16". Acima de 12 não é placar — deixa pro LLM/
+  // conversa decidir. (Achado nos testes 29/06.)
   const ladosSep = linha.match(PALPITE_LADOS_VIRGULA_E_REGEX);
   if (ladosSep) {
     const tc = ladosSep[1].trim();
     const tv = ladosSep[3].trim();
+    const gc = parseInt(ladosSep[2], 10);
+    const gv = parseInt(ladosSep[4], 10);
     if (
+      gc <= 12 &&
+      gv <= 12 &&
       !timeComecaComDigito(tc) &&
       !timeComecaComDigito(tv) &&
       !timeEhStopwordSemantica(tc) &&
@@ -1835,8 +1843,8 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
     ) {
       return finalize({
         timeCasa: tc,
-        golsCasa: parseInt(ladosSep[2], 10),
-        golsVisitante: parseInt(ladosSep[4], 10),
+        golsCasa: gc,
+        golsVisitante: gv,
         timeVisitante: tv,
       });
     }

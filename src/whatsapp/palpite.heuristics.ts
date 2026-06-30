@@ -50,13 +50,21 @@ const ANCHOR_REGEX = /\d+\s*(?:[xX×-]|\s+(?:a|por|c|C)\s+)\s*\d+/g;
 // Palavras que sinalizam PERGUNTA/comando/informação — NÃO palpite. Se a frase
 // tem alguma delas, não tratamos como tentativa de palpite (evita falso
 // positivo tipo "quantos pontos vale 2x1?").
+// v3.52.0 — NÃO inclui "ganha/ganho/perde/perco": são justamente as palavras
+// dos palpites em linguagem natural ("Brasil ganha de 2 a 1", "Argentina
+// perde por 1 a 0"). As perguntas tipo "quanto ganho se acertar?" já caem em
+// "quanto/quantos". (Testes 29/06 mostraram que excluí-las matava NL legítimo.)
 const PALAVRAS_NAO_PALPITE =
-  /\b(quando|quant[oa]s?|qual|quais|quem|onde|com[oo]|porqu[eê]|por que|vale[m]?|ganho|ganha|perco|perde|hoje|amanh[ãa]|ranking|tabela|regras?|ajuda|menu|pontos?|jogo[s]?\s+de|que\s+horas|rolando|placar\s+(?:de|do)|resultado)\b/i;
+  /\b(quando|quant[oa]s?|qual|quais|quem|onde|com[oo]|porqu[eê]|por que|vale[m]?|hoje|amanh[ãa]|ranking|tabela|regras?|ajuda|menu|pontos?|jogo[s]?\s+de|que\s+horas|rolando|placar\s+(?:de|do)|resultado)\b/i;
 
 // Stopwords que não contam como "nome de time" ao medir se a frase é um placar.
+// Inclui verbos/preenchimentos comuns de NL ("acho", "ganha", "goleia"…) pra
+// não inflar a contagem de "nomes de time".
 const STOP_TIME = new Set<string>([
   'de', 'do', 'da', 'e', 'o', 'a', 'no', 'na', 'pra', 'pro', 'com', 'vs',
   'contra', 'x', 'por', 'foi', 'vai', 'la', 'ai', 'um', 'uma',
+  'que', 'acho', 'mesmo', 'goleia', 'ganha', 'ganho', 'perde', 'perco',
+  'aposto', 'aposta', 'minha', 'meu', 'palpite',
 ]);
 
 /**
@@ -80,7 +88,7 @@ const STOP_TIME = new Set<string>([
  */
 export function pareceTentativaDePalpite(texto: string): boolean {
   const t = texto.trim();
-  if (t.length < 5 || t.length > 60) return false; // placar é curto
+  if (t.length < 5 || t.length > 70) return false; // placar/NL curto
   if (t.includes('?')) return false; // pergunta
   // remove horas (20:00, 16h, 9h30) pra não contar como gols/placar
   const semHora = t.replace(/\b\d{1,2}\s*[:h]\s*\d{0,2}\b/gi, ' ');
