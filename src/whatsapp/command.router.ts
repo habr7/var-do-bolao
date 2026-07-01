@@ -678,7 +678,7 @@ async function dispatchIntencao(
 
     case Intencao.MEU_PALPITE:
     case Intencao.MEUS_PONTOS:
-      await handleMeusPalpites(msg, usuarioId);
+      await handleMeusPalpites(msg, usuarioId, raw);
       return true;
 
     case Intencao.JOGOS_HOJE:
@@ -6226,7 +6226,182 @@ async function talvezOferecerMaisJogos(
 // ============================================================
 // Fluxo: MEUS PALPITES / MEUS PONTOS
 // ============================================================
-async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string) {
+type RodadaDetalhe = Awaited<
+  ReturnType<typeof rankingService.getMeusPontosNoBolao>
+>['rodadas'][number];
+
+/** v3.57.0 — render por-rodada (dia-agrupado) reusado pelo "meus palpites"
+ * completo E pelo filtrado (por jogo/fase/dia). Não inclui header/total. */
+function renderBlocosPalpites(
+  rodadas: RodadaDetalhe[],
+  agora: Date,
+): { partes: string[]; temJogoEmAberto: boolean } {
+  const partes: string[] = [];
+  let temJogoEmAberto = false;
+  for (const rodada of rodadas) {
+    if (rodada.jogos.length === 0) continue;
+    const faseTag = rodada.rodada.fase !== 'GRUPOS' ? ` — ${faseLabel(rodada.rodada.fase)}` : '';
+    partes.push(`*Rodada ${rodada.rodada.numero}${faseTag}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
+    const jogosOrdenados = [...rodada.jogos].sort(
+      (a, b) => a.jogo.dataHora.getTime() - b.jogo.dataHora.getTime(),
+    );
+    let dataAtual = '';
+    for (const pj of jogosOrdenados) {
+      const j = pj.jogo;
+      const diaLabel = formatarDataComDiaBR(j.dataHora);
+      if (diaLabel !== dataAtual) {
+        dataAtual = diaLabel;
+        partes.push(`\n📅 *${diaLabel}*`);
+      }
+      const meu = `${pj.golsCasa}x${pj.golsVisitante}`;
+      if (j.status !== 'FINALIZADO') temJogoEmAberto = true;
+      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agora, pj.bonusObtido);
+      let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`;
+      linha += linhaClassificadoMeusPalpites(j, pj);
+      partes.push(linha);
+    }
+    partes.push('');
+  }
+  return { partes, temJogoEmAberto };
+}
+
+interface FiltroPalpites {
+  times: string[];
+  // 'MATA_MATA' = todas as fases exceto GRUPOS; Set = fases específicas; null = sem filtro de fase.
+  fases: 'MATA_MATA' | Set<string> | null;
+  dia: 'hoje' | 'ontem' | 'amanha' | null;
+}
+
+function normSimples(s: string): string {
+  return s.normalize('NFD').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** v3.57.0 — detecta um filtro (time/jogo, fase ou dia) no texto do "meus
+ * palpites". Retorna null se não houver filtro (→ fluxo normal com resumo). */
+function detectarFiltroPalpites(raw: string): FiltroPalpites | null {
+  let times: string[] = [];
+  try {
+    times = construirFatosCopa2026(raw)?.detectado?.times ?? [];
+  } catch {
+    times = [];
+  }
+  const low = raw.toLowerCase();
+
+  let fases: FiltroPalpites['fases'] = null;
+  if (/\bmata[\s-]?mata\b/.test(low)) {
+    fases = 'MATA_MATA';
+  } else {
+    const set = new Set<string>();
+    if (/\b(?:16\s?avos|dezesseis avos|r32|round\s?32)\b/.test(low)) set.add('R32');
+    if (/\boitavas?\b/.test(low)) set.add('OITAVAS');
+    if (/\bquartas?\b/.test(low)) set.add('QUARTAS');
+    if (/\bsemi(?:s|final|finais)?\b/.test(low)) set.add('SEMI');
+    if (/\b(?:terceiro lugar|3[ºo]? lugar|disputa de terceiro)\b/.test(low)) set.add('TERCEIRO');
+    if (/\bfinal\b/.test(low) && !/semifinal/.test(low)) set.add('FINAL');
+    if (/\b(?:grupos|fase de grupos)\b/.test(low)) set.add('GRUPOS');
+    if (set.size > 0) fases = set;
+  }
+
+  let dia: FiltroPalpites['dia'] = null;
+  if (/\bhoje\b/.test(low)) dia = 'hoje';
+  else if (/\bontem\b/.test(low)) dia = 'ontem';
+  else if (/\bamanh/.test(low)) dia = 'amanha';
+
+  if (times.length === 0 && !fases && !dia) return null;
+  return { times, fases, dia };
+}
+
+function diaBRT(d: Date): string {
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
+}
+
+/** Aplica o filtro às rodadas: corta rodadas de fase fora do filtro e jogos
+ * fora do time/dia. Devolve só as rodadas que sobraram com ≥1 jogo. */
+function aplicarFiltroPalpites(rodadas: RodadaDetalhe[], filtro: FiltroPalpites): RodadaDetalhe[] {
+  const alvoDia =
+    filtro.dia === null
+      ? null
+      : diaBRT(
+          new Date(Date.now() + (filtro.dia === 'ontem' ? -1 : filtro.dia === 'amanha' ? 1 : 0) * 86400_000),
+        );
+  const timesNorm = filtro.times.map(normSimples).filter((t) => t.length >= 3);
+
+  const out: RodadaDetalhe[] = [];
+  for (const r of rodadas) {
+    if (filtro.fases) {
+      const faseR = r.rodada.fase;
+      const ok = filtro.fases === 'MATA_MATA' ? faseR !== 'GRUPOS' : filtro.fases.has(faseR);
+      if (!ok) continue;
+    }
+    let jogos = r.jogos;
+    if (timesNorm.length > 0) {
+      jogos = jogos.filter((pj) => {
+        const c = normSimples(pj.jogo.timeCasa);
+        const v = normSimples(pj.jogo.timeVisitante);
+        return timesNorm.some((t) => c.includes(t) || v.includes(t));
+      });
+    }
+    if (alvoDia) {
+      jogos = jogos.filter((pj) => diaBRT(pj.jogo.dataHora) === alvoDia);
+    }
+    if (jogos.length > 0) out.push({ ...r, jogos });
+  }
+  return out;
+}
+
+function tituloFiltro(filtro: FiltroPalpites): string {
+  if (filtro.times.length > 0) return `🎯 *Seu palpite — ${filtro.times.join(' x ')}*`;
+  if (filtro.dia) {
+    const lbl = filtro.dia === 'hoje' ? 'de hoje' : filtro.dia === 'ontem' ? 'de ontem' : 'de amanhã';
+    return `🎯 *Seus palpites ${lbl}*`;
+  }
+  return `🎯 *Seus palpites (filtrados)*`;
+}
+
+/** v3.57.0 — mostra os palpites do usuário SÓ pros jogos que casam o filtro,
+ * DIRETO (sem "quer ver? sim/não"), varrendo todos os bolões dele (rotula por
+ * bolão). Retorna false se nada casou (caller cai no fluxo normal). */
+async function mostrarPalpitesFiltrados(
+  msg: IncomingMessage,
+  usuarioId: string,
+  filtro: FiltroPalpites,
+): Promise<boolean> {
+  const boloes = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
+  const agora = new Date();
+  const blocos: string[] = [];
+  let temAberto = false;
+  for (const b of boloes) {
+    const detalhes = await rankingService.getMeusPontosNoBolao(usuarioId, b.id);
+    const filtradas = aplicarFiltroPalpites(detalhes.rodadas, filtro);
+    if (filtradas.length === 0) continue;
+    const { partes, temJogoEmAberto } = renderBlocosPalpites(filtradas, agora);
+    temAberto = temAberto || temJogoEmAberto;
+    if (boloes.length > 1) blocos.push(`📋 *${b.nome}*`);
+    blocos.push(...partes);
+  }
+  if (blocos.length === 0) return false;
+
+  const partes = [tituloFiltro(filtro), '', ...blocos];
+  if (temAberto) partes.push(`⏳ _Tem jogo em aberto/rolando — a pontuação pode mudar até o apito._`);
+  const paginas = paginarBlocos(partes, 3500);
+  for (let i = 0; i < paginas.length; i++) {
+    const sufixo = paginas.length > 1 ? `\n\n_(${i + 1}/${paginas.length})_` : '';
+    await sendText({ to: msg.waId, text: paginas[i] + sufixo });
+  }
+  void incContador('intent.MEU_PALPITE.filtrado');
+  return true;
+}
+
+async function handleMeusPalpites(msg: IncomingMessage, usuarioId: string, raw = '') {
+  // v3.57.0 — pedido de palpite ESPECÍFICO (por jogo/fase/dia) → mostra só
+  // esses, direto, sem o "quer ver todos? sim/não". Se o filtro não casar
+  // nada, cai no fluxo normal (nunca "não encontrei").
+  const filtro = detectarFiltroPalpites(raw);
+  if (filtro) {
+    const mostrou = await mostrarPalpitesFiltrados(msg, usuarioId, filtro);
+    if (mostrou) return;
+  }
+
   // HOTFIX 17/05: palpites passados sao consulta historica — inclui
   // FINALIZADOS pro usuario poder ver o que palpitou em bolao encerrado.
   const boloes = await bolaoService.listarBoloesDoUsuarioComHistorico(usuarioId);
@@ -6357,40 +6532,8 @@ async function handleConfirmandoVerPalpites(msg: IncomingMessage, usuarioId: str
   // e agrupados por dia ("qui., 11/06") em vez da ordem arbitrária do
   // banco (caso real 11/06: lista parecia aleatória).
   const agoraPalpites = new Date();
-  let temJogoEmAberto = false;
-  const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`];
-  for (const rodada of detalhes.rodadas) {
-    if (rodada.jogos.length === 0) continue;
-    // Mata-mata: mostra a fase no cabeçalho da rodada.
-    const faseTag = rodada.rodada.fase !== 'GRUPOS' ? ` — ${faseLabel(rodada.rodada.fase)}` : '';
-    partes.push(`*Rodada ${rodada.rodada.numero}${faseTag}*${rodada.calculado ? ` (${rodada.pontuacao} pts)` : ''}`);
-    const jogosOrdenados = [...rodada.jogos].sort(
-      (a, b) => a.jogo.dataHora.getTime() - b.jogo.dataHora.getTime(),
-    );
-    let dataAtual = '';
-    for (const pj of jogosOrdenados) {
-      const j = pj.jogo;
-      const diaLabel = formatarDataComDiaBR(j.dataHora);
-      if (diaLabel !== dataAtual) {
-        dataAtual = diaLabel;
-        partes.push(`\n📅 *${diaLabel}*`);
-      }
-      const meu = `${pj.golsCasa}x${pj.golsVisitante}`;
-      // v3.33.0 — rótulo decidido pelo STATUS do jogo (não pela presença de
-      // placar). Antes, jogo AO_VIVO com placar parcial aparecia como
-      // "oficial: 0x1 ❌ (0 pts)" — final + zerado — enganando o usuário
-      // (caso Humberto 12/06 00:22). Agora mostra "🔴 ao vivo: parcial…".
-      if (j.status !== 'FINALIZADO') temJogoEmAberto = true;
-      const statusLinha = montarStatusResultado(j, pj.pontosObtidos, rodada.calculado, agoraPalpites, pj.bonusObtido);
-      let linha = `• ${j.timeCasa} ${meu} ${j.timeVisitante}\n   ↳ ${statusLinha}`;
-      // Mata-mata: mostra "quem você acha que passa" pra TODO jogo (empate =
-      // a crava; decisivo = o vencedor pelo placar — ignora dado órfão). Em
-      // jogo ENCERRADO, valida contra quem passou de verdade (✅/❌).
-      linha += linhaClassificadoMeusPalpites(j, pj);
-      partes.push(linha);
-    }
-    partes.push('');
-  }
+  const { partes: corpo, temJogoEmAberto } = renderBlocosPalpites(detalhes.rodadas, agoraPalpites);
+  const partes: string[] = [`📋 *Seus palpites — ${nomeBolao}*\n`, ...corpo];
   partes.push(`Total: *${detalhes.pontuacaoTotal} pts*`);
   if (temJogoEmAberto) {
     partes.push(`\n⏳ _Tem jogo ainda em aberto/rolando — sua pontuação pode mudar até o apito final._`);

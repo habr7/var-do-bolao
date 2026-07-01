@@ -155,6 +155,17 @@ function separarClassificadoInline(linha: string): { semClassificado: string; ta
 
 // Intents informativas do mata-mata que CEDEM pra um palpite real na mesma
 // mensagem (evita perder palpite quando a frase menciona pênaltis/empate/etc).
+// v3.57.0 — intents (info/pergunta) que CEDEM pra MEU_PALPITE quando o texto
+// começa com "meu(s) palpite(s)" (ex: "meus palpites das oitavas" acionaria
+// PERGUNTA_GERAL pela palavra "oitavas"). RECLAMACAO_BUG fica de fora de
+// propósito (é reclamação, não pedido de ver).
+const INTENTS_CEDEM_PRA_MEUS_PALPITES = new Set<Intencao>([
+  Intencao.PERGUNTA_GERAL_FUTEBOL,
+  Intencao.INFO_O_QUE_MUDA,
+  Intencao.PROGRESSO_PALPITES,
+  Intencao.INFO_PONTOS_MATAMATA,
+]);
+
 const INTENTS_INFO_MATAMATA_PERDEM_PRA_PALPITE = new Set<Intencao>([
   Intencao.INFO_PRORROGACAO,
   Intencao.INFO_PENALTI,
@@ -336,6 +347,12 @@ const MEU_PALPITE_PATTERNS: RegExp[] = [
   // → "meus palpites"). Baixo risco: "olhares" não aparece em nenhum outro
   // intent, então roteia uma frase rara pra "meus palpites".
   /\bmeus? olhares?\b/,
+  // v3.57.0 — pedido de palpite ESPECÍFICO (por jogo): "qual meu palpite no
+  // jogo França x Suécia", "meu palpite da França", "como eu fui no jogo",
+  // "meu placar no jogo". O handler filtra pelo time/jogo citado.
+  /\bqual (?:foi )?(?:o )?meu palpite/,
+  /\bmeu palpite (?:no|na|do|da|pro|pra|contra|em)\b/,
+  /\bcomo (?:eu )?fui\b/,
 ];
 
 // "Proximos jogos / quais jogos faltam / o que ainda nao palpitei"
@@ -1593,6 +1610,20 @@ export function parseIntencao(text: string): ParsedMessage {
     if (pk && pareceTimeLimpo(pk.timeCasa) && pareceTimeLimpo(pk.timeVisitante)) {
       return { intencao: Intencao.PALPITE_INLINE, raw, args: [], palpite: pk };
     }
+  }
+  // v3.57.0 — "meus palpites do mata-mata / das oitavas / da França" começa
+  // com "meu(s) palpite(s)" mas a palavra de fase/time aciona um info-intent
+  // (PERGUNTA_GERAL/INFO_O_QUE_MUDA/PROGRESSO) ANTES do MEU_PALPITE. Se o texto
+  // começa com "meu(s) palpite(s)", o usuário quer VER os próprios (filtrados)
+  // → MEU_PALPITE vence. NÃO cobre reclamação ("meus palpites estão errados"
+  // = RECLAMACAO_BUG, fora do set) nem lote (já tratado acima).
+  if (
+    intentPorPadrao &&
+    INTENTS_CEDEM_PRA_MEUS_PALPITES.has(intentPorPadrao) &&
+    /^meus? palpites?\b/.test(norm) &&
+    !/\b(errad|bugad|sumi|nao aparece|desapareceu|nao ta|nao esta)/.test(norm)
+  ) {
+    return { intencao: Intencao.MEU_PALPITE, raw, args: [] };
   }
   if (intentPorPadrao) {
     // Pra ranking, extrai possivel argumento ("ranking firma fc")

@@ -321,6 +321,31 @@ describe('parseIntencao', () => {
     it('"quais sao meus palpites?"', () => {
       expect(parseIntencao('quais sao meus palpites?').intencao).toBe(Intencao.MEU_PALPITE);
     });
+
+    // v3.57.0 — pedido de palpite específico (por jogo/fase/dia) → MEU_PALPITE
+    // (o handler filtra pelo que foi citado).
+    describe('v3.57.0 — MEU_PALPITE filtrado (por jogo/fase/dia)', () => {
+      const devem = [
+        'qual meu palpite no jogo França x Suécia',
+        'meu palpite da França',
+        'como eu fui no jogo',
+        'meus palpites do mata-mata',
+        'meus palpites das oitavas',
+        'meus palpites de hoje',
+      ];
+      for (const m of devem) {
+        it(`"${m}" → MEU_PALPITE`, () => {
+          expect(parseIntencao(m).intencao).toBe(Intencao.MEU_PALPITE);
+        });
+      }
+      // anti-regressão: reclamação NÃO é sequestrada; pergunta de fase pura fica.
+      it('"o que muda no mata-mata" continua INFO_O_QUE_MUDA', () => {
+        expect(parseIntencao('o que muda no mata-mata').intencao).toBe(Intencao.INFO_O_QUE_MUDA);
+      });
+      it('"palpite da galera" continua PALPITE_OUTROS', () => {
+        expect(parseIntencao('palpite da galera').intencao).toBe(Intencao.PALPITE_OUTROS);
+      });
+    });
     it('"quais são meus palpites" (com acento)', () => {
       expect(parseIntencao('quais são meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
     });
