@@ -87,7 +87,13 @@ const TETO_BLOCOS = 8; // teto defensivo de tamanho de mensagem
 export async function revelacoesParaUsuario(
   usuarioId: string,
   filtroTimes: string[] = [],
-): Promise<{ blocos: BlocoRevelacao[]; total: number }> {
+  // v3.54.0 — escopo da lista on-demand:
+  //   'rolando' → só jogos que começaram e AINDA NÃO finalizaram (mais limpo,
+  //               default do "palpite da galera" sem filtro de time);
+  //   'todos'   → todos os iniciados na janela de 24h (live + finalizados).
+  // Filtro por TIME ignora o escopo (citou o jogo → mostra, live ou não).
+  escopo: 'rolando' | 'todos' = 'todos',
+): Promise<{ blocos: BlocoRevelacao[]; total: number; totalRolando: number; totalTodos: number }> {
   const agora = new Date();
   const desde = new Date(agora.getTime() - JANELA_ONDEMAND_MS);
 
@@ -101,17 +107,31 @@ export async function revelacoesParaUsuario(
     orderBy: { dataHora: 'desc' },
   });
 
-  const blocos: BlocoRevelacao[] = [];
+  // Uma query só → separa "todos" (todos os iniciados) de "rolando" (não
+  // finalizados). Assim o caller sabe se vale oferecer "ver todos" sem 2ª ida.
+  const blocosTodos: BlocoRevelacao[] = [];
+  const blocosRolando: BlocoRevelacao[] = [];
   for (const jogo of jogos) {
     if (filtroTimes.length > 0 && !jogoBateTime(jogo.timeCasa, jogo.timeVisitante, filtroTimes)) {
       continue;
     }
     const bloco = blocoDoJogo(jogo, usuarioId);
-    if (bloco) blocos.push(bloco);
+    if (!bloco) continue;
+    blocosTodos.push(bloco);
+    if (jogo.status !== 'FINALIZADO') blocosRolando.push(bloco);
   }
+
+  // Citar time força "todos" (jogo finalizado é público pra sempre).
+  const usarRolando = escopo === 'rolando' && filtroTimes.length === 0;
+  const escolhidos = usarRolando ? blocosRolando : blocosTodos;
   // v3.28.0 — devolve o total pra o caller avisar quando cortar (antes
   // cortava em 8 silenciosamente).
-  return { blocos: blocos.slice(0, TETO_BLOCOS), total: blocos.length };
+  return {
+    blocos: escolhidos.slice(0, TETO_BLOCOS),
+    total: escolhidos.length,
+    totalRolando: blocosRolando.length,
+    totalTodos: blocosTodos.length,
+  };
 }
 
 function jogoBateTime(casa: string, visitante: string, filtroTimes: string[]): boolean {
