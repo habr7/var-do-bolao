@@ -674,6 +674,15 @@ const PALPITE_OUTROS_PATTERNS: RegExp[] = [
   /\bpalpites? d[oa]s? demais\b/,
   /\bo que (?:os outros|a galera|o pessoal|cada um|todo mundo|os demais) (?:cravou|cravaram|apostou|apostaram|palpitou|palpitaram|botou|botaram|colocou|colocaram|chutou|chutaram)\b/,
   /\bquem (?:cravou|apostou|botou|chutou) o qu[eê]\b/,
+  // v3.54.0 — variações que faltavam (revelação virou o caminho principal).
+  // "chutes/apostas d(os outros|a galera|do pessoal|dos participantes|...)"
+  /\b(?:chutes?|apostas?|palpites?|placar(?:es)?) d[oa]s? (?:outr[oa]s?|galera|pessoal|participantes?|colegas?|demais|grupo|amig[oa]s?|jogadores?)\b/,
+  // "ver/mostra os palpites do pessoal/grupo/demais/participantes"
+  /\b(?:ver|mostra(?:r)?|quero ver|me mostra|manda) (?:os |o )?(?:palpites?|placar(?:es)?|chutes?|apostas?) d[oa]s? (?:pessoal|grupo|demais|participantes?|colegas?|galera|outr[oa]s?)\b/,
+  // "como a galera/os outros/o pessoal foi/foram/se saíram/mandou"
+  /\bcomo (?:a galera|os outros|o pessoal|todo mundo|os demais|cada um) (?:foi|foram|se sa[íi]ram?|mandou|mandaram|se deu|se deram)\b/,
+  // "palpite/chute da galera pro jogo / desse jogo"
+  /\b(?:palpites?|chutes?|apostas?) d[oa] (?:galera|pessoal|turma|molecada|rapaziada)\b/,
 ];
 
 // PRECEDÊNCIA: antes de MEUS_PONTOS ("meus pontos estão errados").

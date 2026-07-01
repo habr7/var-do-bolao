@@ -26,6 +26,7 @@ function jogo(opts: {
     apiJogoId: opts.apiJogoId ?? 'WC2026_A_1',
     timeCasa: opts.timeCasa,
     timeVisitante: opts.timeVisitante,
+    status: (opts as { status?: string }).status ?? 'AO_VIVO',
     rodada: {
       bolao: {
         nome: opts.nomeBolao ?? 'Firma',
@@ -121,6 +122,50 @@ describe('revelacoesParaUsuario', () => {
       const where = (findMany.mock.calls[0][0] as { where: { dataHora: { lte?: Date; gte?: Date } } }).where;
       expect(where.dataHora.lte).toBeInstanceOf(Date);
       expect(where.dataHora.gte).toBeUndefined();
+    });
+  });
+
+  describe('v3.54.0 — escopo rolando vs todos', () => {
+    const doisJogos = [
+      jogo({
+        apiJogoId: 'J_LIVE',
+        timeCasa: 'Brasil',
+        timeVisitante: 'Marrocos',
+        status: 'AO_VIVO',
+        participantes: [{ id: 'u1', nome: 'Ana' }, { id: 'u2', nome: 'Bruno' }],
+        palpites: [{ usuarioId: 'u1', golsCasa: 2, golsVisitante: 1 }],
+      } as never),
+      jogo({
+        apiJogoId: 'J_FIM',
+        timeCasa: 'França',
+        timeVisitante: 'Suécia',
+        status: 'FINALIZADO',
+        participantes: [{ id: 'u1', nome: 'Ana' }, { id: 'u2', nome: 'Bruno' }],
+        palpites: [{ usuarioId: 'u1', golsCasa: 3, golsVisitante: 1 }],
+      } as never),
+    ];
+
+    it("escopo 'rolando' → só o jogo não-finalizado; totais expõem que há mais", async () => {
+      findMany.mockResolvedValue(doisJogos);
+      const r = await revelacoesParaUsuario('u1', [], 'rolando');
+      expect(r.blocos).toHaveLength(1);
+      expect(r.total).toBe(1);
+      expect(r.totalRolando).toBe(1);
+      expect(r.totalTodos).toBe(2); // caller usa isto pra oferecer "todos"
+    });
+
+    it("escopo 'todos' → os dois jogos", async () => {
+      findMany.mockResolvedValue(doisJogos);
+      const r = await revelacoesParaUsuario('u1', [], 'todos');
+      expect(r.blocos).toHaveLength(2);
+      expect(r.total).toBe(2);
+    });
+
+    it('citar time ignora o escopo (mostra o finalizado mesmo pedindo rolando)', async () => {
+      findMany.mockResolvedValue(doisJogos);
+      const r = await revelacoesParaUsuario('u1', ['França'], 'rolando');
+      expect(r.blocos).toHaveLength(1);
+      expect(r.blocos[0].timeCasa).toBe('França');
     });
   });
 });

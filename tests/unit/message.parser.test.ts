@@ -1152,6 +1152,33 @@ describe('parseIntencao', () => {
     });
   });
 
+  describe('v3.54.0 — PALPITE_OUTROS: frases novas + anti-regressão', () => {
+    const devem = [
+      'palpite da galera',
+      'palpite dos participantes',
+      'placares dos outros participantes',
+      'chutes da galera',
+      'apostas dos outros',
+      'como a galera foi',
+      'ver os palpites do pessoal',
+      'me mostra os palpites dos participantes',
+      'palpites da turma',
+      'palpite da rapaziada',
+    ];
+    for (const m of devem) {
+      it(`"${m}" → PALPITE_OUTROS`, () => {
+        expect(parseIntencao(m).intencao).toBe(Intencao.PALPITE_OUTROS);
+      });
+    }
+    // anti-regressão: "meus palpites" NÃO pode virar palpite dos outros.
+    it('"meus palpites" continua MEU_PALPITE', () => {
+      expect(parseIntencao('meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+    it('"quais meus palpites" continua MEU_PALPITE', () => {
+      expect(parseIntencao('quais meus palpites').intencao).toBe(Intencao.MEU_PALPITE);
+    });
+  });
+
   describe('v3.17.0 — PALPITE_OUTROS (caso Camila 11/06)', () => {
     it('"vai mostrar os palpites dos outros?" → PALPITE_OUTROS', () => {
       expect(parseIntencao('vai mostrar os palpites dos outros?').intencao).toBe(

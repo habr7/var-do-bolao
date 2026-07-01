@@ -427,6 +427,19 @@ async function handleIdle(
     }
   }
 
+  // v3.54.0 — follow-up "todos" do "palpite da galera": logo após mostrar só
+  // os jogos rolando, um "todos"/"tudo" seco (breadcrumb 5min) reabre a lista
+  // completa (live + finalizados de hoje).
+  if (
+    intencao === Intencao.TEXTO_LIVRE &&
+    /^(todos?|todas|tudo|finalizad\w*|terminad\w*|os que termin\w*)\b/i.test(msg.text.trim()) &&
+    (await redis.get(`po:todos:${msg.waId}`))
+  ) {
+    await redis.del(`po:todos:${msg.waId}`);
+    await handlePalpiteOutros(msg, usuarioId, msg.text, 'todos');
+    return;
+  }
+
   // Tenta despachar pela intencao detectada pelo regex
   const handled = await dispatchIntencao(msg, usuarioId, intencao, raw);
   if (handled) return;
@@ -1726,7 +1739,18 @@ async function handleReclamacaoBug(msg: IncomingMessage, usuarioId: string, raw:
  * (jogo, bolão do user) — nunca vaza palpite de outro jogo nem de bolão
  * que a pessoa não participa.
  */
-async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string, raw = '') {
+/** v3.54.0 — a mensagem pede explicitamente TODOS (live + finalizados)? */
+function pediuEscopoTodos(raw: string): boolean {
+  return /\b(todos?|todas|tudo|finalizad\w*|terminad\w*|encerrad\w*|de hoje|do dia|completos?)\b/i.test(raw);
+}
+
+async function handlePalpiteOutros(
+  msg: IncomingMessage,
+  usuarioId: string,
+  raw = '',
+  // v3.54.0 — quando vem do follow-up "todos" (breadcrumb), força o escopo.
+  escopoForcado?: 'rolando' | 'todos',
+) {
   void incContador('intent.PALPITE_OUTROS');
 
   let filtroTimes: string[] = [];
@@ -1737,13 +1761,37 @@ async function handlePalpiteOutros(msg: IncomingMessage, usuarioId: string, raw 
     filtroTimes = [];
   }
 
-  const { blocos, total } = await revelacoesParaUsuario(usuarioId, filtroTimes);
+  // v3.54.0 — default = só jogos ROLANDO (mais limpo). Citar time OU pedir
+  // "todos" explicitamente → escopo total. Sem revelação automática, este é
+  // o caminho principal pra ver o que a galera cravou.
+  const escopo: 'rolando' | 'todos' =
+    escopoForcado ?? (filtroTimes.length > 0 || pediuEscopoTodos(raw) ? 'todos' : 'rolando');
+
+  let { blocos, total, totalRolando, totalTodos } = await revelacoesParaUsuario(
+    usuarioId,
+    filtroTimes,
+    escopo,
+  );
+  // Pediu rolando mas nada rolando agora → mostra os finalizados recentes em
+  // vez de "não tem nada" (UX: não deixa no vácuo).
+  let caiuPraTodos = false;
+  if (escopo === 'rolando' && blocos.length === 0 && totalTodos > 0) {
+    ({ blocos, total } = await revelacoesParaUsuario(usuarioId, filtroTimes, 'todos'));
+    caiuPraTodos = true;
+  }
+
   if (blocos.length > 0) {
     let texto = montarMensagemRevelacao(blocos);
     // v3.28.0 — avisa quando há mais jogos do que coube (antes cortava em 8
     // sem dizer nada).
     if (total > blocos.length) {
       texto += `\n\n_Mostrei ${blocos.length} de ${total} jogos. Cita um time (ex: "palpites de México") pra filtrar._`;
+    }
+    // v3.54.0 — mostrei só os rolando E existem finalizados a mais → oferece
+    // ver todos. Breadcrumb 5min pra um "todos" seco funcionar de follow-up.
+    if (escopo === 'rolando' && !caiuPraTodos && totalTodos > totalRolando) {
+      texto += `\n\n🏁 _Quer ver também os que já terminaram hoje? Manda *palpites de todos*._`;
+      await redis.set(`po:todos:${msg.waId}`, '1', 'EX', 300);
     }
     await sendText({ to: msg.waId, text: texto });
     return;
