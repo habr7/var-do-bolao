@@ -1,7 +1,7 @@
 # Plano guardado — "meus palpites" filtrado por jogo/seleção (implementar depois)
 
 > Decisão: **B** (por jogo/time **+** filtros de seleção). Motor único.
-> Status: NÃO implementado — guardado a pedido do dono (01/07/2026).
+> Status: ✅ IMPLEMENTADO na v3.57.0 (01/07/2026).
 
 ## Problema
 Hoje "qual meu palpite no jogo França x Suécia?" cai em `MEU_PALPITE`, mas o handler
