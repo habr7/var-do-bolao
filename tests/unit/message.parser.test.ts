@@ -2003,6 +2003,58 @@ Grêmio 1x2 Inter`;
     });
   });
 
+  // v3.58.0 — caso real Rafael 01/07: copiou a lista "Próximos jogos" do bot
+  // (com markdown `_(16-avos de final)_` e bullets `⚪ data, hora —`) e pôs os
+  // placares. Antes: caía em PERGUNTA_GERAL (LLM congestionado) e os nomes
+  // vinham sujos / a Bósnia era descartada pelo guard de 40 chars.
+  describe('v3.58.0 — lista "Próximos jogos" do bot + placares (caso Rafael 01/07)', () => {
+    const RAFAEL = `🏆 *Bolao kzados*
+⚪ 01/07, 21:00 — Estados Unidos 1 x 0 Bósnia e Herzegovina _(16-avos de final)_
+⚪ 02/07, 16:00 — Espanha 1 x 0 Áustria _(16-avos de final)_
+⚪ 02/07, 20:00 — Portugal 1 x 0 Croácia _(16-avos de final)_
+⚪ 03/07, 00:00 — Suíça 1 x 1 Argélia _(16-avos de final)_
+⚪ 03/07, 15:00 — Austrália 0x 2 Egito _(16-avos de final)_
+⚪ 03/07, 19:00 — Argentina 3 x 0 Cabo Verde _(16-avos de final)_
+⚪ 03/07, 22:30 — Colômbia 1 x  1 Gana _(16-avos de final)_
+⚪ 04/07, 14:00 — Canadá 0 x 2 Marrocos _(Oitavas de final)_
+⚪ 04/07, 18:00 — Paraguai 0 x 3 França _(Oitavas de final)_
+⚪ 05/07, 17:00 — Brasil 1 x 0 Noruega _(Oitavas de final)_`;
+
+    it('parseIntencao → PALPITE_INLINE (não PERGUNTA_GERAL)', () => {
+      expect(parseIntencao(RAFAEL).intencao).toBe(Intencao.PALPITE_INLINE);
+    });
+
+    it('parseMultiplePalpites → os 10 (nenhum descartado)', () => {
+      expect(parseMultiplePalpites(RAFAEL)).toHaveLength(10);
+    });
+
+    it('a Bósnia e Herzegovina NÃO é ignorada e vem limpa (sem sufixo de fase)', () => {
+      const lote = parseMultiplePalpites(RAFAEL);
+      const bosnia = lote.find((p) => p.timeVisitante === 'Bósnia e Herzegovina');
+      expect(bosnia).toBeDefined();
+      expect(bosnia).toMatchObject({ timeCasa: 'Estados Unidos', golsCasa: 1, golsVisitante: 0 });
+    });
+
+    it('nenhum nome de time carrega markdown/fase ("_(16-avos de final)_")', () => {
+      const lote = parseMultiplePalpites(RAFAEL);
+      for (const p of lote) {
+        expect(p.timeCasa).not.toMatch(/[_*()]|avos|final/i);
+        expect(p.timeVisitante).not.toMatch(/[_*()]|avos|final/i);
+      }
+    });
+
+    it('markdown de fase numa linha isolada é limpo', () => {
+      const r = parseMultiplePalpites('Espanha 1x0 Áustria _(16-avos de final)_');
+      expect(r).toHaveLength(1);
+      expect(r[0]).toMatchObject({ timeCasa: 'Espanha', golsCasa: 1, golsVisitante: 0, timeVisitante: 'Áustria' });
+    });
+
+    // anti-regressão: pergunta de fase PURA (sem placares) NÃO vira palpite.
+    it('"quando são as oitavas?" continua PERGUNTA_GERAL_FUTEBOL', () => {
+      expect(parseIntencao('quando são as oitavas?').intencao).toBe(Intencao.PERGUNTA_GERAL_FUTEBOL);
+    });
+  });
+
   describe('v3.10.0 — formato invertido + tokenizer (caso Valéria 22/05)', () => {
     it('parseia uma linha invertida "1x1 México x África do Sul"', () => {
       const r = parseMultiplePalpites('1x1 México x África do Sul');

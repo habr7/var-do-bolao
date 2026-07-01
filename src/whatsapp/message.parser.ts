@@ -1487,6 +1487,11 @@ const INTENTS_LEITURA_SOBRESCRITAS_POR_LOTE = new Set<Intencao>([
   Intencao.RESUMO_BOLOES,
   Intencao.CUMPRIMENTO_CASUAL,
   Intencao.PROGRESSO_PALPITES,
+  // v3.58.0 — quando o user COPIA a lista "Próximos jogos" do bot e põe os
+  // placares, os rótulos de fase ("_(16-avos de final)_") acionam
+  // PERGUNTA_GERAL_FUTEBOL. Se há um LOTE de 2+ palpites parseáveis, é
+  // submissão → PALPITE_INLINE, não pergunta. Só sobrescreve com 2+ palpites.
+  Intencao.PERGUNTA_GERAL_FUTEBOL,
 ]);
 
 function matchIntent(norm: string): Intencao | null {
@@ -1721,7 +1726,16 @@ function tentarParsearPalpiteInline(linhaRaw: string): PalpiteInline | null {
   // "✅ 13/06 19:00 — Brasil 2x1 Marrocos"). Sem isso o "23:00 —" grudava
   // no nome do time e o match ficava sujo (caso +5531 12/06). NÃO mexe em
   // "1x1 México x África" (inverte): data exige "/", hora exige ":".
-  const linhaSemData = stripPrefixoDataHora(linhaRaw);
+  //
+  // v3.58.0 — remove marcadores de MARKDOWN (`_italic_`, `*bold*`) que o user
+  // copia da lista do PRÓPRIO bot (caso Rafael 01/07: "Espanha 1x0 Áustria
+  // _(16-avos de final)_"). Sem isso o sufixo `_(fase)_` poluía o nome do time
+  // ("Áustria _(16-avos de final)_") E estourava o guard de 40 chars (a
+  // "Bósnia e Herzegovina _(16-avos de final)_" era descartada). Nome de time
+  // nunca tem `_`/`*`, então é seguro. Depois o `(16-avos de final)` vira
+  // rabicho e é ignorado (não casa nenhum time no resolverLadoClassificado).
+  const semMarkdown = linhaRaw.replace(/[_*]/g, '');
+  const linhaSemData = stripPrefixoDataHora(semMarkdown);
   // Mata-mata: corta um eventual rabicho de classificado ("...e o Brasil
   // passa") ANTES de parsear o placar — senão o nome do visitante fica
   // poluído. O lado é resolvido após o parse (só em empate).
