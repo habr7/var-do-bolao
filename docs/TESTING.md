@@ -77,8 +77,10 @@ npm test
 | `channel-router.test.ts` | **(v3.59.0)** Decisão de rota por flags: default = WhatsApp SEM query no banco; migração (só Telegram) = linkado→telegram, sem vínculo→drop; ambos = `canalPreferido` decide; cache 60s + invalidação; variantes de waId (JID/dígitos); DB fora não derruba envio. 13 testes. |
 | `telegram.identity.test.ts` | **(v3.59.0)** `normalizarNumeroBR` (formatos comuns, DDD+8/9, rejeita lixo) e `variantesNumeroBR` (9º dígito, sufixo JID, sem duplicata). 6 testes. |
 | `telegram.inbound.test.ts` | **(v3.59.0)** Onboarding ponta a ponta: /start pede número; número conhecido → confirma nome → vincula (recupera pontuação); desconhecido → cria do zero; número já vinculado a outro chat → recusa; vinculado roteia pro command.router com `waId` certo; /start vira "oi"; dedup por update_id; grupo ignorado; mídia → aviso com rate-limit. 10 testes. |
+| `conversa.service.test.ts` | **(v3.60.0)** Histórico de conversas: resolve usuarioId por variantes do waId; `tg:` não busca usuário; trunca em 2000 chars; NUNCA lança (fire-and-forget); contexto de auditoria set/get/sobrescrita. 9 testes. |
+| `admin-conversas.test.ts` | **(v3.60.0)** Comandos de dono: parse (#CONVERSASGLOBAL/#CONVERSAS/#AUDITORIA com N, caps, nome composto), não-dono ignorado, listagem global com nome, busca por número (variantes 9º dígito) e nome fuzzy (vários → refino), formatação da auditoria (EDITOU a→b + msg original + canal). 13 testes. |
 
-Tempo: ~8s. Não toca rede nem DB. **1223 tests.**
+Tempo: ~8s. Não toca rede nem DB. **1245 tests.**
 
 ### Watch mode
 ```cmd

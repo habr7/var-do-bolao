@@ -83,6 +83,9 @@ import { verificarAntiLoop, registrarResposta } from '../utils/resposta-cap.js';
 import { tentarBroadcastAdmin, ehDono } from './broadcast.js';
 import { APP_VERSION } from '../version.js';
 import { tentarClassificadoAdmin } from './admin-classificado.js';
+import { registrarMensagemConversa } from '../modules/conversa/conversa.service.js';
+import { setContextoAuditoria } from '../modules/conversa/auditoria-contexto.js';
+import { tentarConsultaAdmin } from './admin-conversas.js';
 
 export interface IncomingMessage {
   // Em produção vem como JID completo (ex: "5511999999999@s.whatsapp.net"
@@ -92,6 +95,10 @@ export interface IncomingMessage {
   messageId: string;
   senderName: string;
   text: string;
+  // v3.60.0 — canal de ORIGEM da mensagem (webhook WhatsApp seta 'whatsapp'
+  // por default; telegram.inbound seta 'telegram'). Usado só pra histórico/
+  // auditoria — a lógica do bot continua agnóstica de canal.
+  canal?: 'whatsapp' | 'telegram';
 }
 
 /**
@@ -109,6 +116,18 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     // ISSUE-008: contador total de mensagens (denominador da taxa de fallback).
     void incContador('msg.total');
 
+    // v3.60.0 — histórico de conversas: grava TODA entrada (fire-and-forget;
+    // nunca bloqueia nem derruba o fluxo). Pulado em dry-run (testes/sim).
+    if (!env.DRY_RUN_WHATSAPP) {
+      void registrarMensagemConversa({
+        waId: msg.waId,
+        canal: msg.canal ?? 'whatsapp',
+        direcao: 'ENTRADA',
+        texto: msg.text,
+        messageId: msg.messageId,
+      });
+    }
+
     // v3.26.0 — Broadcast administrativo. Interceptado ANTES de tudo (anti-loop,
     // usuário, parser, FSM): só dono + marcador exato dispara; qualquer outra
     // mensagem (inclusive do dono sem o marcador) segue o fluxo normal.
@@ -121,6 +140,13 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
     // pros decididos nos pênaltis). Só dono + marcador `#CLASSIFICADO`.
     if (await tentarClassificadoAdmin(msg)) {
       void incContador('classificado.admin');
+      return;
+    }
+
+    // v3.60.0 — consultas de auditoria do dono: #CONVERSAS / #CONVERSASGLOBAL /
+    // #AUDITORIA. Só dono; qualquer outra mensagem segue o fluxo normal.
+    if (await tentarConsultaAdmin(msg)) {
+      void incContador('conversas.admin');
       return;
     }
 
@@ -172,6 +198,10 @@ export async function handleIncomingMessage(msg: IncomingMessage): Promise<void>
 
     const usuario = await bolaoService.getOrCreateUsuario(msg.waId, msg.senderName);
     tUser = Date.now();
+    // v3.60.0 — contexto de auditoria: guarda a mensagem CRUA + canal deste
+    // usuário; se ela resultar em registro/edição/apagamento de palpite, a
+    // trilha de auditoria (palpite.service) anexa o texto original como prova.
+    setContextoAuditoria(usuario.id, msg.text, msg.canal ?? 'whatsapp');
     const parsed = parseIntencao(msg.text);
     tParse = Date.now();
     intencaoFinal = parsed.intencao;

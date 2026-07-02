@@ -1,6 +1,7 @@
 import { redis } from '../config/redis.js';
 import { handleIncomingMessage } from '../whatsapp/command.router.js';
 import { sendText } from '../whatsapp/evolution.client.js';
+import { registrarMensagemConversa } from '../modules/conversa/conversa.service.js';
 import { enderecoTelegram } from './channel-router.js';
 import { tgSendTyping, type TelegramMessage, type TelegramUpdate } from './telegram.client.js';
 import {
@@ -67,7 +68,16 @@ export async function processarUpdateTelegram(update: TelegramUpdate): Promise<v
     const usuario = await buscarUsuarioPorTelegramId(chatId);
 
     if (!usuario) {
-      // Sem vínculo → onboarding (pede número / confirma / cria novo)
+      // Sem vínculo → onboarding (pede número / confirma / cria novo).
+      // v3.60.0 — histórico: entrada do onboarding não passa pelo router,
+      // então registra aqui (as respostas SAÍDA já são logadas no sendText).
+      void registrarMensagemConversa({
+        waId: enderecoTg,
+        canal: 'telegram',
+        direcao: 'ENTRADA',
+        texto,
+        messageId: String(msg.message_id),
+      });
       await conduzirOnboarding(chatId, enderecoTg, nome, msg, texto);
       return;
     }
@@ -83,6 +93,7 @@ export async function processarUpdateTelegram(update: TelegramUpdate): Promise<v
       messageId: String(msg.message_id),
       senderName: usuario.nome || nome,
       text: textoNormalizado,
+      canal: 'telegram',
     });
   } catch (error) {
     console.error('[telegram-inbound] erro processando update:', (error as Error).message);

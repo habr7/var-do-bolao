@@ -26,5 +26,16 @@ export async function limparMensagensAntigas(): Promise<{ deletados: number; cor
 
   console.log(`[limpar-mensagens-antigas] removidos: ${resultado.count}`);
 
+  // v3.60.0 — retenção do histórico de conversas (mensagens_conversa).
+  // Mesma cadência mensal, corte próprio (CONVERSA_RETENCAO_DIAS, default 180).
+  // A trilha palpites_auditoria NÃO expira (registro de auditoria).
+  const corteConversa = new Date(Date.now() - env.CONVERSA_RETENCAO_DIAS * 24 * 60 * 60 * 1000);
+  const conversas = await prisma.mensagemConversa.deleteMany({
+    where: { criadoEm: { lt: corteConversa } },
+  });
+  console.log(
+    `[limpar-mensagens-antigas] conversas removidas: ${conversas.count} (>${env.CONVERSA_RETENCAO_DIAS}d)`,
+  );
+
   return { deletados: resultado.count, corteAntes: corte };
 }

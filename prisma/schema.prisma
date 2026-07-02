@@ -38,6 +38,8 @@ model Usuario {
   solicitacoesFeitas     SolicitacaoEntrada[]
   bolaoPadrao            Bolao?                 @relation("BolaoPadrao", fields: [bolaoPadraoId], references: [id])
   mensagensNaoEntendidas MensagemNaoEntendida[]
+  mensagensConversa      MensagemConversa[]
+  auditoriasPalpite      PalpiteAuditoria[]
 
   @@map("usuarios")
 }
@@ -245,8 +247,9 @@ model Jogo {
   // Em qual lado (CASA/VISITANTE) o vencedor deste jogo entra no próximo.
   proximoSlot         LadoJogo?
 
-  rodada       Rodada        @relation(fields: [rodadaId], references: [id])
+  rodada       Rodada             @relation(fields: [rodadaId], references: [id])
   palpitesJogo PalpiteJogo[]
+  auditorias   PalpiteAuditoria[]
 
   @@unique([rodadaId, apiJogoId])
   @@index([dataHora])
@@ -329,6 +332,62 @@ model PalpiteJogo {
 //
 // TTL: removido pelo job mensal `limpar-mensagens-antigas` (default 180 dias,
 // configuravel via MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS).
+// ============================================================
+// MENSAGEM_CONVERSA — histórico completo de conversas (v3.60.0)
+// ============================================================
+// Grava TODA mensagem trocada entre usuários e bot (entrada e saída), nos
+// dois canais, pra auditoria (ex: disputa de palpite) e debug. Escrita é
+// fire-and-forget nos 2 chokepoints (handleIncomingMessage / sendText) —
+// falha de log NUNCA derruba conversa. Consulta só via comandos de dono
+// (#CONVERSAS / #CONVERSASGLOBAL). LGPD: retenção pelo job mensal
+// (CONVERSA_RETENCAO_DIAS, default 180); texto truncado em 2000 chars.
+model MensagemConversa {
+  id        String   @id @default(uuid())
+  usuarioId String? // FK opcional — resolvida por whatsappId no momento do log
+  waId      String // endereço cru (JID / dígitos / "tg:<chatId>" no onboarding)
+  canal     String // 'whatsapp' | 'telegram'
+  direcao   String // 'ENTRADA' (usuário → bot) | 'SAIDA' (bot → usuário)
+  texto     String   @db.Text // truncado em 2000 chars
+  messageId String? // id da mensagem no canal (quando disponível)
+  criadoEm  DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId, criadoEm])
+  @@index([waId, criadoEm])
+  @@index([criadoEm])
+  @@map("mensagens_conversa")
+}
+
+// ============================================================
+// PALPITE_AUDITORIA — trilha de auditoria de palpite (v3.60.0)
+// ============================================================
+// Event-log de domínio: cada REGISTRADO/EDITADO/APAGADO/CLASSIFICADO de
+// palpite vira um evento imutável com o placar antes→depois, o texto cru
+// da mensagem que originou a ação e o canal. Prova direta pra disputa
+// ("você mandou 'Brasil 2x1' às 14:32 via telegram"). NÃO expira (é o
+// registro de auditoria). Consulta via comando de dono #AUDITORIA.
+model PalpiteAuditoria {
+  id            String   @id @default(uuid())
+  usuarioId     String
+  jogoId        String
+  bolaoId       String
+  acao          String // 'REGISTRADO' | 'EDITADO' | 'APAGADO' | 'CLASSIFICADO'
+  placarAntes   String? // "2x1" (null no registro inicial)
+  placarDepois  String? // null no APAGADO
+  classificado  String? // mata-mata: lado/time cravado como quem passa
+  textoOriginal String?  @db.Text // mensagem crua que gerou a ação (truncada)
+  canal         String? // 'whatsapp' | 'telegram'
+  criadoEm      DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  jogo    Jogo    @relation(fields: [jogoId], references: [id])
+
+  @@index([usuarioId, criadoEm])
+  @@index([jogoId])
+  @@map("palpites_auditoria")
+}
+
 model MensagemNaoEntendida {
   id             String   @id @default(uuid())
   usuarioId      String?

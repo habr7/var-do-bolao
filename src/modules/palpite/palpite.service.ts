@@ -2,6 +2,8 @@ import type { LadoJogo } from '@prisma/client';
 import { prisma } from '../../config/database.js';
 import * as palpiteRepo from './palpite.repository.js';
 import { timeCorresponde } from '../../utils/validators.js';
+import { gravarAuditoriaPalpite } from '../conversa/conversa.service.js';
+import { getContextoAuditoria } from '../conversa/auditoria-contexto.js';
 
 interface RegistrarPalpiteInput {
   usuarioId: string;
@@ -89,6 +91,25 @@ export async function registrarPalpiteEmRodada(
   const palpite = await palpiteRepo.getOrCreatePalpite(input.usuarioId, rodada.id);
   await palpiteRepo.registrarPalpiteJogo(palpite.id, jogo.id, input.golsCasa, input.golsVisitante);
 
+  // v3.60.0 — trilha de auditoria (fire-and-forget): registro/edição com o
+  // placar antes→depois e o texto cru da mensagem que originou (prova pra
+  // disputa). O contexto vem do router via auditoria-contexto.
+  {
+    const ctx = getContextoAuditoria(input.usuarioId);
+    void gravarAuditoriaPalpite({
+      usuarioId: input.usuarioId,
+      jogoId: jogo.id,
+      bolaoId: rodada.bolaoId,
+      acao: palpiteJogoAnterior ? 'EDITADO' : 'REGISTRADO',
+      placarAntes: palpiteJogoAnterior
+        ? `${palpiteJogoAnterior.golsCasa}x${palpiteJogoAnterior.golsVisitante}`
+        : null,
+      placarDepois: `${input.golsCasa}x${input.golsVisitante}`,
+      textoOriginal: ctx?.texto ?? null,
+      canal: ctx?.canal ?? null,
+    });
+  }
+
   return {
     jogoId: jogo.id,
     rodadaId: rodada.id,
@@ -121,6 +142,38 @@ export async function registrarClassificadoPalpite(input: {
     },
     data: { classificadoPalpite: input.lado },
   });
+
+  // v3.60.0 — auditoria do "quem passa" cravado (fire-and-forget, 1 evento
+  // por jogo atingido). O nome do time fica legível no lugar do enum.
+  if (r.count > 0) {
+    void (async () => {
+      try {
+        const jogos = await prisma.jogo.findMany({
+          where: {
+            rodadaId: { in: input.rodadaIds },
+            timeCasa: input.timeCasa,
+            timeVisitante: input.timeVisitante,
+          },
+          select: { id: true, rodada: { select: { bolaoId: true } } },
+        });
+        const ctx = getContextoAuditoria(input.usuarioId);
+        const timeCravado = input.lado === 'CASA' ? input.timeCasa : input.timeVisitante;
+        for (const j of jogos) {
+          void gravarAuditoriaPalpite({
+            usuarioId: input.usuarioId,
+            jogoId: j.id,
+            bolaoId: j.rodada.bolaoId,
+            acao: 'CLASSIFICADO',
+            classificado: timeCravado,
+            textoOriginal: ctx?.texto ?? null,
+            canal: ctx?.canal ?? null,
+          });
+        }
+      } catch (error) {
+        console.warn('[conversa] auditoria de classificado falhou:', (error as Error).message);
+      }
+    })();
+  }
   return r.count;
 }
 
@@ -264,6 +317,24 @@ export async function apagarPalpiteJogo(palpiteJogoId: string, usuarioId: string
   }
 
   await prisma.palpiteJogo.delete({ where: { id: palpiteJogoId } });
+
+  // v3.60.0 — auditoria do apagamento (fire-and-forget)
+  {
+    const rodadaDoJogo = await prisma.rodada.findUnique({
+      where: { id: pj.jogo.rodadaId },
+      select: { bolaoId: true },
+    });
+    const ctx = getContextoAuditoria(usuarioId);
+    void gravarAuditoriaPalpite({
+      usuarioId,
+      jogoId: pj.jogoId,
+      bolaoId: rodadaDoJogo?.bolaoId ?? '',
+      acao: 'APAGADO',
+      placarAntes: `${pj.golsCasa}x${pj.golsVisitante}`,
+      textoOriginal: ctx?.texto ?? null,
+      canal: ctx?.canal ?? null,
+    });
+  }
 
   // Se o palpite-mae ficou vazio, remove ele tambem (limpa registro orfao)
   const restantes = await prisma.palpiteJogo.count({ where: { palpiteId: pj.palpiteId } });
