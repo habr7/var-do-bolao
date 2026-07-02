@@ -882,3 +882,23 @@ versão        (ou #versao / version)
 → Bot responde a versão que está rodando (ex.: `🤖 VAR do Bolão v3.44.0 — ambiente: production`).
 Serve pra conferir, sem acessar o VPS, se o deploy é o esperado. Também aparece no log de
 boot: `docker compose logs app | grep boot`. Só o dono (`OWNER_WHATSAPP_IDS`) dispara.
+
+### Histórico de conversas / auditoria (dono) — v3.60.0
+```
+#CONVERSASGLOBAL [qtd]           → últimas N mensagens GERAIS (todos), default 20, cap 100
+#CONVERSAS <número|nome> [qtd]   → últimas N mensagens de UMA pessoa
+#AUDITORIA <número|nome> [qtd]   → extrato de palpites (registrou/editou/apagou/cravou),
+                                   com a mensagem ORIGINAL como prova e o canal
+```
+Exemplos:
+```
+#CONVERSASGLOBAL 50
+#CONVERSAS +5511912345678 30
+#CONVERSAS Rafael
+#AUDITORIA Rafael 10
+```
+→ Busca por número aceita qualquer formato (variantes de 9º dígito resolvidas); por nome é
+fuzzy (vários matches → bot pede refino). Uso típico: disputa de palpite — `#AUDITORIA` mostra
+`[01/07 14:33] *Brasil x França*: EDITOU 2x1 → 3x1 via telegram ↳ msg: "corrigir Brasil 3x1"`.
+Só o dono dispara; não-dono nem fica sabendo que os comandos existem. Conversas expiram em
+`CONVERSA_RETENCAO_DIAS` (180d); a auditoria de palpites não expira.

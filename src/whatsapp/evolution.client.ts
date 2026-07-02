@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { resolverRotaEnvio } from '../messaging/channel-router.js';
 import { tgSendText, tgSendPhoto } from '../messaging/telegram.client.js';
+import { registrarMensagemConversa } from '../modules/conversa/conversa.service.js';
 
 /**
  * Cliente HTTP para a Evolution API v2.x (evoapicloud/evolution-api).
@@ -124,6 +125,8 @@ export async function sendText({ to, text }: SendTextInput) {
   const rota = await resolverRotaEnvio(to);
   if (rota.canal === 'telegram') {
     await tgSendText(rota.chatId, text);
+    // v3.60.0 — histórico: registra a SAÍDA (fire-and-forget, nunca falha o envio)
+    void registrarMensagemConversa({ waId: to, canal: 'telegram', direcao: 'SAIDA', texto: text });
     return { telegram: true };
   }
   if (rota.canal === 'drop') {
@@ -132,10 +135,12 @@ export async function sendText({ to, text }: SendTextInput) {
   }
 
   // Formato Evolution v2.x (evoapicloud/evolution-api:latest)
-  return evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
+  const resultado = await evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
     number: to,
     text,
   });
+  void registrarMensagemConversa({ waId: to, canal: 'whatsapp', direcao: 'SAIDA', texto: text });
+  return resultado;
 
   // FALLBACK v1.8.x — descomentar (e comentar acima) se voltar pra v1:
   // return evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
@@ -154,6 +159,9 @@ export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
   const rota = await resolverRotaEnvio(to);
   if (rota.canal === 'telegram') {
     await tgSendPhoto(rota.chatId, imageUrl, caption);
+    void registrarMensagemConversa({
+      waId: to, canal: 'telegram', direcao: 'SAIDA', texto: `[imagem] ${caption ?? imageUrl}`,
+    });
     return { telegram: true };
   }
   if (rota.canal === 'drop') {
@@ -162,12 +170,16 @@ export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
   }
 
   // Formato Evolution v2.x (evoapicloud/evolution-api:latest)
-  return evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {
+  const resultado = await evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {
     number: to,
     mediatype: 'image',
     media: imageUrl,
     caption: caption ?? '',
   });
+  void registrarMensagemConversa({
+    waId: to, canal: 'whatsapp', direcao: 'SAIDA', texto: `[imagem] ${caption ?? imageUrl}`,
+  });
+  return resultado;
 
   // FALLBACK v1.8.x — descomentar (e comentar acima) se voltar pra v1:
   // return evoFetch(`/message/sendMedia/${env.EVOLUTION_INSTANCE}`, {

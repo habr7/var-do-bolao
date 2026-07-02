@@ -167,6 +167,11 @@ const baseSchema = z.object({
   // Retencao em dias antes do job mensal limpar. Default 180 dias.
   MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS: z.coerce.number().default(180),
 
+  // v3.60.0 — historico completo de conversas (mensagens_conversa).
+  // Retencao em dias (LGPD); o job mensal limpa o que passar disso.
+  // A trilha de auditoria de palpite (palpites_auditoria) NAO expira.
+  CONVERSA_RETENCAO_DIAS: z.coerce.number().default(180),
+
   // ============================================================
   // CANAIS DE MENSAGERIA (multi-canal — WhatsApp + Telegram, v3.59.0)
   // ============================================================
