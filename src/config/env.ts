@@ -166,6 +166,29 @@ const baseSchema = z.object({
   // Sprint 3 — historico de mensagens nao entendidas (LGPD)
   // Retencao em dias antes do job mensal limpar. Default 180 dias.
   MENSAGEM_NAO_ENTENDIDA_RETENCAO_DIAS: z.coerce.number().default(180),
+
+  // ============================================================
+  // CANAIS DE MENSAGERIA (multi-canal — WhatsApp + Telegram, v3.59.0)
+  // ============================================================
+  // Flags de canal: ligam/desligam ENTRADA e SAIDA por canal, de forma
+  // independente. Cenario da migracao: ENABLE_WHATSAPP=false + ENABLE_TELEGRAM=true.
+  // Defaults preservam o comportamento atual (so WhatsApp).
+  ENABLE_WHATSAPP: z.preprocess(coerceBool, z.boolean()).default(true),
+  ENABLE_TELEGRAM: z.preprocess(coerceBool, z.boolean()).default(false),
+
+  // Telegram Bot API — token do BotFather (formato "123456:ABC-DEF...").
+  // Obrigatorio quando ENABLE_TELEGRAM=true (validado em loadEnv).
+  TELEGRAM_BOT_TOKEN: z.string().default(''),
+  // @username do bot (sem @), usado no deep link t.me/<username> das mensagens-convite.
+  TELEGRAM_BOT_USERNAME: z.string().default(''),
+  // Modo de recebimento:
+  //   "polling" (default): loop getUpdates (long polling). Zero infra publica.
+  //   "webhook": Telegram faz POST em {APP_URL}/webhook/telegram. Exige URL
+  //              publica HTTPS valida. Header secreto validado abaixo.
+  TELEGRAM_MODE: z.enum(['polling', 'webhook']).default('polling'),
+  // Segredo do webhook (X-Telegram-Bot-Api-Secret-Token). Gerado por voce;
+  // usado so no modo webhook pra rejeitar POSTs que nao vieram do Telegram.
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
 });
 
 export type Env = z.infer<typeof baseSchema>;
@@ -193,6 +216,21 @@ function loadEnv(): Env {
       );
       process.exit(1);
     }
+  }
+
+  // Telegram ligado exige token (senao o canal sobe quebrado silenciosamente).
+  if (data.ENABLE_TELEGRAM && !data.TELEGRAM_BOT_TOKEN && !data.DRY_RUN_WHATSAPP) {
+    console.error(
+      '❌ ENABLE_TELEGRAM=true exige TELEGRAM_BOT_TOKEN (pegue no @BotFather).',
+    );
+    process.exit(1);
+  }
+
+  // Nenhum canal ligado = ninguem recebe/responde. Provavelmente engano de config.
+  if (!data.ENABLE_WHATSAPP && !data.ENABLE_TELEGRAM) {
+    console.warn(
+      '⚠️  ENABLE_WHATSAPP e ENABLE_TELEGRAM ambos desligados — o bot nao vai responder por nenhum canal.',
+    );
   }
 
   return data;

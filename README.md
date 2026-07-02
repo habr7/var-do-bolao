@@ -129,6 +129,7 @@ o que **nunca** rodar): ver **[DEPLOY.md](DEPLOY.md)**.
 ```
 src/
 ├── whatsapp/         FSM + parser regex + handlers (command.router.ts)
+├── messaging/        canal Telegram + roteador multi-canal (v3.59.0)
 ├── llm/              Gemini + Ollama + 4 prompts especializados
 ├── modules/          bolao, palpite, ranking, solicitacao, rodada, ...
 ├── jobs/             cron jobs (fetch-results, send-bom-dia, ranking, etc)
@@ -261,6 +262,7 @@ Privado — uso interno até decisão de open-source.
 
 ## Histórico curto
 
+- **v3.59.0** (2026-07-02) — **Canal TELEGRAM (multi-canal).** O bot agora fala WhatsApp E Telegram com a mesma lógica: canal novo só na fronteira de I/O (`src/messaging/`), `command.router` intocado → **todas** as funcionalidades existem nos dois canais. Onboarding no 1º contato pede o número de WhatsApp e vincula o cadastro (pontuação/palpites recuperados). Entrada por polling (default) ou webhook; saída roteada por usuário (`canalPreferido`); formatação WhatsApp→HTML com fallback. Flags `ENABLE_WHATSAPP`/`ENABLE_TELEGRAM` (defaults preservam o comportamento atual). Migration aditiva (`telegramId` no Usuario). **1223 tests, simulador 143/143.**
 - **v3.41.0–v3.44.0** (2026-06-27/28) — **Fase MATA-MATA da Copa 2026 (16-avos→final+3º).** Migration aditiva (fase em Rodada/Jogo/PalpiteJogo + classificado/pênaltis), pontuação por fase + bônus de classificado (placar 90'+prorrogação, pênalti fora, crava nunca perdida), chave `bracket-2026.ts`, **sync automático dos confrontos pela API da FIFA** (times/datas/placar/classificado por `MatchNumber`, resolve pênaltis pelo `Winner`), FSM de empate + submenu de regras + intents de dúvida/chave. **v3.44.0:** dá pra dizer quem passa no MESMO palpite do empate ("Brasil 1x1 Japão e o Brasil passa" → preview confirma placar + classificado antes de registrar); palpite real não vira mais intent de dúvida; roteamento da bateria de QA + escape gracioso da pergunta de classificado. **1101 tests, simulador 141/141.**
 - **v3.37.1** (2026-06-15) — Palpites que falhavam no parse (revisão diária): separador × (unicode do celular) e "c" (typo de x) agora viram placar; "Espanha 4x1" (um time só) pede o adversário em vez de "não entendi". 953 tests.
 
