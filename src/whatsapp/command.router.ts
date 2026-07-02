@@ -2060,6 +2060,8 @@ async function finalizarCriacaoBolao(msg: IncomingMessage, usuarioId: string, no
     nomeBolao: bolao.nome,
     codigoBolao: bolao.codigo,
     numeroBot: env.WHATSAPP_BUSINESS_NUMBER,
+    canais: { whatsapp: env.ENABLE_WHATSAPP, telegram: env.ENABLE_TELEGRAM },
+    telegramBotUsername: env.TELEGRAM_BOT_USERNAME,
   });
 
   // Mensagem 1: confirmacao da criacao + ID
@@ -2069,7 +2071,7 @@ async function finalizarCriacaoBolao(msg: IncomingMessage, usuarioId: string, no
       `🏆 Bolão *${bolao.nome}* criado, craque!\n` +
       `👑 Você é o admin.\n\n` +
       `🎟️ *ID do bolão:* \`#${bolao.codigo}\`\n\n` +
-      (convite.linkWaMe
+      (convite.linkWaMe || convite.linkTelegram
         ? `📨 Pra convidar gente é fácil: encaminha a mensagem abaixo pra galera. Quem clicar no link entra direto no bolão certo — sem precisar digitar nada. 🤙`
         : `📨 Pra convidar gente, encaminha a mensagem abaixo. Quem mandar ela pro meu número entra direto no bolão certo. 🤙`),
   });
@@ -4145,11 +4147,13 @@ async function enviarConvitePraBolao(
     nomeBolao: bolao.nome,
     codigoBolao: bolao.codigo,
     numeroBot: env.WHATSAPP_BUSINESS_NUMBER,
+    canais: { whatsapp: env.ENABLE_WHATSAPP, telegram: env.ENABLE_TELEGRAM },
+    telegramBotUsername: env.TELEGRAM_BOT_USERNAME,
   });
   // Mensagem 1: explicacao curta pro admin entender como funciona
   await sendText({
     to: msg.waId,
-    text: convite.linkWaMe
+    text: convite.linkWaMe || convite.linkTelegram
       ? `📨 *Convite pronto pro bolão "${bolao.nome}"*\n\nEncaminha a mensagem abaixo pra galera (grupo ou DM). Quem clicar no link entra direto no bolão certo — sem precisar copiar nada. 🤙`
       : convite.textoPrincipal,
   });

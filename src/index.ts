@@ -3,6 +3,11 @@ import { env } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { disconnectRedis } from './config/redis.js';
 import { webhookVerifyHandler, webhookMessageHandler } from './whatsapp/webhook.handler.js';
+import {
+  iniciarTelegram,
+  pararTelegram,
+  registrarWebhookTelegram,
+} from './messaging/telegram.transport.js';
 import { registerJobs } from './jobs/index.js';
 import { APP_VERSION } from './version.js';
 
@@ -28,6 +33,12 @@ async function buildApp() {
   app.get('/webhook/whatsapp', webhookVerifyHandler);
   app.post('/webhook/whatsapp', webhookMessageHandler);
 
+  // Telegram Bot API webhook (usado só quando TELEGRAM_MODE=webhook; a rota
+  // é registrada sempre que o canal está ligado — inofensiva no polling).
+  if (env.ENABLE_TELEGRAM) {
+    registrarWebhookTelegram(app);
+  }
+
   return app;
 }
 
@@ -41,6 +52,10 @@ async function start() {
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
     console.log(`[boot] ⚽ VAR do Bolão v${APP_VERSION} (${env.NODE_ENV}) rodando na porta ${env.PORT}`);
     console.log(`📨 Webhook WhatsApp: ${env.APP_URL}/webhook/whatsapp`);
+
+    // Canal Telegram (polling ou webhook, conforme TELEGRAM_MODE).
+    // Nunca lança — falha aqui não derruba o canal WhatsApp.
+    await iniciarTelegram();
   } catch (error) {
     console.error('❌ Erro ao iniciar servidor:', error);
     process.exit(1);
@@ -48,6 +63,7 @@ async function start() {
 
   const shutdown = async () => {
     console.log('\n🛑 Encerrando VAR do Bolão...');
+    pararTelegram();
     await app.close();
     await disconnectDatabase();
     await disconnectRedis();

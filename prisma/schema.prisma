@@ -15,6 +15,15 @@ model Usuario {
   whatsappId    String   @unique // wa_id da Meta (so digitos, ex: 5511999999999)
   nome          String // pushName do WhatsApp Business
   telefone      String   @unique // igual ao whatsappId em geral (mantido pra clareza)
+  // ----- Canal Telegram (multi-canal, v3.59.0) -----
+  // chat.id do Telegram (numerico, guardado como string). Setado no onboarding
+  // quando a pessoa informa o WhatsApp dela e a gente liga o cadastro existente
+  // (recuperando pontuacao/palpites). Unique: 1 conta Telegram por usuario.
+  telegramId       String? @unique
+  telegramUsername String? // @username do Telegram (informativo)
+  // Canal preferido de ENTREGA quando AMBOS estao ligados: 'whatsapp' | 'telegram'.
+  // null = decide pelas flags globais (ENABLE_WHATSAPP/ENABLE_TELEGRAM).
+  canalPreferido   String?
   // Bolao padrao do usuario (ISSUE-016). Quando setado, comandos como
   // "ranking", "meus pontos", "quando comeca" pulam a etapa de escolha
   // entre N boloes — usam direto este. Nullable: opt-in do usuario.

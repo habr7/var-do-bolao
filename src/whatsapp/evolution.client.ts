@@ -1,7 +1,17 @@
 import { env } from '../config/env.js';
+import { resolverRotaEnvio } from '../messaging/channel-router.js';
+import { tgSendText, tgSendPhoto } from '../messaging/telegram.client.js';
 
 /**
  * Cliente HTTP para a Evolution API v2.x (evoapicloud/evolution-api).
+ *
+ * MULTI-CANAL (v3.59.0): este módulo continua sendo o ÚNICO ponto de envio
+ * do bot (324+ callsites importam sendText daqui), mas agora ele ROTEIA por
+ * destinatário: WhatsApp (Evolution, comportamento atual) ou Telegram
+ * (Bot API), decidido pelo channel-router. Com ENABLE_TELEGRAM=false
+ * (default) NADA muda — todo envio segue pra Evolution como sempre.
+ * O capture de dry-run acontece ANTES do roteamento (simulador e testes
+ * continuam enxergando toda mensagem, independente de canal).
  *
  * Endpoints usados:
  *   POST {base}/message/sendText/{instance}   — texto, body { number, text }
@@ -110,6 +120,17 @@ export async function sendText({ to, text }: SendTextInput) {
     return { dryRun: true };
   }
 
+  // Multi-canal: decide WhatsApp × Telegram por destinatário (v3.59.0).
+  const rota = await resolverRotaEnvio(to);
+  if (rota.canal === 'telegram') {
+    await tgSendText(rota.chatId, text);
+    return { telegram: true };
+  }
+  if (rota.canal === 'drop') {
+    console.warn(`[sendText] mensagem descartada: ${rota.motivo}`);
+    return { dropped: true };
+  }
+
   // Formato Evolution v2.x (evoapicloud/evolution-api:latest)
   return evoFetch(`/message/sendText/${env.EVOLUTION_INSTANCE}`, {
     number: to,
@@ -127,6 +148,17 @@ export async function sendImage({ to, imageUrl, caption }: SendImageInput) {
   if (env.DRY_RUN_WHATSAPP) {
     capture({ to, imageUrl, caption, at: new Date() });
     return { dryRun: true };
+  }
+
+  // Multi-canal: decide WhatsApp × Telegram por destinatário (v3.59.0).
+  const rota = await resolverRotaEnvio(to);
+  if (rota.canal === 'telegram') {
+    await tgSendPhoto(rota.chatId, imageUrl, caption);
+    return { telegram: true };
+  }
+  if (rota.canal === 'drop') {
+    console.warn(`[sendImage] mensagem descartada: ${rota.motivo}`);
+    return { dropped: true };
   }
 
   // Formato Evolution v2.x (evoapicloud/evolution-api:latest)
@@ -160,6 +192,7 @@ export async function sendImageById({ to, mediaId, caption }: SendImageByIdInput
 export async function markAsRead(messageId: string, remoteJid?: string) {
   if (env.DRY_RUN_WHATSAPP) return { dryRun: true };
   if (!remoteJid) return;
+  if (remoteJid.startsWith('tg:')) return; // Telegram não tem markAsRead — no-op
 
   // Evolution v2.x expoe /chat/markMessageAsRead/{instance}.
   // (v1.8.x retornava 404 — se voltar pra v1, virar no-op.)

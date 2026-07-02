@@ -73,8 +73,12 @@ npm test
 | `empate-classificado-inline.test.ts` | **(v3.44.0)** Captura do classificado na mesma mensagem do empate ("Brasil 1x1 Japão e o Brasil passa"): 11 frases (e/mas/com/vírgula/parênteses, "quem passa é X", "vai o X", "X avança"), CASA/VISITANTE, decisivo ignora o hint, ambíguo não captura, nome não poluído, e palpite real não vira INFO_PENALTI. 8 testes. |
 | `message.parser.test.ts` (+) | **(v3.44.0)** Bateria de QA: "jogos de hoje"→JOGOS_HOJE, "tabela"→RANKING, conjugações/typos do mata-mata, lookahead da chave não vaza pra CUMPRIMENTO. |
 | `palpite-repository-classificado.test.ts` | **(v3.45.0)** `registrarPalpiteJogo` zera `classificadoPalpite` quando o placar vira decisivo; em empate não mexe. 2 testes. |
+| `telegram.format.test.ts` | **(v3.59.0)** Conversor WhatsApp→HTML do Telegram: `*b*`/`_i_`/`~s~`/`` `c` ``/```pre```, escape `<>&`, marcador solto fica literal, par não cruza linha, mensagem real do bom-dia, quebra >4096 em `\n`. 15 testes. |
+| `channel-router.test.ts` | **(v3.59.0)** Decisão de rota por flags: default = WhatsApp SEM query no banco; migração (só Telegram) = linkado→telegram, sem vínculo→drop; ambos = `canalPreferido` decide; cache 60s + invalidação; variantes de waId (JID/dígitos); DB fora não derruba envio. 13 testes. |
+| `telegram.identity.test.ts` | **(v3.59.0)** `normalizarNumeroBR` (formatos comuns, DDD+8/9, rejeita lixo) e `variantesNumeroBR` (9º dígito, sufixo JID, sem duplicata). 6 testes. |
+| `telegram.inbound.test.ts` | **(v3.59.0)** Onboarding ponta a ponta: /start pede número; número conhecido → confirma nome → vincula (recupera pontuação); desconhecido → cria do zero; número já vinculado a outro chat → recusa; vinculado roteia pro command.router com `waId` certo; /start vira "oi"; dedup por update_id; grupo ignorado; mídia → aviso com rate-limit. 10 testes. |
 
-Tempo: ~7s. Não toca rede nem DB. **1103 tests.**
+Tempo: ~8s. Não toca rede nem DB. **1223 tests.**
 
 ### Watch mode
 ```cmd
