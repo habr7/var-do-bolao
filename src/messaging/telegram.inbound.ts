@@ -109,8 +109,9 @@ async function conduzirOnboarding(
       text:
         `⚽ *Fala, ${nome}!* Eu sou o *VAR do Bolão* — o árbitro digital do bolão da Copa 2026.\n\n` +
         `O bolão agora funciona aqui no Telegram. Pra eu *recuperar seus pontos e palpites*, ` +
-        `me manda o *número de WhatsApp* que você usava com o bot.\n\n` +
-        `Pode mandar como preferir, ex: \`11 91234-5678\``,
+        `me manda o *número de WhatsApp* que você usava com o bot, nesse formato:\n\n` +
+        `\`+5511912345678\`\n\n` +
+        `_(+55 + DDD + número, tudo junto)_`,
     });
     return;
   }
@@ -124,7 +125,7 @@ async function conduzirOnboarding(
         await sendText({
           to: enderecoTg,
           text:
-            `🤔 Não consegui entender esse número. Me manda só o *DDD + número*, ex: \`11 91234-5678\`` +
+            `🤔 Não consegui entender esse número. Me manda nesse formato: \`+5511912345678\` _(+55 + DDD + número)_` +
             (tentativas >= 3 ? `\n\n_(se você nunca usou o bot no WhatsApp, manda o seu número mesmo assim — eu crio seu cadastro novo)_` : ''),
         });
         return;
@@ -190,7 +191,7 @@ async function conduzirOnboarding(
         await setOnboarding(chatId, { state: 'AGUARDANDO_NUMERO' });
         await sendText({
           to: enderecoTg,
-          text: `Sem problema! Me manda o número certo então (DDD + número).`,
+          text: `Sem problema! Me manda o número certo então, no formato \`+5511912345678\`.`,
         });
         return;
       }
